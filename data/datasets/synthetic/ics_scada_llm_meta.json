@@ -1,0 +1,31 @@
+{
+  "name": "ics_scada",
+  "display_name": "ICS/SCADA Attacks",
+  "category": "ics_scada",
+  "source_file": "ics_scada_llm.jsonl",
+  "created": "2026-06-11T10:27:01.467583+00:00",
+  "count": 417,
+  "sub_sources": {
+    "human": 0,
+    "llm": 417,
+    "synth": 0
+  },
+  "mitre_ids": [
+    "T0831",
+    "T0832",
+    "T0857",
+    "T0859",
+    "T0867"
+  ],
+  "backend": "lmstudio",
+  "model": "qwen2.5-coder-14b-instruct-uncensored",
+  "temperature": 0.4,
+  "metrics": {
+    "total_batches": 50,
+    "avg_tokens_per_sec": 98.8,
+    "avg_pairs_per_sec": 0.22,
+    "total_seconds": 1919.54,
+    "prompt_tokens": 66591,
+    "completion_tokens": 123096
+  }
+}

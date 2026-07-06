@@ -1,0 +1,11 @@
+{
+  "timestamp": "2026-06-11T01:14:31.082969+00:00",
+  "total_target": 0,
+  "total_actual": 0,
+  "total_deviation": "N/A",
+  "categories": {},
+  "warnings": [],
+  "errors": [],
+  "tolerance": "5%",
+  "passed": true
+}

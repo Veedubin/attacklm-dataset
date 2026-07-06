@@ -1,0 +1,29 @@
+{
+  "name": "web_app",
+  "display_name": "Web Application Attacks",
+  "category": "web_app",
+  "source_file": "web_app_llm.jsonl",
+  "created": "2026-06-11T17:10:04.148408+00:00",
+  "count": 50,
+  "sub_sources": {
+    "human": 0,
+    "llm": 50,
+    "synth": 0
+  },
+  "mitre_ids": [
+    "T1190",
+    "T1189",
+    "T1059"
+  ],
+  "backend": "lmstudio",
+  "model": "qwen2.5-coder-14b-instruct-uncensored",
+  "temperature": 0.4,
+  "metrics": {
+    "total_batches": 4,
+    "avg_tokens_per_sec": 89.6,
+    "avg_pairs_per_sec": 0.2,
+    "total_seconds": 250.11,
+    "prompt_tokens": 6568,
+    "completion_tokens": 15852
+  }
+}
