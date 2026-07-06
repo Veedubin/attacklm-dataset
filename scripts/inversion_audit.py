@@ -157,7 +157,15 @@ def build_parser() -> argparse.ArgumentParser:
         "--max-records",
         type=int,
         default=None,
-        help="Maximum number of records to probe (for testing). Default: all.",
+        help="Maximum number of records per source to probe (for testing). "
+        "Applied per-source, not globally — each source gets up to N records. "
+        "Default: all records from each source.",
+    )
+    parser.add_argument(
+        "--probe-count",
+        type=int,
+        default=None,
+        help="Alias for --max-records. Maximum records per source to probe.",
     )
     parser.add_argument(
         "--version",
@@ -170,11 +178,19 @@ def build_parser() -> argparse.ArgumentParser:
 def load_records(
     dataset_root: Path,
     source_filter: list[str] | None,
+    per_source_limit: int | None = None,
 ) -> list[dict]:
     """Load training records from the per-source dataset layout.
 
     Reads JSONL files from sources/<source>/<bucket>/<tactic>/data*.jsonl.
     Applies source filtering and skips restricted sources.
+
+    Args:
+        dataset_root: Path to data/datasets/buckets/sources/.
+        source_filter: List of source names to include (None = all non-restricted).
+        per_source_limit: If set, cap each source to this many records.
+            This ensures all requested sources get probed equally, rather than
+            a global cap that only reaches the first source alphabetically.
     """
     records = []
     sources_dir = dataset_root
@@ -194,6 +210,7 @@ def load_records(
         selected = [s for s in available if s not in RESTRICTED_SOURCES]
 
     for source_name in sorted(selected):
+        source_records: list[dict] = []
         source_dir = sources_dir / source_name
         if not source_dir.is_dir():
             logger.warning("Source directory missing: %s", source_dir)
@@ -207,9 +224,19 @@ def load_records(
                         try:
                             record = json.loads(line)
                             record.setdefault("_source", source_name)
-                            records.append(record)
+                            source_records.append(record)
                         except json.JSONDecodeError as e:
                             logger.warning("Bad JSON in %s: %s", jsonl_path, e)
+        if per_source_limit is not None and len(source_records) > per_source_limit:
+            logger.info(
+                "Capping source '%s': %d -> %d records (per_source_limit=%d)",
+                source_name,
+                len(source_records),
+                per_source_limit,
+                per_source_limit,
+            )
+            source_records = source_records[:per_source_limit]
+        records.extend(source_records)
 
     logger.info("Loaded %d records from %d sources", len(records), len(selected))
     return records
@@ -227,6 +254,16 @@ def compute_manifest_hash(dataset_root: Path) -> str:
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
+
+    # Merge --probe-count into --max-records (alias)
+    if args.probe_count is not None:
+        if args.max_records is not None:
+            logger.warning(
+                "Both --max-records and --probe-count specified; using --max-records=%d",
+                args.max_records,
+            )
+        else:
+            args.max_records = args.probe_count
 
     logging.basicConfig(
         level=logging.INFO,
@@ -258,17 +295,23 @@ def main(argv: list[str] | None = None) -> int:
     # Pre-flight checks
     check_output_dir_permissions(audit_output_root)
 
-    # Load records
+    # Load records — per_source_limit ensures all sources get probed
+    per_source_limit = args.max_records  # --max-records now applies per-source
     logger.info("Loading records from %s", dataset_root)
-    records = load_records(dataset_root, source_filter)
+    records = load_records(
+        dataset_root, source_filter, per_source_limit=per_source_limit
+    )
 
     if not records:
         logger.error("No records loaded. Check --dataset-root and --source-filter.")
         return 1
 
-    if args.max_records:
-        records = records[: args.max_records]
-        logger.info("Limited to %d records (--max-records)", args.max_records)
+    if per_source_limit:
+        logger.info(
+            "Per-source limit: %d records (--max-records), total loaded: %d",
+            per_source_limit,
+            len(records),
+        )
 
     if args.dry_run:
         print(f"Dry run: would probe {len(records)} records")
