@@ -702,5 +702,108 @@ class TestHelpers(unittest.TestCase):
         self.assertEqual(result, float("inf"))
 
 
+class TestPerSourceLimit(unittest.TestCase):
+    """Verify that --max-records applies per-source, not globally."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        # Create 2 sources with different record counts
+        for source_name, count in [("alpha", 10), ("beta", 10)]:
+            source_dir = (
+                Path(self.tmpdir) / "sources" / source_name / "base" / "discovery"
+            )
+            source_dir.mkdir(parents=True)
+            records = [
+                json.dumps(
+                    {
+                        "messages": [
+                            {"role": "user", "content": f"Prompt {i}"},
+                            {"role": "assistant", "content": f"Response {i}"},
+                        ],
+                        "source": source_name,
+                        "license": "MIT",
+                    }
+                )
+                for i in range(count)
+            ]
+            (source_dir / "data.jsonl").write_text("\n".join(records) + "\n")
+
+        # Create _index.json
+        index = {
+            "sources": [
+                {"name": "alpha", "n_records": 10, "license": "MIT"},
+                {"name": "beta", "n_records": 10, "license": "MIT"},
+            ]
+        }
+        (Path(self.tmpdir) / "sources" / "_index.json").write_text(json.dumps(index))
+
+    def test_per_source_limit_caps_each_source(self):
+        """With per_source_limit=5, each source gets 5 records = 10 total."""
+        from inversion_audit import load_records
+
+        records = load_records(
+            Path(self.tmpdir) / "sources",
+            source_filter=["alpha", "beta"],
+            per_source_limit=5,
+        )
+        alpha_records = [r for r in records if r["_source"] == "alpha"]
+        beta_records = [r for r in records if r["_source"] == "beta"]
+        self.assertEqual(len(alpha_records), 5)
+        self.assertEqual(len(beta_records), 5)
+        self.assertEqual(len(records), 10)
+
+    def test_per_source_limit_none_loads_all(self):
+        """With per_source_limit=None, all records are loaded."""
+        from inversion_audit import load_records
+
+        records = load_records(
+            Path(self.tmpdir) / "sources",
+            source_filter=["alpha", "beta"],
+            per_source_limit=None,
+        )
+        self.assertEqual(len(records), 20)
+
+    def test_per_source_limit_larger_than_source(self):
+        """If limit exceeds source count, all source records are kept."""
+        from inversion_audit import load_records
+
+        records = load_records(
+            Path(self.tmpdir) / "sources",
+            source_filter=["alpha", "beta"],
+            per_source_limit=100,
+        )
+        self.assertEqual(len(records), 20)
+
+    def test_global_cap_would_miss_second_source(self):
+        """Verify that the old global-slice approach would miss beta.
+
+        This test confirms the bug: a global `records[:5]` would only
+        get 5 alpha records and miss beta entirely. Our per-source fix
+        avoids this.
+        """
+        from inversion_audit import load_records
+
+        # Load all records, sorted alphabetically by source name
+        all_records = load_records(
+            Path(self.tmpdir) / "sources",
+            source_filter=["alpha", "beta"],
+            per_source_limit=None,
+        )
+        # Old behavior: records[:5] would only get 5 alpha, 0 beta
+        global_sliced = all_records[:5]
+        sources_in_global = {r["_source"] for r in global_sliced}
+        # This proves the bug: global slice misses beta
+        self.assertEqual(sources_in_global, {"alpha"})
+
+        # New behavior: per_source_limit=5 gets 5 from each source
+        per_source = load_records(
+            Path(self.tmpdir) / "sources",
+            source_filter=["alpha", "beta"],
+            per_source_limit=5,
+        )
+        sources_in_per_source = {r["_source"] for r in per_source}
+        self.assertEqual(sources_in_per_source, {"alpha", "beta"})
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
