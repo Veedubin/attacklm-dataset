@@ -1,0 +1,127 @@
+Id,Name,Description
+1,MSEXE,Windows/DOS executable file
+9,PDF,PDF file
+11,RTF,Rich text format word processing file
+12,RIFF,Resource Interchange File Format
+13,MSCHM,Microsoft Compiled HTML Help File
+14,MSCAB,Microsoft Windows CAB
+15,MSOLE2,Microsoft Object Linking and Embedding Compound File; used for office documents as well as installers
+16,MSSZDD,SZDD file format
+17,ZIP,PKZIP archive file
+18,RAR,WinRAR compressed archive file
+19,7Z,7-Zip compressed file
+20,BZ,bzip2 compressed archive
+21,GZ,GZ
+22,ARJ,Compressed archive file
+29,ISHIELD_MSI,Install Shield v5.x or 6.x compressed file
+31,BINHEX,Macintosh BinHex 4 Compressed Archive
+32,MAIL,E-mail files for Netscape; Eudora; Outlook Express and QuickMail.
+33,TNEF,Transport Neutral Encapsulation Format; an E-mail attachment format
+34,BINARY_DATA,Universal Binary/Java Bytecode
+36,UUENCODED,UUencoded file
+37,SCRENC,Script encoder file
+38,POSIX_TAR,POSIX Tape Archive file
+39,OLD_TAR,Pre-POSIX Tape Archive file
+40,ELF,Executable and Linking Format executable file (Linux/Unix)
+41,MACHO,Mach object file format
+43,SIS,Software Installation Script; an archive for Symbian OS
+44,SWF,Flash file
+45,CPIO_ODC,Archive created with the cpio utility- standard ASCII format
+46,CPIO_NEWC,Archive created with the cpio utility- new ASCII (aka SVR4) format
+47,CPIO_CRC,Archive created with the cpio utility- CRC format
+200,XLW,Excel spreadsheet subheader (MS Office)
+201,MOV,QuickTime movie file
+202,LHA,File compressed with lha utility/algorithm (lha; lzh)
+203,MPEG,MPEG video file
+204,EPS,Adobe encapsulated PostScript file
+205,RMF,RealNetworks  RealMedia streaming media file
+206,GIF,GIF
+207,MP3,MPEG-1 Audio Layer 3 (MP3) audio file
+208,OGG,Ogg Vorbis Codec compressed Multimedia file
+209,RIFX,RIFX audio format
+210,SYMANTEC,Symantec files
+211,PNG,Portable Network Graphics file
+212,JPEG,JPEG/JFIF graphics file
+214,JARPACK,Jar pack file
+215,JAR,Java archive file
+216,FLV,Flash video file
+217,WAV,Waveform Audio File Format
+218,FFMPEG,ffmpeg Multimedia framework
+219,DMG,Apple Disk Image
+220,IVR,RealPlayer video file
+221,RA,RealAudio file
+222,VMDK,Virtual Machine Disk
+223,FLAC,Free Lossless Audio Codec file
+224,S3M,S3M audio module format
+225,ASF,Microsoft Windows Media Audio/Video File
+226,MSWORD_MAC5,Microsoft Word for Mac 5
+227,SYLKc,Microsoft symbolic Link
+228,WP,WordPerfect text and graphics file
+229,TIFF,Tagged Image File Format file
+230,MWL,Metastock technical analysis program for traders
+231,MDB,Microsoft Access file
+232,ACCDB,Microsoft Access 2007 file
+233,MNY,Microsoft Money file
+234,REC,RealNetworks Realplayer REC
+235,R1M,RealNetworks Realplayer R1M
+236,WAB,Outlook address file
+237,M3U,Multimedia playlists
+238,MKV,Matroska stream file
+239,IMG_PICT,ChromaGraph Graphics Card Bitmap Graphic file
+240,AMF,Advanced Module Format for digital music
+241,WEBM,WebM audio-video format
+242,MAYA,Autodesk Maya
+243,MIDI,Musical Instrument Digital Interface (MIDI) sound file
+244,PLS,multimedia playlists
+245,SMIL,Synchronized Multimedia Integration Language
+246,FLIC,FLIC Animation file
+247,SAMI,Synchronized Accessible Media Interchange
+248,NEW_OFFICE,Microsoft Office Open XML Format (OOXML) Document (DOCX; PPTX; XLSX)
+249,DWG,Autodesk AutoCAD file (dwg)
+250,ISO,Disc Image file based on ISO-9660 standard (iso)c
+251,MDI,Microsoft Document Imaging file (mdi)
+252,PGD,PGP disk image(PGD)
+253,PSD,Photoshop image file (PSD)
+254,9XHIVE,Windows 9x registry hive (REG)
+255,REG,Windows Registry and Registry Undo files (REG)
+256,WMF,Windows graphics metafile
+257,WRI,Windows Write document file (wri)
+258,RPM,RedHat Package Manager file
+259,ONE,Microsoft OneNote note
+260,MP4,MPEG-4 video files
+261,PCAP,Packet capture file
+262,BMP,Bitmap image file
+263,ICO,Windows icon file
+264,TORRENT,BitTorrent File
+265,AMR,Adaptive Multi-Rate Codec File
+266,SIT,StuffIt compressed archive
+267,PST,Microsoft Outlook Personal Folder File
+268,HLP,Windows Help file
+269,AUTORUN,Windows Autorun setup file
+270,NTHIVE,Windows NT registry hive (REG)
+271,DICM,Digital Imaging and Communications in Medicine
+272,PKZIP encrypted archive file,ZIP_ENC
+273,EICAR,Standard Anti-Virus Test File
+274,XPS,Microsoft XML Paper Specification Document
+275,DMP,Windows crash dump file
+276,IntelHEX,Binary files for Microcontroller/Other Chip based applications
+277,MSHTML,Proprietary layout engine for Microsoft Internet Explorer
+278,VB,Microsoft Visual Basic files; including .cs; .vb; and .vbp
+280,LNK,Microsoft Windows Shortcut Files
+281,SCR,Microsoft Windows Shortcut Files
+282,ALZ,Archive file for Microsoft created using software ALZip
+283,EGG,Archive File for Microsoft created using software ALZip
+284,HWP,Hangul word processor file
+285,PPTX,Microsoft Office Open XML Format (OOXML) PPTX
+286,DOCX,Microsoft Office Open XML Format (OOXML) DOCX
+287,XLSX,Microsoft Office Open XML Format (OOXML) XLSX
+288,AIF,Audio Interchange File Format
+289,DEB,Debian package file
+293,CUR,Windows Cursor file
+295,AVI,Audio Video Interleave
+296,SND,Sound file
+297,M4A,MPEG-4 Audio
+298,VOB,Video Object file; audio container in DVD media
+299,WMV,Windows Media Video
+300,M4V,iTunes video file
+301,UNIX_SCRIPT,Executable script

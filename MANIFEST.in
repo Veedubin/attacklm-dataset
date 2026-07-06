@@ -1,0 +1,9 @@
+include README.md
+include CHANGELOG.md
+include ATTRIBUTION.md
+include LICENSE
+include NOTICE
+recursive-include data *
+recursive-include scripts *.py
+recursive-include scripts *.sh
+recursive-include src *.py

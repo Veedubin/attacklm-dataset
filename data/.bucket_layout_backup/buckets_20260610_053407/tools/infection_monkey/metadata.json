@@ -1,0 +1,10 @@
+{
+  "name": "infection_monkey",
+  "display_name": "Infection Monkey",
+  "category": "tools",
+  "mitre_tactic": "various",
+  "description": "guardicore/infection_monkey \u2014 36 plugin manifests",
+  "source_file": "infection_monkey_dataset.jsonl",
+  "created": "2026-06-09T14:40:54.201669",
+  "count": 36
+}

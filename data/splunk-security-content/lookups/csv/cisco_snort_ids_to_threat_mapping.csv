@@ -1,0 +1,112 @@
+threat,signature_id,category,message
+AgentTesla,40238,MALWARE-CNC,Win.Keylogger.AgentTesla variant outbound connection
+AgentTesla,52246,INDICATOR-COMPROMISE,AgentTesla variant outbound connection attempt
+AgentTesla,52612,MALWARE-CNC,Win.Trojan.AgentTesla variant outbound connection detected
+AgentTesla,52613,MALWARE-CNC,Win.Trojan.AgentTesla variant outbound connection detected
+AgentTesla,59133,MALWARE-CNC,Win.Trojan.AgentTesla outbound connection attempt
+AgentTesla,61564,MALWARE-CNC,Win.Trojan.AgentTesla variant outbound connection
+AgentTesla,61565,MALWARE-CNC,Win.Trojan.AgentTesla variant outbound connection
+AgentTesla,61566,MALWARE-CNC,Win.Trojan.AgentTesla variant outbound connection
+AgentTesla,61567,MALWARE-CNC,Win.Trojan.AgentTesla variant outbound connection
+AgentTesla,61570,MALWARE-OTHER,Win.Trojan.AgentTesla variant download attempt
+AgentTesla,61571,MALWARE-OTHER,Win.Trojan.AgentTesla variant download attempt
+Amadey,51636,MALWARE-CNC,Win.Trojan.Amadey botnet outbound connection
+Amadey,57204,MALWARE-CNC,Win.Trojan.Amadey outbound connection attempt
+Amadey,60570,MALWARE-TOOLS,Win.Trojan.Amadey malware tools download attempt
+Amadey,60571,MALWARE-TOOLS,Win.Trojan.Amadey malware tools download attempt
+Amadey,60572,MALWARE-TOOLS,Win.Trojan.Amadey malware tools download attempt
+ArcaneDoor,46897,SERVER-WEBAPP,Cisco Adaptive Security Appliance directory traversal attempt
+ArcaneDoor,65340,SERVER-WEBAPP,Cisco Adaptive Security Appliance WebVPN buffer overflow attempt
+AsyncRAT,58773,MALWARE-CNC,Rat.Trojan.AsyncRAT variant cnc connection
+CastleRAT,65548,MALWARE-CNC,Win.Trojan.CastleRAT variant outbound IP geolocation lookup attempt
+Chafer,45972,MALWARE-CNC,Win.Trojan.Chafer malicious communication attempt
+Chafer,45973,MALWARE-CNC,Win.Trojan.Chafer malicious communication attempt
+DCRAT,58356,MALWARE-CNC,Win.Trojan.DCRAT variant outbound connection
+DCRAT,58357,MALWARE-CNC,Win.Trojan.DCRAT variant outbound connection
+DCRAT,58359,MALWARE-CNC,Win.Trojan.DCRAT variant outbound connection
+DCRAT,64056,MALWARE-CNC,Win.Trojan.DCRat variant outbound communication attempt
+DCRAT,64061,MALWARE-OTHER,Win.Trojan.DCRat variant payload download attempt
+DCRAT,64062,MALWARE-OTHER,Win.Trojan.DCRat variant payload download attempt
+DCRAT,64370,MALWARE-OTHER,Win.Trojan.DcRat variant download attempt
+DCRAT,64371,MALWARE-OTHER,Win.Trojan.DcRat variant download attempt
+DCRAT,64372,MALWARE-CNC,Win.Trojan.DcRat variant communication attempt
+DCRAT,64373,MALWARE-CNC,Win.Trojan.DcRat variant communication attempt
+LokiBot,65502,MALWARE-CNC,Win.Trojan.LokiBot variant outbound connection attempt
+Lumma Stealer,62709,MALWARE-CNC,Win.Malware.Lumma variant outbound connection
+Lumma Stealer,62710,MALWARE-OTHER,Win.Malware.Lumma variant download attempt
+Lumma Stealer,62711,MALWARE-OTHER,Win.Malware.Lumma variant download attempt
+Lumma Stealer,62712,MALWARE-OTHER,Win.Malware.Lumma variant download attempt
+Lumma Stealer,62713,MALWARE-OTHER,Win.Malware.Lumma variant download attempt
+Lumma Stealer,62714,MALWARE-OTHER,Win.Malware.Lumma variant download attempt
+Lumma Stealer,62715,MALWARE-OTHER,Win.Malware.Lumma variant download attempt
+Lumma Stealer,62716,MALWARE-OTHER,Win.Malware.Lumma variant download attempt
+Lumma Stealer,62717,MALWARE-OTHER,Win.Malware.Lumma variant download attempt
+Lumma Stealer,64167,MALWARE-CNC,Win.Stealer.Lumma variant outbound connection attempt
+Lumma Stealer,64168,MALWARE-CNC,Win.Stealer.Lumma variant outbound connection attempt
+Lumma Stealer,64169,MALWARE-CNC,Win.Stealer.Lumma variant outbound connection attempt
+Lumma Stealer,64793,MALWARE-CNC,Win.Infostealer.LummaStealer variant outbound communication attempt
+Lumma Stealer,64794,MALWARE-CNC,Win.Infostealer.LummaStealer variant outbound communication attempt
+Lumma Stealer,64796,MALWARE-OTHER,Win.InfoStealer.LummaStealer outbound communication attempt
+Lumma Stealer,64797,MALWARE-CNC,Win.InfoStealer.LummaStealer variant outbound connection attempt
+Lumma Stealer,64798,MALWARE-CNC,Win.InfoStealer.LummaStealer variant outbound connection attempt
+Lumma Stealer,64799,MALWARE-CNC,Win.InfoStealer.LummaStealer variant outbound connection attempt
+Lumma Stealer,64800,MALWARE-CNC,Win.InfoStealer.LummaStealer variant outbound connection attempt
+Lumma Stealer,64801,MALWARE-CNC,Win.InfoStealer.LummaStealer variant outbound connection attempt
+Lumma Stealer,64810,MALWARE-OTHER,Win.Malware.Lumma variant powershell script download attempt
+Lumma Stealer,64811,MALWARE-OTHER,Win.Malware.Lumma variant powershell script download attempt
+Lumma Stealer,64812,MALWARE-OTHER,Win.Malware.Lumma variant malicious webpage popup attempt
+Nobelium,57687,MALWARE-OTHER,Win.Trojan.Nobelium malicious shortcut download attempt
+Nobelium,57688,MALWARE-OTHER,Win.Trojan.Nobelium ISO download attempt
+Nobelium,57689,MALWARE-OTHER,Win.Trojan.Nobelium malicious shortcut download attempt
+Nobelium,57690,MALWARE-OTHER,Win.Trojan.Nobelium ISO download attempt
+Nobelium,57691,MALWARE-OTHER,Win.Trojan.Nobelium CobaltStrike beacon download attempt
+Nobelium,57692,MALWARE-OTHER,Win.Trojan.Nobelium CobaltStrike beacon download attempt
+Quasar,50381,MALWARE-CNC,Win.Trojan.Quasar variant outbound connection
+Quasar,50382,MALWARE-CNC,Win.Trojan.Quasar variant outbound connection
+Quasar,50383,MALWARE-CNC,Win.Trojan.Quasar variant outbound connection
+Quasar,58358,MALWARE-CNC,Win.Trojan.Quasar variant outbound connection
+Remcos,47299,MALWARE-CNC,Win.Trojan.Remcos variant outbound connection
+Remcos,47300,MALWARE-CNC,Win.Trojan.Remcos variant inbound payload download
+Remcos,47301,MALWARE-CNC,Win.Trojan.Remcos variant outbound connection
+Remcos,47302,MALWARE-CNC,Win.Trojan.Remcos variant outbound connection
+Remcos,47303,MALWARE-CNC,Win.Trojan.Remcos variant outbound connection
+Remcos,47304,MALWARE-CNC,Win.Trojan.Remcos variant outbound connection
+Remcos,47305,MALWARE-CNC,Win.Trojan.Remcos variant outbound connection
+Remcos,52614,MALWARE-CNC,Win.Trojan.Remcos variant outbound connection detected
+Remcos,53792,MALWARE-CNC,Win.Malware.Remcos variant outbound cnc connection
+Remcos,53793,MALWARE-OTHER,Win.Dropper.Remcos payload download attempt
+Remcos,53794,MALWARE-OTHER,Win.Dropper.Remcos payload download attempt
+Remcos,53795,MALWARE-OTHER,Win.Dropper.Remcos payload download attempt
+Remcos,53796,MALWARE-OTHER,Win.Dropper.Remcos payload download attempt
+Remcos,54436,MALWARE-OTHER,Win.Packed.Remcos-8401633-0 download attempt
+Remcos,54437,MALWARE-OTHER,Win.Packed.Remcos-8401633-0 download attempt
+Remcos,54850,MALWARE-OTHER,Win.Dropper.Remcos-9446016-0 download attempt
+Remcos,54851,MALWARE-OTHER,Win.Dropper.Remcos-9446016-0 download attempt
+Remcos,54852,MALWARE-OTHER,Win.Dropper.Remcos-9446018-0 download attempt
+Remcos,54853,MALWARE-OTHER,Win.Dropper.Remcos-9446018-0 download attempt
+Remcos,56517,MALWARE-OTHER,Win.Dropper.Remcos-9801059-0 download attempt
+Remcos,56518,MALWARE-OTHER,Win.Dropper.Remcos-9801059-0 download attempt
+Remcos,57431,MALWARE-CNC,Win.Trojan.Remcos variant outbound connection
+Remcos,61674,MALWARE-OTHER,One.Dropper.Remcos variant binary download attempt
+Remcos,61675,MALWARE-OTHER,One.Dropper.Remcos variant binary download attempt
+Remcos,64183,MALWARE-OTHER,Win.Trojan.Remcos variant download attempt
+Remcos,64184,MALWARE-OTHER,Win.Trojan.Remcos variant download attempt
+snake,53106,MALWARE-OTHER,Win.Trojan.Snake malicious executable download attempt
+snake,53107,MALWARE-OTHER,Win.Trojan.Snake malicious executable download attempt
+snake,64072,MALWARE-CNC,Win.KeyLogger.Snake outbound connection
+snake,64073,MALWARE-OTHER,Win.KeyLogger.Snake download attempt
+Snake,7717,MALWARE-BACKDOOR,snake trojan runtime detection
+Static Tundra,41722,SERVER-OTHER,Cisco Talos rules for Smart Install protocol abuse detection
+Static Tundra,41723,SERVER-OTHER,Cisco Talos rules for Smart Install protocol abuse detection
+Static Tundra,41724,SERVER-OTHER,Cisco Talos rules for Smart Install protocol abuse detection
+Static Tundra,41725,SERVER-OTHER,Cisco Talos rules for Smart Install protocol abuse detection
+Static Tundra,46096,SERVER-OTHER,Cisco Smart Install init discovery message stack buffer overflow attempt
+Static Tundra,46468,SERVER-OTHER,Cisco Smart Install invalid init discovery message denial of service attempt
+Xworm,62772,MALWARE-OTHER,Win.Trojan.Xworm download attempt
+Xworm,62773,MALWARE-OTHER,Win.Trojan.Xworm download attempt
+Xworm,62774,MALWARE-OTHER,Win.Trojan.Xworm download attempt
+Xworm,62775,MALWARE-OTHER,Win.Trojan.Xworm download attempt
+Xworm,64185,MALWARE-CNC,Win.Dropper.Xworm variant inbound communication
+Xworm,64186,MALWARE-CNC,Win.Dropper.Xworm variant inbound communication
+Xworm,64187,MALWARE-OTHER,Win.Dropper.Xworm variant download attempt
+Xworm,64188,MALWARE-OTHER,Win.Dropper.Xworm variant download attempt

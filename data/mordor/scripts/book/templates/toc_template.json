@@ -1,0 +1,53 @@
+{
+    "format" : "jb-book",
+    "root" : "introduction",
+    "parts" : [
+        {
+            "caption" : "How-To",
+            "chapters": [
+                {
+                    "file": "create/intro",
+                    "sections": [
+                        {
+                            "file": "create/windows"
+                        },
+                        {
+                            "file": "create/azureloganalyticsapi"
+                        },
+                        {
+                            "file": "create/m365defenderhuntapi"
+                        },
+                        {
+                            "file": "create/kafka"
+                        }
+                    ]
+                },
+                {
+                    "file": "consume/intro",
+                    "sections": [
+                        {
+                            "file": "consume/jupyter-notebooks"
+                        },
+                        {
+                            "file": "consume/suricata"
+                        },
+                        {
+                            "file": "consume/kafka"
+                        },
+                        {
+                            "file": "consume/helk"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "caption": "Atomic Datasets",
+            "chapters": []
+        },
+        {
+            "caption": "Compound Datasets",
+            "chapters": []
+        }
+    ]
+}

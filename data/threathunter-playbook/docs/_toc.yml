@@ -1,0 +1,66 @@
+format: jb-book
+root: intro
+parts:
+- caption: Knowledge Library
+  chapters:
+  - file: library/windows/intro
+    sections:
+    - file: library/windows/active_directory_replication
+    - file: library/windows/adfs_dkm_keys
+    - file: library/windows/data_protection_api
+    - file: library/windows/logon_session
+    - file: library/windows/lsa_policy_objects
+    - file: library/windows/mimikatz_openprocess_modules
+    - file: library/windows/process_access_rights
+    - file: library/windows/security_account_manager_database
+    - file: library/windows/security_account_manager_protocol
+    - file: library/windows/security_assertion_markup_language
+    - file: library/windows/service_control_manager
+    - file: library/windows/syskey
+    - file: library/windows/task_scheduler_service
+- caption: Pre-Hunt Activities
+  chapters:
+  - file: pre-hunt/data_management
+    sections:
+    - file: pre-hunt/data_documentation
+    - file: pre-hunt/data_standardization
+    - file: pre-hunt/data_modeling
+    - file: pre-hunt/data_quality
+- caption: Guided Hunts
+  chapters:
+  - file: hunts/windows/intro
+    sections:
+    - file: hunts/windows/170105-LSASSMemoryReadAccess/notebook
+    - file: hunts/windows/180719-DLLProcessInjectionCreateRemoteThread/notebook
+    - file: hunts/windows/180815-ADObjectAccessReplication/notebook
+    - file: hunts/windows/190101-ADModDirectoryReplication/notebook
+    - file: hunts/windows/190407-RegModEnableRDPConnections/notebook
+    - file: hunts/windows/190410-LocalPwshExecution/notebook
+    - file: hunts/windows/190510-RegModWDigestDowngrade/notebook
+    - file: hunts/windows/190511-RemotePwshExecution/notebook
+    - file: hunts/windows/190610-PwshAlternateHosts/notebook
+    - file: hunts/windows/190620-DomainDPAPIBackupKeyExtraction/notebook
+    - file: hunts/windows/190625-RegKeyAccessSyskey/notebook
+    - file: hunts/windows/190725-SAMRegistryHiveHandleRequest/notebook
+    - file: hunts/windows/190810-RemoteWMIExecution/notebook
+    - file: hunts/windows/190810-WMIEventing/notebook
+    - file: hunts/windows/190811-WMIModuleLoad/notebook
+    - file: hunts/windows/190813-LocalServiceInstallation/notebook
+    - file: hunts/windows/190815-RemoteServiceInstallation/notebook
+    - file: hunts/windows/190826-RemoteSCMHandle/notebook
+    - file: hunts/windows/191030-RemoteInteractiveTaskMgrLsassDump/notebook
+    - file: hunts/windows/191224-RegModExtendedNetNTLMDowngrade/notebook
+    - file: hunts/windows/200609-MicrophoneDvcAccess/notebook
+    - file: hunts/windows/200902-RemoteWMIActiveScriptEventConsumers/notebook
+    - file: hunts/windows/201009-RemoteDCOMIErtUtilDLLHijack/notebook
+    - file: hunts/windows/201009-RemoteWMIWbemcomnDLLHijack/notebook
+    - file: hunts/windows/201012-RemoteCreateFileSMB/notebook
+    - file: hunts/windows/201012-WuaucltCreateRemoteThread/notebook
+- caption: Tutorials
+  chapters:
+  - file: tutorials/jupyter/introduction
+    sections:
+    - file: tutorials/jupyter/installing_jupyter
+    - file: tutorials/jupyter/notebooks/01_intro_to_python
+    - file: tutorials/jupyter/notebooks/02_intro_to_numpy_arrays
+    - file: tutorials/jupyter/notebooks/03_intro_to_pandas

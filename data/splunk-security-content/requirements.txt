@@ -1,0 +1,1 @@
+contentctl-ng==0.7.0

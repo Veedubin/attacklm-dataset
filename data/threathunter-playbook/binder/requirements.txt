@@ -1,0 +1,4 @@
+pandas==2.3.3
+jupytext==1.18.1
+itables==2.6.2
+requests==2.32.5

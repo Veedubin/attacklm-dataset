@@ -1,0 +1,320 @@
+appName,appName1,appDescription,category
+AirDroid,AirDroid,Android device managment solutions provider.,remote administration
+Airsoft Powerburst,Airsoft Powerburst,A remote access accelerator that caches client sessions on the remote server. IANA tcp/udp 485.,remote administration
+AMMYY,AMMYY,Remote access software.,remote administration
+AnyDesk,AnyDesk,Remote Desktop Access Software.,remote administration
+Apache ZooKeeper,Apache ZooKeeper,A centralized service for providing configuration information; naming; synchronization and group services over large clusters in distributed systems.,remote administration
+Apple Remote Desktop,Apple Remote Desktop,VNC on Mac OSX.,remote desktop control
+AweSun,AweSun,Remote desktop software.,remote administration
+Blast,Blast,VMWare Blast Protocol.,remote administration
+Bomgar,Bomgar,Remote desktop control and file transfer software.,remote administration
+Chrome Remote Desktop,Chrome Remote Desktop,Chrome Remote Desktop is a remote desktop software tool that allows a user to remotely control another computer's desktop.,remote desktop control
+Cisco Meraki,Cisco Meraki,Secure cloud solution that allows users to manage Meraki network devices in a single platform.,remote administration
+Citrix CGP,Citrix CGP,Citrix Common Gateway Protocol.,remote administration
+Citrix IMA,Citrix IMA,Independent Management Architeture protocol. Used for licensing and server load updates.,remote administration
+Citrix Licensing,Citrix Licensing,Citrix Licensing traffic. Registered with IANA on port 7279 tcp/udp.,remote administration
+Citrix RTMP,Citrix RTMP,Registered with IANA on port 2897 tcp/udp.,remote administration
+Citrix SLG,Citrix SLG,Storage Link Gateway. Discovery and access to various storage services.,remote administration
+Citrix WANScaler,Citrix WANScaler,Citrix WAN optimization traffic.,remote administration
+CrossLoop,CrossLoop,Desktop sharing / remote access site.,remote administration
+Dameware,Dameware,Remote desktop software suite.,remote administration
+DLMS-COSEM Get Request,DLMS-COSEM Get Request,A DLMS-COSEM service request to get the value(s) of one or all attributes.,remote administration
+DLMS-COSEM Get Response,DLMS-COSEM Get Response,A DLMS-COSEM service to send a response to a previously received GET indication primitive.,remote administration
+DLMS-COSEM Initiate Request High-Level Authentication,DLMS-COSEM Initiate Request High-Level Authentication,A DLMS-COSEM service request for User-Information exchange with High-Level Authentication.,remote administration
+DLMS-COSEM Initiate Request Low-Level Authentication,DLMS-COSEM Initiate Request Low-Level Authentication,A DLMS-COSEM service request for User-Information exchange with Low-Level Authentication.,remote administration
+DLMS-COSEM Initiate Request No Authentication,DLMS-COSEM Initiate Request No Authentication,A DLMS-COSEM service request for User-Information exchange with No Authentication.,remote administration
+DLMS-COSEM Initiate Response,DLMS-COSEM Initiate Response,A DLMS-COSEM service response for User-Information exchange.,remote administration
+DLMS-COSEM Set Request,DLMS-COSEM Set Request,A DLMS-COSEM service request to set the value of one or more attributes.,remote administration
+DLMS-COSEM Set Response,DLMS-COSEM Set Response,A DLMS-COSEM service to send a response to a previously received SET indication primitive.,remote administration
+DNP3 Abort File,DNP3 Abort File,Distributed Network Protocol "Abort File" PDU.,remote administration
+DNP3 Assign Class,DNP3 Assign Class,Distributed Network Protocol "Assign Class" PDU.,remote administration
+DNP3 Authenticate File,DNP3 Authenticate File,Distributed Network Protocol "Authenticate File" PDU.,remote administration
+DNP3 Close File,DNP3 Close File,Distributed Network Protocol "Close File" PDU.,remote administration
+DNP3 Cold Restart,DNP3 Cold Restart,Distributed Network Protocol "Cold Restart" PDU.,remote administration
+DNP3 Confirm,DNP3 Confirm,Distributed Network Protocol "Confirm" PDU.,remote administration
+DNP3 Delay Measurement,DNP3 Delay Measurement,Distributed Network Protocol "Delay Measurement" PDU.,remote administration
+DNP3 Delete File,DNP3 Delete File,Distributed Network Protocol "Delete File" PDU.,remote administration
+DNP3 Dir Operate,DNP3 Dir Operate,Distributed Network Protocol "Dir Operate" PDU.,remote administration
+DNP3 Dir Operate No Resp,DNP3 Dir Operate No Resp,Distributed Network Protocol "Dir Operate No Resp" PDU.,remote administration
+DNP3 Disable Unsolicited,DNP3 Disable Unsolicited,Distributed Network Protocol "Disable Unsolicited" PDU.,remote administration
+DNP3 Enable Unsolicited,DNP3 Enable Unsolicited,Distributed Network Protocol "Enable Unsolicited" PDU.,remote administration
+DNP3 Freeze,DNP3 Freeze,Distributed Network Protocol "Freeze" PDU.,remote administration
+DNP3 Freeze At Time,DNP3 Freeze At Time,Distributed Network Protocol "Freeze At Time" PDU.,remote administration
+DNP3 Freeze At Time No Resp,DNP3 Freeze At Time No Resp,Distributed Network Protocol "Freeze At Time No Resp" PDU.,remote administration
+DNP3 Freeze Clear,DNP3 Freeze Clear,Distributed Network Protocol "Freeze Clear" PDU.,remote administration
+DNP3 Freeze Clear No Resp,DNP3 Freeze Clear No Resp,Distributed Network Protocol "Freeze Clear No Resp" PDU.,remote administration
+DNP3 Freeze No Resp,DNP3 Freeze No Resp,Distributed Network Protocol "Freeze No Resp" PDU.,remote administration
+DNP3 Get File Information,DNP3 Get File Information,Distributed Network Protocol "Get File Information" PDU.,remote administration
+DNP3 Initialize Application,DNP3 Initialize Application,Distributed Network Protocol "Initialize Application" PDU.,remote administration
+DNP3 Initialize Data,DNP3 Initialize Data,Distributed Network Protocol "Initialize Data" PDU.,remote administration
+DNP3 Link Status,DNP3 Link Status,Distributed Network Protocol "Link Status" data frame.,remote administration
+DNP3 Open File,DNP3 Open File,Distributed Network Protocol "Open File" PDU.,remote administration
+DNP3 Operate,DNP3 Operate,Distributed Network Protocol "Operate" PDU.,remote administration
+DNP3 Read,DNP3 Read,Distributed Network Protocol "Read" PDU.,remote administration
+DNP3 Record Current Time,DNP3 Record Current Time,Distributed Network Protocol "Record Current Time" PDU.,remote administration
+DNP3 Request Link Status,DNP3 Request Link Status,Distributed Network Protocol "Request Link Status" data frame.,remote administration
+DNP3 Response,DNP3 Response,Distributed Network Protocol "Response" PDU.,remote administration
+DNP3 Save Configuration,DNP3 Save Configuration,Distributed Network Protocol "Save Configuration" PDU.,remote administration
+DNP3 Select,DNP3 Select,Distributed Network Protocol "Select" PDU.,remote administration
+DNP3 Start Application,DNP3 Start Application,Distributed Network Protocol "Start Application" PDU.,remote administration
+DNP3 Stop Application,DNP3 Stop Application,Distributed Network Protocol "Stop Application" PDU.,remote administration
+DNP3 Unsolicited Response,DNP3 Unsolicited Response,Distributed Network Protocol "Unsolicited Response" PDU.,remote administration
+DNP3 Warm Restart,DNP3 Warm Restart,Distributed Network Protocol "Warm Restart" PDU.,remote administration
+DNP3 Write,DNP3 Write,Distributed Network Protocol "Write" PDU.,remote administration
+Dropbear,Dropbear,SSH client.,remote administration
+DynGate,DynGate,A firewall that allows TeamViewer traffic to tunnel over HTTP.,remote desktop control
+eRoom,eRoom,Collaborative software site.,remote administration
+ERPC,ERPC,Encore Expedited Remote Procedure Call.,remote administration
+exec,exec,Unix utility that provides remote execution of software.,remote desktop control
+FastViewer,FastViewer,Online meeting and remote control software.,remote administration
+Ganglia,Ganglia,Monitors distributed computing systems.,remote administration
+Gbridge,Gbridge,Google extension to access other computer remotely.,remote administration
+Getscreen.me,Getscreen.me,Remote Desktop Access. Cloud-based software for administration; technical support and remote work.,remote desktop control
+Google ChromeOS VM Monitor,Google ChromeOS VM Monitor,Chrome virtual machine monitor is Linux based KVM hypervisor focusing on security and speed.,remote desktop control
+Google::Google Remote Desktop,#NAME?,Online desktop sharing service.,remote administration
+GoToMyPC,GoToMyPC,PC remote control software.,remote desktop control
+HP VMM,HP VMM,HP Virtual Machine Manager.,remote administration
+ICA Browser,ICA Browser,Remote desktop service.,remote administration
+IEC 104 Ack File Ack Section,IEC 104 Ack File Ack Section,An IEC 104 Type ID; F_AF_NA_1. Act file; Act section in file transfer.,remote administration
+IEC 104 Bitstring 32 bit Command with Long Time,IEC 104 Bitstring 32 bit Command with Long Time,An IEC 104 Type ID; C_BO_TA_1. Command telegrams of Bit string 32 bit with time tag CP56Time2a.,remote administration
+IEC 104 Bitstring 32 bit with Long Time,IEC 104 Bitstring 32 bit with Long Time,An IEC 104 Type ID; M_BO_TB_1. Process telegrams of Bit string of 32 bit with time tag CP56Time2a.,remote administration
+IEC 104 Call directory Select File,IEC 104 Call directory Select File,An IEC 104 Type ID; F_SC_NA_1. Call directory; select file; call file; call section.,remote administration
+IEC 104 Clock Synchronization Command,IEC 104 Clock Synchronization Command,An IEC 104 Type ID; C_CS_NA_1. System information in control direction of Clock synchronization command.,remote administration
+IEC 104 Control Bitstring 32 bits,IEC 104 Control Bitstring 32 bits,An IEC 104 Type ID; C_BO_NA_1. Process Information in control direction of Bit string 32 bit.,remote administration
+IEC 104 Counter Interrogation Command,IEC 104 Counter Interrogation Command,An IEC 104 Type ID; C_CI_NA_1. System information in control direction of Counter interrogation command.,remote administration
+IEC 104 Double Command,IEC 104 Double Command,An IEC 104 Type ID; C_DC_NA_1. Process Information in control direction of Double command.,remote administration
+IEC 104 Double Command with Long Time,IEC 104 Double Command with Long Time,An IEC 104 Type ID; C_DC_TA_1. Command telegrams of Double command with time tag CP56Time2a.,remote administration
+IEC 104 Double Point Info,IEC 104 Double Point Info,An IEC 104 Type ID; M_DP_NA_1. Process information in monitor direction of Double point information.,remote administration
+IEC 104 Double Point Info with Long Time,IEC 104 Double Point Info with Long Time,An IEC 104 Type ID; M_DP_TB_1. Process telegrams of Double point information with time tag CP56Time2a.,remote administration
+IEC 104 End of Initialization,IEC 104 End of Initialization,An IEC 104 Type ID; M_EI_NA_1. System information in monitor direction of End of initialization.,remote administration
+IEC 104 Event of Protection with Long Time,IEC 104 Event of Protection with Long Time,An IEC 104 Type ID; M_EP_TD_1. Process telegrams of Event of protection equipment with time tag CP56Time2a.,remote administration
+IEC 104 File Ready,IEC 104 File Ready,An IEC 104 Type ID; F_FR_NA_1. File ready in file transfer.,remote administration
+IEC 104 Integrated Totals,IEC 104 Integrated Totals,An IEC 104 Type ID; M_IT_NA_1. Process information in monitor direction of Integrated totals.,remote administration
+IEC 104 Integrated Totals with Long Time,IEC 104 Integrated Totals with Long Time,An IEC 104 Type ID; M_IT_TB_1. Process telegrams of Integrated totals with time tag CP56Time2a.,remote administration
+IEC 104 Interrogation Command,IEC 104 Interrogation Command,An IEC 104 Type ID; C_IC_NA_1. System Information in control direction of General Interrogation command.,remote administration
+IEC 104 Last Section Last Segment,IEC 104 Last Section Last Segment,An IEC 104 Type ID; F_LS_NA_1. Last section; last segment in file transfer.,remote administration
+IEC 104 List Directory,IEC 104 List Directory,An IEC 104 Type ID; F_DR_TA_1. List Directory in file transfer.,remote administration
+IEC 104 List Segment,IEC 104 List Segment,An IEC 104 Type ID; F_SG_NA_1. List Segment in file transfer.,remote administration
+IEC 104 Measured Normalized,IEC 104 Measured Normalized,An IEC 104 Type ID; M_ME_NA_1. Process information in monitor direction of Measured value; normalized value.,remote administration
+IEC 104 Measured Normalized with Long Time,IEC 104 Measured Normalized with Long Time,An IEC 104 Type ID; M_ME_TD_1. Process telegrams of Measured value; normalized value with time tag CP56Time2a.,remote administration
+IEC 104 Measured Normalized without Quality Descriptor,IEC 104 Measured Normalized without Quality Descriptor,An IEC 104 Type ID; M_ME_ND_1. Process information in monitor direction of Measured value; normalized value without quality descriptor.,remote administration
+IEC 104 Measured Scaled,IEC 104 Measured Scaled,An IEC 104 Type ID; M_ME_NB_1. Process information in monitor direction of Measured value; scaled value.,remote administration
+IEC 104 Measured Scaled with Long Time,IEC 104 Measured Scaled with Long Time,An IEC 104 Type ID; M_ME_TE_1. Process telegrams of Measured value; scaled value with time tag CP56Time2a.,remote administration
+IEC 104 Measured Short Float,IEC 104 Measured Short Float,An IEC 104 Type ID; M_ME_NC_1. Process information in monitor direction of Measured value; short floating point value.,remote administration
+IEC 104 Measured Short Float with Long Time,IEC 104 Measured Short Float with Long Time,An IEC 104 Type ID; M_ME_TF_1. Process telegrams of Measured value; short floating point value with time tag CP56Time2a.,remote administration
+IEC 104 Monitor Bitstring 32 bit,IEC 104 Monitor Bitstring 32 bit,An IEC 104 Type ID; M_BO_NA_1. Process information in monitor direction of Bit string of 32 bit.,remote administration
+IEC 104 Packed Output Circuit Info with Long Time,IEC 104 Packed Output Circuit Info with Long Time,An IEC 104 Type ID; M_EP_TF_1. Process telegrams of Packed output circuit information of protection equipment with time tag CP56Time2a.,remote administration
+IEC 104 Packed Single Point,IEC 104 Packed Single Point,An IEC 104 Type ID; M_PS_NA_1. Process information in monitor direction of Packed single-point information with status change detection.,remote administration
+IEC 104 Packed Start Event with Long Time,IEC 104 Packed Start Event with Long Time,An IEC 104 Type ID; M_EP_TE_1. Process telegrams of Packed start events of protection equipment with time tag CP56Time2a.,remote administration
+IEC 104 Parameter Activation,IEC 104 Parameter Activation,An IEC 104 Type ID; P_AC_NA_1. Parameter in control direction of Parameter activation.,remote administration
+IEC 104 Parameter of Measured Normalized,IEC 104 Parameter of Measured Normalized,An IEC 104 Type ID; P_ME_NA_1. Parameter in control direction of measured value; normalized value.,remote administration
+IEC 104 Parameter of Measured Scaled,IEC 104 Parameter of Measured Scaled,An IEC 104 Type ID; P_ME_NB_1. Parameter in control direction of measured value; scaled value.,remote administration
+IEC 104 Parameter of Measured Short Float,IEC 104 Parameter of Measured Short Float,An IEC 104 Type ID; P_ME_NC_1. Parameter in control direction of measured value; short floating point value.,remote administration
+IEC 104 Query Log,IEC 104 Query Log,An IEC 104 Type ID; F_SC_NB_1. Query Log in file transfer.,remote administration
+IEC 104 Read Command,IEC 104 Read Command,An IEC 104 Type ID; C_RD_NA_1. System information in control direction of Read command.,remote administration
+IEC 104 Regulating Step Command,IEC 104 Regulating Step Command,An IEC 104 Type ID; C_RC_NA_1. Process information in control direction of Regulating step command.,remote administration
+IEC 104 Regulating Step Command with Long Time,IEC 104 Regulating Step Command with Long Time,An IEC 104 Type ID; C_RC_TA_1. Command telegrams of Regulating step command with time tag CP56Time2a.,remote administration
+IEC 104 Reset Process Command,IEC 104 Reset Process Command,An IEC 104 Type ID; C_RP_NC_1. System information in control direction of Reset process command.,remote administration
+IEC 104 Section Ready,IEC 104 Section Ready,An IEC 104 Type ID; F_SR_NA_1. Section ready in file transfer.,remote administration
+IEC 104 Setpoint Command Normalized,IEC 104 Setpoint Command Normalized,An IEC 104 Type ID; C_SE_NA_1. Process information in control direction of Setpoint command; normalized value.,remote administration
+IEC 104 Setpoint Command Normalized with Long Time,IEC 104 Setpoint Command Normalized with Long Time,An IEC 104 Type ID; C_SE_TA_1. Command telegrams of Setpoint command; normalized value with time tag CP56Time2a.,remote administration
+IEC 104 Setpoint Command Scaled,IEC 104 Setpoint Command Scaled,An IEC 104 Type ID; C_SE_NB_1. Process information in control direction of Setpoint command; scaled value.,remote administration
+IEC 104 Setpoint Command Scaled with Long Time,IEC 104 Setpoint Command Scaled with Long Time,An IEC 104 Type ID; C_SE_TB_1. Command telegrams of Setpoint command; scaled value with time tag CP56Time2a.,remote administration
+IEC 104 Setpoint Command Short Float,IEC 104 Setpoint Command Short Float,An IEC 104 Type ID; C_SE_NC_1. Process information in control direction of Setpoint command; short floating point value.,remote administration
+IEC 104 Setpoint Command Short Float with Long Time,IEC 104 Setpoint Command Short Float with Long Time,An IEC 104 Type ID; C_SE_TC_1. Command telegrams of Setpoint command; short floating point value with time tag CP56Time2a.,remote administration
+IEC 104 Single Command,IEC 104 Single Command,An IEC 104 Type ID; C_SC_NA_1. Process information in control direction of Single command.,remote administration
+IEC 104 Single Command with Long Time,IEC 104 Single Command with Long Time,An IEC 104 Type ID; C_SC_TA_1. Command telegrams of Single command with time tag CP56Time2a.,remote administration
+IEC 104 Single Point Info,IEC 104 Single Point Info,An IEC 104 Type ID; M_SP_NA_1. Process information in monitor direction of Single point information.,remote administration
+IEC 104 Single Point Info with Long Time,IEC 104 Single Point Info with Long Time,An IEC 104 Type ID; M_SP_TB_1. Process telegrams of Single point information with time tag CP56Time2a.,remote administration
+IEC 104 STARTDT ACT,IEC 104 STARTDT ACT,An IEC 104 Function of Start Data Transfer Activation.,remote administration
+IEC 104 STARTDT CON,IEC 104 STARTDT CON,An IEC 104 Function of Start Data Transfer Confirmation.,remote administration
+IEC 104 Step Position Info,IEC 104 Step Position Info,An IEC 104 Type ID; M_ST_NA_1. Process information in monitor direction of Step position information.,remote administration
+IEC 104 Step Position Info with Long Time,IEC 104 Step Position Info with Long Time,An IEC 104 Type ID; M_ST_TB_1. Process telegrams of Step position information with time tag CP56Time2a.,remote administration
+IEC 104 Test Command with Long Time,IEC 104 Test Command with Long Time,An IEC 104 Type ID; C_TS_TA_1. System information in control direction of Test command with time tag CP56Time2a.,remote administration
+IEC 104 TESTFR ACT,IEC 104 TESTFR ACT,An IEC 104 Function of Test Frame Activation.,remote administration
+IEC 104 TESTFR CON,IEC 104 TESTFR CON,An IEC 104 Function of Test Frame Confirmation.,remote administration
+IEEE C37.118 Command DT Off Frame,IEEE C37.118 Command DT Off Frame,An IEEE C37.118 Protocol Synchrophasor Command Data Transmission Off Frame Packet.,remote administration
+IEEE C37.118 Command DT On Frame,IEEE C37.118 Command DT On Frame,An IEEE C37.118 Protocol Synchrophasor Command Data Transmission On Frame Packet.,remote administration
+IEEE C37.118 Command Extended Frame,IEEE C37.118 Command Extended Frame,An IEEE C37.118 Protocol Synchrophasor Command Extended Frame Packet.,remote administration
+IEEE C37.118 Command Send Configuration 1 Frame,IEEE C37.118 Command Send Configuration 1 Frame,An IEEE C37.118 Protocol Synchrophasor Command Send Configuration 1 Frame Packet.,remote administration
+IEEE C37.118 Command Send Configuration 2 Frame,IEEE C37.118 Command Send Configuration 2 Frame,An IEEE C37.118 Protocol Synchrophasor Command Send Configuration 2 Frame Packet.,remote administration
+IEEE C37.118 Command Send Configuration 3 Frame,IEEE C37.118 Command Send Configuration 3 Frame,An IEEE C37.118 Protocol Synchrophasor Command Send Configuration 3 Frame Packet.,remote administration
+IEEE C37.118 Command Send Header Frame,IEEE C37.118 Command Send Header Frame,An IEEE C37.118 Protocol Synchrophasor Command Send Header Frame Packet.,remote administration
+IEEE C37.118 Configuration Frame 1,IEEE C37.118 Configuration Frame 1,An IEEE C37.118 Protocol Synchrophasor Configuration Frame 1 Packet.,remote administration
+IEEE C37.118 Configuration Frame 2,IEEE C37.118 Configuration Frame 2,An IEEE C37.118 Protocol Synchrophasor Configuration Frame 2 Packet.,remote administration
+IEEE C37.118 Configuration Frame 3,IEEE C37.118 Configuration Frame 3,An IEEE C37.118 Protocol Synchrophasor Configuration Frame 3 Packet.,remote administration
+IEEE C37.118 Data Frame,IEEE C37.118 Data Frame,An IEEE C37.118 Protocol Synchrophasor Data Frame Packet.,remote administration
+IEEE C37.118 Header Frame,IEEE C37.118 Header Frame,An IEEE C37.118 Protocol Synchrophasor Header Frame Packet.,remote administration
+IEEE C37.118 Synchrophasor,IEEE C37.118 Synchrophasor,IEEE C37.118 Synchrophasor Data Transfer Protocol is an IEEE standard which defines a method for exchange of synchronized phasor measurement data between power system equipment.,remote administration
+JBoss Remoting,JBoss Remoting,Framework for communication over the network.,remote administration
+KNETCMP,KNETCMP,KNET/VM Command/Message Protocol.,remote desktop control
+Ktelnet,Ktelnet,Telnet with Kerberos authentication and encryption.,remote administration
+KVM,KVM,KVM (Keyboard/Video/Mouse) over IP Management Service.,remote administration
+KVM,KVM,KVM (Keyboard/Video/Mouse) over IP Management Service.,remote desktop control
+KWDB,KWDB,Remote Kernel debugger communication.,remote administration
+libssh2,libssh2,A client-side C library implementing the SSH2 protocol.,remote administration
+Linuxconf,Linuxconf,Linux system configurator.,remote administration
+LogMeIn,LogMeIn,Remote access and PC desktop control.,remote administration
+LogMeIn Rescue,LogMeIn Rescue,A remote desktop support tool.,remote administration
+LogMeIn Rescue,LogMeIn Rescue,A remote desktop support tool.,remote desktop control
+lsh,lsh,Freeware SSH implementation.,remote administration
+Microsoft WSMan,Microsoft WSMan,Microsoft Web Services for Management tools.,remote administration
+Mikogo,Mikogo,Desktop sharing application.,remote administration
+MMS ackEventNotificaton,MMS ackEventNotificaton,An MMS Command of Acknowledge Event Notification request.,remote administration
+MMS alterEventConditionMonitoring,MMS alterEventConditionMonitoring,An MMS Command of Alter Event Condition Monitoring request.,remote administration
+MMS alterEventEnrollment,MMS alterEventEnrollment,An MMS Command of Alter Event Enrollment request.,remote administration
+MMS confirmedErrorPDU,MMS confirmedErrorPDU,An MMS Confirmed Error PDU message.,remote administration
+MMS confirmedResponsePDU,MMS confirmedResponsePDU,An MMS Confirmed Response PDU message.,remote administration
+MMS createJournal,MMS createJournal,An MMS Command of Create Journal request.,remote administration
+MMS createProgramInvocation,MMS createProgramInvocation,An MMS Command of Create Program Invocation request.,remote administration
+MMS defineEventAction,MMS defineEventAction,An MMS Command of Define Event Action request.,remote administration
+MMS defineEventCondition,MMS defineEventCondition,An MMS Command of Define Event Condition request.,remote administration
+MMS defineEventEnrollment,MMS defineEventEnrollment,An MMS Command of Define Event Enrollment request.,remote administration
+MMS defineNamedType,MMS defineNamedType,An MMS Command of Define Named Type request.,remote administration
+MMS defineNamedVariable,MMS defineNamedVariable,An MMS Command of Define Named Variable request.,remote administration
+MMS defineNamedVariableList,MMS defineNamedVariableList,An MMS Command of Define Named Variable List request.,remote administration
+MMS defineScatteredAccess,MMS defineScatteredAccess,An MMS Command of Define Scattered Access request.,remote administration
+MMS defineSemaphore,MMS defineSemaphore,An MMS Command of Define Semaphore request.,remote administration
+MMS deleteDomain,MMS deleteDomain,An MMS Command of Delete Domain request.,remote administration
+MMS deleteEventAction,MMS deleteEventAction,An MMS Command of Delete Event Action request.,remote administration
+MMS deleteEventCondition,MMS deleteEventCondition,An MMS Command of Delete Event Condition request.,remote administration
+MMS deleteEventEnrollment,MMS deleteEventEnrollment,An MMS Command of Delete Event Enrollment request.,remote administration
+MMS deleteJournal,MMS deleteJournal,An MMS Command of Delete Journal request.,remote administration
+MMS deleteNamedType,MMS deleteNamedType,An MMS Command of Delete Named Type request.,remote administration
+MMS deleteNamedVariableList,MMS deleteNamedVariableList,An MMS Command of Delete Named Variable List request.,remote administration
+MMS deleteProgramInvocation,MMS deleteProgramInvocation,An MMS Command of Delete Program Invocation request.,remote administration
+MMS deleteSemaphore,MMS deleteSemaphore,An MMS Command of Delete Semaphore request.,remote administration
+MMS deleteVariableAccess,MMS deleteVariableAccess,An MMS Command of Delete Variable Access request.,remote administration
+MMS domainDownload,MMS domainDownload,An MMS Command of Request Domain Download.,remote administration
+MMS domainUpload,MMS domainUpload,An MMS Command of Request Domain Upload.,remote administration
+MMS downloadSegment,MMS downloadSegment,An MMS Command of Download Segment request.,remote administration
+MMS fileClose,MMS fileClose,An MMS Command of File Close request.,remote administration
+MMS fileDelete,MMS fileDelete,An MMS Command of File Delete request.,remote administration
+MMS fileDirectory,MMS fileDirectory,An MMS Command of File Directory request.,remote administration
+MMS fileOpen,MMS fileOpen,An MMS Command of File Open request.,remote administration
+MMS fileRead,MMS fileRead,An MMS Command of File Read request.,remote administration
+MMS fileRename,MMS fileRename,An MMS Command of File Rename request.,remote administration
+MMS getAlarmEnrollmentSummary,MMS getAlarmEnrollmentSummary,An MMS Command of Get Alarm Enrollment Summary request.,remote administration
+MMS getAlarmSummary,MMS getAlarmSummary,An MMS Command of Get Alarm Summary request.,remote administration
+MMS getCapabilityList,MMS getCapabilityList,An MMS Command of Get Capability List request.,remote administration
+MMS getDomainAttributes,MMS getDomainAttributes,An MMS Command of Get Domain Attributes request.,remote administration
+MMS getEventActionAttr,MMS getEventActionAttr,An MMS Command of Get Event Action Attributes request.,remote administration
+MMS getEventConditionAttr,MMS getEventConditionAttr,An MMS Command of Get Event Condition Attributes request.,remote administration
+MMS getEventEnrollmentAttr,MMS getEventEnrollmentAttr,An MMS Command of Get Event Enrollment Attributes request.,remote administration
+MMS getNamedTypeAttr,MMS getNamedTypeAttr,An MMS Command of Get Named Type Attributes request.,remote administration
+MMS getNamedVariableListAttr,MMS getNamedVariableListAttr,An MMS Command of Get Named Variable List Attributes request.,remote administration
+MMS getNameList,MMS getNameList,An MMS command of Get Name List request.,remote administration
+MMS getProgramInvocationAttr,MMS getProgramInvocationAttr,An MMS Command of Get Program Invocation Attributes request.,remote administration
+MMS getScatteredAccessAttr,MMS getScatteredAccessAttr,An MMS Command of Get Scattered Access Attributes request.,remote administration
+MMS getVariableAccAttr,MMS getVariableAccAttr,An MMS Command of Get Variable Access Attributes request.,remote administration
+MMS identify,MMS identify,An MMS Command of Identify request.,remote administration
+MMS initializeJournal,MMS initializeJournal,An MMS Command of Initialize Journal request.,remote administration
+MMS initiateDownloadSequence,MMS initiateDownloadSequence,An MMS Command of Initiate Download Sequence request.,remote administration
+MMS initiateUploadSequence,MMS initiateUploadSequence,An MMS Command of Initiate Upload Sequence request.,remote administration
+MMS input,MMS input,An MMS Command of Input request.,remote administration
+MMS kill,MMS kill,An MMS Command of Kill request.,remote administration
+MMS loadDomainContent,MMS loadDomainContent,An MMS Command of Load Domain Content request.,remote administration
+MMS obtainFile,MMS obtainFile,An MMS Command of Obtain File request.,remote administration
+MMS output,MMS output,An MMS Command of Output request.,remote administration
+MMS read,MMS read,An MMS Command of Read request.,remote administration
+MMS readJournal,MMS readJournal,An MMS Command of Read Journal request.,remote administration
+MMS relinquishControl,MMS relinquishControl,An MMS Command of Relinquish Control request.,remote administration
+MMS rename,MMS rename,An MMS Command of Rename request.,remote administration
+MMS reportEventActionStatus,MMS reportEventActionStatus,An MMS Command of Report Event Action Status request.,remote administration
+MMS reportEventConditionStatus,MMS reportEventConditionStatus,An MMS Command of Report Event Condition Status request.,remote administration
+MMS reportEventEnrollmentStatus,MMS reportEventEnrollmentStatus,An MMS Command of Report Event Enrollment Status request.,remote administration
+MMS reportJournalStatus,MMS reportJournalStatus,An MMS Command of Report Journal Status request.,remote administration
+MMS reportPoolSemaphoreStatus,MMS reportPoolSemaphoreStatus,An MMS Command of Report Pool Semaphore Status request.,remote administration
+MMS reportSemaphoreEntryStatus,MMS reportSemaphoreEntryStatus,An MMS Command of Report Semaphore Entry Status request.,remote administration
+MMS reportSemaphoreStatus,MMS reportSemaphoreStatus,An MMS Command of Report Semaphore Status request.,remote administration
+MMS reset,MMS reset,An MMS Command of Reset request.,remote administration
+MMS resume,MMS resume,An MMS Command of Resume request.,remote administration
+MMS start,MMS start,An MMS Command of Start request.,remote administration
+MMS status,MMS status,An MMS Command of Status request.,remote administration
+MMS stop,MMS stop,An MMS Command of stop request.,remote administration
+MMS storeDomainContent,MMS storeDomainContent,An MMS Command of Store Domain Content request.,remote administration
+MMS takeControl,MMS takeControl,An MMS Command of Take Control request.,remote administration
+MMS terminateDownloadSequence,MMS terminateDownloadSequence,An MMS Command of Terminate Download Sequence request.,remote administration
+MMS terminateUploadSequence,MMS terminateUploadSequence,An MMS Command of Terminate Upload Sequence request.,remote administration
+MMS triggerEvent,MMS triggerEvent,An MMS Command of Trigger Event request.,remote administration
+MMS unconfirmedPDU,MMS unconfirmedPDU,An MMS Unconfirmed PDU message.,remote administration
+MMS uploadSegment,MMS uploadSegment,An MMS Command of Upload Segment request.,remote administration
+MMS write,MMS write,An MMS Command of Write request.,remote administration
+MMS writeJournal,MMS writeJournal,An MMS Command of Write Journal request.,remote administration
+MobaXterm,MobaXterm,Xserver and tabbed SSH client for Windows.,remote administration
+NateOn Remote Control,NateOn Remote Control,NateOn remote desktop software.,remote desktop control
+Naverisk,Naverisk,Cloud-based remote monitoring and management software.,remote administration
+Naverisk,Naverisk,Cloud-based remote monitoring and management software.,remote desktop control
+NetSarang,NetSarang,Network connectivity and management tools package.,remote administration
+NetSight,NetSight,Network management software.,remote administration
+NetWeaver,NetWeaver,Integrated server platform for SAP's various applications and services.,remote administration
+NeXTStep,NeXTStep,NeXTStep Window Server.,remote administration
+Omron FINS,Omron FINS,Factory Interface Network Service; a suite of protocols used by Omron programmable logic controllers.,remote administration
+Opalis Robot,Opalis Robot,System management and automation solution. Provides real-time monitoring; notification; corrective action and event driven job scheduling.,remote administration
+OpenSSH,OpenSSH,SSH client.,remote administration
+Parallels,Parallels,Cloud services enablement and virtual access.,remote desktop control
+PcAnywhere,PcAnywhere,PC remote control software.,remote desktop control
+PC-Duo,PC-Duo,PC remote control software.,remote desktop control
+PCoIP,PCoIP,A remote desktop system.,remote administration
+Philips Hue,Philips Hue,Remote controller for wireless light effects.,remote administration
+PuTTY,PuTTY,SSH client.,remote administration
+RADIUS,RADIUS,Provides centralized Authentication; Authorization; and Accounting (AAA) management for computers to connect and use a network service.,remote administration
+RADIUS-acct,RADIUS-acct,Radius accounting.,remote administration
+RDP,RDP,Remote Desktop Protocol provides users with a graphical interface to another computer.,remote desktop control
+RealVNC,RealVNC,A VNC package that supports client and server side; and also provides cloud-based services such as chat and file transfer.,remote administration
+Remote Job Service,Remote Job Service,Registered with IANA on port 71 tcp/udp.,remote administration
+Remote Telnet,Remote Telnet,Remote Telnet.,remote administration
+RemotePC,RemotePC,Remote desktop software.,remote administration
+RFB,RFB,Remote graphical display protocol; used for VNC sessions.,remote desktop control
+RJE,RJE,The process of sending jobs to Mainframe computers from remote workstations and by extension the process of receiving output from mainframe jobs at a remote workstation.,remote administration
+rlogin,rlogin,Unix utility that allows remote administration from one computer to another.,remote administration
+Rsupport,Rsupport,A remote management application for PC support.,remote administration
+Rsupport,Rsupport,A remote management application for PC support.,remote desktop control
+RustDesk,RustDesk,RustDesk is a full-featured open source remote control alternative for self-hosting and security with minimal configuration.,remote administration
+RustDesk,RustDesk,RustDesk is a full-featured open source remote control alternative for self-hosting and security with minimal configuration.,remote desktop control
+SCCM,SCCM,System Center Configuration Manager. Microsoft software for controlling and managing large groups of Windows computers.,remote administration
+SCCM,SCCM,System Center Configuration Manager. Microsoft software for controlling and managing large groups of Windows computers.,remote desktop control
+SCCM Remote Control,SCCM Remote Control,Remote control component of SCCM.,remote desktop control
+Sco I2 Dialog Daemon,Sco I2 Dialog Daemon,Registered with IANA on port 360 tcp/udp.,remote administration
+Scopia,Scopia,Avaya Scopia video conferencing system.,remote desktop control
+SF MGMT,SF MGMT,Sourcefire Appliance Management.,remote administration
+shell,shell,Remote shell; also known as rsh; a Unix utility that allows remote execution of commands.,remote desktop control
+ShowMyPC,ShowMyPC,Cloud-based remote support and desktop sharing.,remote administration
+ShowMyPC,ShowMyPC,Cloud-based remote support and desktop sharing.,remote desktop control
+SMSP,SMSP,Storage Management Services Protocol; registered with IANA on port 413 tcp/udp.,remote desktop control
+SNA Gateway,SNA Gateway,SNA Gateway Access Server enables users to exchange information and share resources between configured OpenVMS systems in DECnet and/or TCP/IP environments in a bidirectional manner.,remote administration
+SoftPC,SoftPC,Software emulation of x86 hardware.,remote desktop control
+SolarWinds,SolarWinds,Scalable IT Monitoring and Observability app.,remote administration
+SopCast,SopCast,P2P audio and video streaming.,remote administration
+Sophos RED,Sophos RED,Traffic generated betweeen Sophos Remote Ethernet Device and UTM Firewall.,remote administration
+SRMP,SRMP,Spider Remote Monitoring Protocol.,remote administration
+SSH,SSH,Secure Shell is a network protocol that allows data to be exchanged using a secure channel between two networked devices.,remote administration
+SShell,SShell,SSL shell.,remote desktop control
+Su-Mit Telnet,Su-Mit Telnet,Su-Mit Telnet Gateway.,remote administration
+Sun RPC,Sun RPC,Sun RPC is a widely deployed remote procedure call system.,remote desktop control
+SUPDUP,SUPDUP,The SUPDUP protocol provides for login to a remote system over a network with terminal-independent output.,remote administration
+syslog,syslog,A standard for logging program messages.,remote administration
+TeamViewer,TeamViewer,Remote desktop control and file transfer software.,remote desktop control
+TechInline,TechInline,Website that offers remote desktop control.,remote administration
+TechInline,TechInline,Website that offers remote desktop control.,remote desktop control
+Telnet,Telnet,A network protocol used on the Internet or local area networks to provide a bidirectional interactive text-oriented communications facility using a virtual terminal connection.,remote administration
+TELNETS,TELNETS,Telnet protocol over TLS/SSL.,remote administration
+Termius,Termius,SSH client.,remote administration
+Timbuktu,Timbuktu,A remote control software product developed by Motorola. Remote control software allows a user to control another computer across the local network or the Internet; viewing its screen and using its keyboard and mouse as if he or she were sitting in front of it. Timbuktu is compatible with computers running both Mac OS X and Windows.,remote administration
+Timbuktu,Timbuktu,A remote control software product developed by Motorola. Remote control software allows a user to control another computer across the local network or the Internet; viewing its screen and using its keyboard and mouse as if he or she were sitting in front of it. Timbuktu is compatible with computers running both Mac OS X and Windows.,remote desktop control
+TN3270,TN3270,Terminal client.,remote administration
+Trilead SSH-2,Trilead SSH-2,A Java implementation of the SSH protocol.,remote administration
+UiPath,UiPath,UiPath is a software platform for building automation robots to automate business processes; third-party applications; and administrative and IT tasks.,remote administration
+Vagrant,Vagrant,Tool for building and managing virtual machine environments in a single flow.,remote administration
+vCOM,vCOM,Virtual serial port driver.,remote administration
+VMware Remote Authentication,VMware Remote Authentication,VMware Daemon for authentication of remote VMs.,remote desktop control
+VMware Server Console,VMware Server Console,Management console for Cloud computing from VMWare.,remote administration
+VMware vCenter client,VMware vCenter client,VMware vCenter client.,remote administration
+VMware vMotion,VMware vMotion,Allows migration of one Virtual machine from one host to another.,remote desktop control
+VNC,VNC,Graphical desktop sharing protocol.,remote desktop control
+WebEx,WebEx,Cisco's online meeting and web conferencing application.,remote desktop control
+WebEx Connect,WebEx Connect,Logging into WebEx.,remote desktop control
+WinSCP,WinSCP,A free SFTP and FTP client for Windows.,remote administration
+Zoho::Zoho Assist,- Zoho Assist,A remote support and remote access software.,remote desktop control
+Zoom,Zoom,Remote conferencing via cloud computing.,remote desktop control
+Zoom::Zoom Meeting,- Zoom Meeting,Participating in a meeting on Zoom.,remote desktop control

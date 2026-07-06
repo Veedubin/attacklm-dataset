@@ -1,0 +1,60 @@
+# This workflow performs a simple build action.
+# It is intentionally separate from the build
+# workflow to provide granular feedback and insight
+# into when a build passes but an appinspect fails.
+name: appinspect
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+
+jobs:
+  appinspect:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repository code
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: 3.14
+          architecture: x64
+
+      - name: Install contentctl-ng
+        shell: bash
+        run: |
+          echo "- Build Tool Version - $(cat requirements.txt)"
+          pip install -r requirements.txt
+      
+      - name: Run a contentctl-ng build
+        run: |
+          contentctl-ng build
+
+      - name: Run appinspect with enrichments
+        env:
+          APPINSPECTUSERNAME: "${{ secrets.APPINSPECTUSERNAME }}"
+          APPINSPECTPASSWORD: "${{ secrets.APPINSPECTPASSWORD }}"
+        run: |
+          # Download the most recent Release in order to enforce metadata validation
+          # --location flag required to follow redirects from the "latest" URL
+          curl --location -o  DA-ESS-ContentUpdate-latest.tar.gz https://github.com/splunk/security_content/releases/latest/download/DA-ESS-ContentUpdate-latest.tar.gz
+          
+          # Inspect, using the release we downloaded above
+          # Also, we intentionally ignore missing content exceptions - private content is 
+          # not expected to be present when running this check in GitHub
+          contentctl-ng inspect --splunkbase-username "$APPINSPECTUSERNAME" --splunkbase-password "$APPINSPECTPASSWORD" --old-app-path DA-ESS-ContentUpdate-latest.tar.gz --ignore-missing-content-exceptions
+          mkdir -p artifacts/app_inspect_report
+          cp -r dist/*.html artifacts/app_inspect_report
+          cp -r dist/*.tar.gz artifacts/
+
+      # Store inspect artifacts
+      - name: store_artifacts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: appinspect_results
+          path: |
+            dist/*.html
+            dist/*.tar.gz
+            
