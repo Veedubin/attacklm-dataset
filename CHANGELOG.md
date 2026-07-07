@@ -1,3 +1,28 @@
+## [0.3.1] — 2026-07-07 — Inversion Audit Fixes + Runner
+
+### Added
+- `--mia-threshold-mode {median,percentile,holdout_file}` CLI flag (default `percentile`) and `--mia-percentile` (default 5) for MIA threshold calibration. Replaces the previous median-of-scores fallback which classified 50% of records as members by construction. See `docs/MIA_THRESHOLD_CALIBRATION.md`.
+- `threshold.md` artifact in each audit output directory, documenting the MIA threshold derivation
+- `scripts/run_overnight_audits.sh` — resume-safe runner for 1,100-record audits (~22h at K=20, ~5.5h at K=5). See `docs/AUDIT_RUNNER.md`.
+- 25 new hermetic tests in `tests/test_probe_token_budget.py` (probe adaptive cap, percentile helper, MIA threshold mode CLI)
+- 3 new docs: `docs/PROBE_TOKEN_BUDGET.md`, `docs/MIA_THRESHOLD_CALIBRATION.md`, `docs/AUDIT_RUNNER.md`
+
+### Changed
+- `max_new_tokens` for Carlini probe is now adaptive: `min(256, max(64, 2*suffix_token_count))` per `docs/PROBE_TOKEN_BUDGET.md` (Carlini 2021, MUSE 2023, DecodingTrust §C.2 all use 256). Previous hard-coded 64 was smaller than the median suffix length of our audit data (75-106 tokens), suppressing real matches.
+- `--probe-count` is now per-source (was a global cap that only probed atomic-red-team by alphabetical ordering). Fixes `8d34ba9`.
+
+### Fixed
+- Probe truncation: `max_new_tokens=64` could not produce exact matches on suffixes >64 tokens
+- MIA threshold calibration: median-of-scores classified 75/150 = 50% of records as members by construction
+- Per-source probing: all 3 sources now get probed equally
+
+### Threat model
+- Raw audit outputs (`inversion_results.jsonl`) stay workspace-internal (chmod 0600)
+- Aggregate metrics (`summary.json`, `exportable_summary.json`, `threshold.md`) are safe to share
+- BSD-3-Clause (Metasploit) and DRL-1.1 (Sigma) record contents must never be exported; only their per-source statistics
+
+---
+
 ## [0.2.0] — 2026-07-06 — Inversion Audit Harness
 
 ### Added
