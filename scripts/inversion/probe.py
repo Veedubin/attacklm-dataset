@@ -231,7 +231,7 @@ def run_carlini_probe(
     model,
     tokenizer,
     top_k: int = 20,
-    max_new_tokens: int = 64,
+    max_new_tokens: int | None = None,
     temperature: float = 1.0,
     prefix_tokens: int = 50,
     record_index: int = 0,
@@ -243,6 +243,12 @@ def run_carlini_probe(
         2. Generate K completions with temperature sampling.
         3. Score each completion vs. the original assistant turn.
         4. Return the best-of-K result.
+
+    Args:
+        max_new_tokens: Override for maximum new tokens per completion.
+            When None (default), computes an adaptive per-record cap:
+            min(256, max(64, 2 * suffix_token_count)). Per Carlini 2021
+            and MUSE 2023 default of 256 tokens.
     """
     prefix = extract_prefix(record, tokenizer, num_tokens=prefix_tokens)
     target = get_target_text(record)
@@ -252,12 +258,20 @@ def run_carlini_probe(
 
     provenance = _get_provenance(record)
 
+    # Per attacklm-dataset/docs/PROBE_TOKEN_BUDGET.md (Carlini 2021, MUSE 2023 default)
+    suffix_token_count = len(tokenizer.encode(target, add_special_tokens=False))
+    adaptive_max_new = min(256, max(64, 2 * suffix_token_count))
+    # Use adaptive cap unless caller explicitly overrides
+    effective_max_new = (
+        max_new_tokens if max_new_tokens is not None else adaptive_max_new
+    )
+
     completions = generate_completions(
         model,
         tokenizer,
         prefix,
         num_completions=top_k,
-        max_new_tokens=max_new_tokens,
+        max_new_tokens=effective_max_new,
         temperature=temperature,
     )
 
