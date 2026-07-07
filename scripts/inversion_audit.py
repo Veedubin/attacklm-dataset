@@ -35,16 +35,12 @@ from inversion import __version__
 from inversion.model_loader import load_model, detect_model_format
 from inversion.probe import run_carlini_probe
 from inversion.scoring import (
-    calibrate_threshold,
-    compute_fpr_at_threshold,
-    compute_tpr_at_threshold,
     score_record,
 )
 from inversion.provenance import (
     RESTRICTED_SOURCES,
     RecordProvenance,
     get_available_sources,
-    get_held_out_sources,
     validate_source_filter,
 )
 from inversion.reporting import (
@@ -120,8 +116,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--max-new-tokens",
         type=int,
-        default=64,
-        help="Maximum new tokens per completion (default: 64).",
+        default=None,
+        help="Maximum new tokens per completion (default: adaptive — "
+        "min(256, max(64, 2*suffix_token_count)) per record). "
+        "Set explicitly to override the adaptive cap.",
     )
     parser.add_argument(
         "--temperature",
@@ -147,6 +145,22 @@ def build_parser() -> argparse.ArgumentParser:
         type=float,
         default=None,
         help="MIA membership threshold. Default: auto-calibrate on held-out set.",
+    )
+    parser.add_argument(
+        "--mia-threshold-mode",
+        choices=["median", "percentile", "holdout_file"],
+        default="percentile",
+        help="MIA threshold calibration mode. 'median': median of probed scores "
+        "(calibration artifact — WARNING logged). 'percentile': Nth percentile "
+        "of probed scores (default). 'holdout_file': read threshold from a JSON "
+        "file (Track 2 placeholder).",
+    )
+    parser.add_argument(
+        "--mia-percentile",
+        type=int,
+        default=5,
+        help="Percentile for MIA threshold when --mia-threshold-mode=percentile "
+        "(default: 5, meaning only the bottom 5%% of scores are flagged).",
     )
     parser.add_argument(
         "--dry-run",
@@ -321,7 +335,9 @@ def main(argv: list[str] | None = None) -> int:
         print(f"  Carlini probe: {probe_carlini}")
         print(f"  MIA probe: {probe_mia}")
         print(f"  Top-K: {args.top_k}")
-        print(f"  Max new tokens: {args.max_new_tokens}")
+        print(
+            f"  Max new tokens: {args.max_new_tokens or 'adaptive (min(256, max(64, 2*suffix_tokens)))'}"
+        )
         print(f"  Temperature: {args.temperature}")
         print(f"  Audit date: {audit_date}")
         print(f"  Output root: {audit_output_root}")
@@ -408,64 +424,102 @@ def main(argv: list[str] | None = None) -> int:
         results.append(row)
 
     # MIA threshold calibration
+    mia_threshold_derivation = ""
     if probe_mia and model_format == "hf":
         member_scores = [
             r["membership_score"] for r in results if "membership_score" in r
         ]
         if member_scores:
-            member_threshold = args.member_threshold
-            if member_threshold is None:
-                # Use held-out sources for calibration
-                held_out = get_held_out_sources(dataset_root)
-                # If no held-out data, fall back to percentile-based
-                if not held_out:
-                    import statistics
+            if args.member_threshold is not None:
+                # Explicit threshold from CLI
+                member_threshold = args.member_threshold
+                mia_threshold_derivation = f"explicit={args.member_threshold}"
+                threshold_mode = "explicit"
+            elif args.mia_threshold_mode == "median":
+                import statistics
 
-                    member_threshold = statistics.median(member_scores)
-                    logger.info(
-                        "No held-out sources; using median member score as threshold: %.4f",
-                        member_threshold,
+                member_threshold = statistics.median(member_scores)
+                threshold_mode = "median"
+                mia_threshold_derivation = (
+                    f"median of {len(member_scores)} probed scores "
+                    f"(calibration artifact)"
+                )
+                logger.warning(
+                    "MIA threshold is median; this is a calibration artifact. "
+                    "Interpretation as a memorization signal is not supported. "
+                    "Threshold=%.4f, flagged=%d/%d",
+                    member_threshold,
+                    sum(1 for s in member_scores if s < member_threshold),
+                    len(member_scores),
+                )
+            elif args.mia_threshold_mode == "percentile":
+                member_threshold = _percentile(member_scores, args.mia_percentile)
+                threshold_mode = "percentile"
+                n_flagged = sum(1 for s in member_scores if s < member_threshold)
+                mia_threshold_derivation = (
+                    f"percentile:{args.mia_percentile} of "
+                    f"{len(member_scores)} probed scores "
+                    f"(threshold={member_threshold:.4f}, "
+                    f"flagged={n_flagged}/{len(member_scores)})"
+                )
+                logger.info(
+                    "MIA threshold=%.4f (%sth percentile of %d scores, flagged=%d/%d)",
+                    member_threshold,
+                    args.mia_percentile,
+                    len(member_scores),
+                    n_flagged,
+                    len(member_scores),
+                )
+            elif args.mia_threshold_mode == "holdout_file":
+                # Track 2 placeholder: read threshold from a JSON file
+                threshold_mode = "holdout_file"
+                holdout_path = getattr(args, "mia_holdout_file", None)
+                if not holdout_path:
+                    # Try default location
+                    holdout_path = dataset_root / "_holdout" / "threshold.json"
+                if not Path(holdout_path).exists():
+                    logger.error(
+                        "Holdout file not found: %s. "
+                        "Create a JSON file with "
+                        '{"threshold": float, "source": str, '
+                        '"note": str} or use --mia-threshold-mode percentile.',
+                        holdout_path,
                     )
-                else:
-                    # Load held-out records for non-member scoring
-                    logger.info("Calibrating MIA threshold on held-out sources")
-                    held_out_records = load_records(dataset_root, held_out)
-                    if held_out_records:
-                        non_member_scores = []
-                        for rec in held_out_records[:50]:  # Cap for speed
-                            try:
-                                mia = score_record(rec, model, tokenizer)
-                                non_member_scores.append(mia.membership_score)
-                            except Exception:
-                                continue
-                        if non_member_scores:
-                            member_threshold = calibrate_threshold(
-                                member_scores,
-                                non_member_scores,
-                            )
-                            fpr = compute_fpr_at_threshold(
-                                non_member_scores,
-                                member_threshold,
-                            )
-                            tpr = compute_tpr_at_threshold(
-                                member_scores,
-                                member_threshold,
-                            )
-                            logger.info(
-                                "MIA threshold=%.4f (FPR=%.4f, TPR=%.4f)",
-                                member_threshold,
-                                fpr,
-                                tpr,
-                            )
-                    else:
-                        import statistics
-
-                        member_threshold = statistics.median(member_scores)
+                    return 1
+                with open(holdout_path) as f:
+                    holdout_data = json.load(f)
+                member_threshold = float(holdout_data["threshold"])
+                mia_threshold_derivation = (
+                    f"holdout_file={holdout_path} "
+                    f"(source={holdout_data.get('source', 'unknown')})"
+                )
+                logger.info(
+                    "MIA threshold=%.4f from holdout file %s",
+                    member_threshold,
+                    holdout_path,
+                )
+            else:
+                # Should not reach here due to argparse choices
+                raise ValueError(
+                    f"Unknown mia_threshold_mode: {args.mia_threshold_mode}"
+                )
 
             # Classify records
             for row in results:
                 if "membership_score" in row:
                     row["mia_member"] = row["membership_score"] < member_threshold
+
+    # Write threshold.md
+    if mia_threshold_derivation:
+        _write_threshold_md(
+            audit_dir,
+            mode=threshold_mode,
+            percentile=args.mia_percentile,
+            threshold=member_threshold,
+            derivation=mia_threshold_derivation,
+            n_flagged=sum(1 for r in results if r.get("mia_member", False)),
+            n_total=len(results),
+        )
 
     # Write results
     write_raw_results(audit_dir, results)
@@ -482,7 +536,7 @@ def main(argv: list[str] | None = None) -> int:
         "probe_carlini": probe_carlini,
         "probe_mia": probe_mia,
         "top_k": args.top_k,
-        "max_new_tokens": args.max_new_tokens,
+        "max_new_tokens": args.max_new_tokens or "adaptive",
         "temperature": args.temperature,
         "model_git_sha": _get_model_git_sha(args.model),
         "dataset_manifest_hash": compute_manifest_hash(dataset_root),
@@ -491,6 +545,64 @@ def main(argv: list[str] | None = None) -> int:
 
     logger.info("Audit complete. Results in %s", audit_dir)
     return 0
+
+
+def _percentile(scores: list[float], pct: int) -> float:
+    """Compute the pct-th percentile of scores using linear interpolation.
+
+    Pure-Python equivalent of numpy.percentile(scores, pct) with
+    linear interpolation, avoiding a numpy dependency.
+    """
+    if not scores:
+        raise ValueError("Cannot compute percentile of empty list")
+    sorted_scores = sorted(scores)
+    # Linear interpolation (matches numpy default method='linear')
+    k = (len(sorted_scores) - 1) * pct / 100.0
+    f = int(k)
+    c = f + 1
+    if c >= len(sorted_scores):
+        return sorted_scores[-1]
+    d = k - f
+    return sorted_scores[f] + d * (sorted_scores[c] - sorted_scores[f])
+
+
+def _write_threshold_md(
+    audit_dir: Path,
+    mode: str,
+    percentile: int,
+    threshold: float,
+    derivation: str,
+    n_flagged: int,
+    n_total: int,
+) -> Path:
+    """Write threshold.md documenting the MIA threshold derivation."""
+    lines = [
+        "# MIA Threshold Documentation",
+        "",
+        f"- **Mode**: {mode}",
+    ]
+    if mode == "percentile":
+        lines.append(f"- **Percentile**: {percentile}")
+    elif mode == "median":
+        lines.append(
+            "- **WARNING**: threshold is median; this is a calibration artifact"
+        )
+        lines.append("  Interpretation as a memorization signal is not supported.")
+    elif mode == "holdout_file":
+        lines.append("- **Holdout file**: see derivation below")
+    lines.extend(
+        [
+            f"- **Threshold value**: {threshold:.4f}",
+            f"- **Records flagged as mia_member=True**: {n_flagged}/{n_total}",
+            f"- **Derivation**: {derivation}",
+            "",
+            "Per docs/MIA_THRESHOLD_CALIBRATION.md Track 1.",
+        ]
+    )
+    output_path = audit_dir / "threshold.md"
+    output_path.write_text("\n".join(lines) + "\n")
+    logger.info("Wrote threshold documentation to %s", output_path)
+    return output_path
 
 
 def _get_model_git_sha(model_path: Path) -> str:
