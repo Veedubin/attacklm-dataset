@@ -1,6 +1,6 @@
 # Attack Taxonomy — Inversion Attacks on Generative Language Models
 
-> **Status**: v0.4.0 (new doc; replaces the scattered references in `MIA_THRESHOLD_CALIBRATION.md` and `PROBE_TOKEN_BUDGET.md`)
+> **Status**: v0.5.0 (updated; LiRA shipped)
 > **Audience**: anyone running, extending, or auditing the AttackLM inversion-audit program
 > **Last updated**: 2026-07-08
 
@@ -140,7 +140,7 @@ This is why AttackLM's CLI has a **two-attack surface**, not three:
 
 ---
 
-### 3.4 MIA — LiRA / shadow-model (Carlini 2022 §4) — **v0.5.0 (PLANNED)**
+### 3.4 MIA — LiRA / shadow-model (Carlini 2022 §4) — **v0.5.0 (SHIPPED)**
 
 **Implementation**: `scripts/inversion/{shadow_train, lira}.py` (NEW, v0.5.0)
 
@@ -209,6 +209,7 @@ See `CONTEXT.md` §"Future Directions" for the deferred research write-up.
 | `--mia-threshold-mode`  | `median` / `percentile` / `holdout_file` / `lrt`   | How to derive the membership threshold. `lrt` is the natural 0.0 for LiRA. |
 | `--mia-percentile`      | int (default 5)                                     | Percentile for `percentile` mode                             |
 | `--lira-k`              | int (default 16)                                    | Number of shadow models for LiRA. K=1 = reference-model, K=4 = cheap LiRA. **v0.5.0+ only** |
+| `--lira-params`         | path (required for `--mia-method lira`)             | Path to shadow_params.json from `python -m inversion.shadow_train`. **v0.5.0+ only** |
 
 **Resolution rules** (in `inversion_audit.py main()`):
 - If `--probe-carlini` or `--probe-mia` is set, emit a `DeprecationWarning` and map to `--attack`.
@@ -251,5 +252,5 @@ See `CONTEXT.md` §"Future Directions" for the deferred research write-up.
 - `docs/MIA_THRESHOLD_CALIBRATION.md` — detailed design of the MIA threshold modes
 - `docs/PROBE_TOKEN_BUDGET.md` — detailed design of the extraction probe budget
 - `docs/AUDIT_RUNNER.md` — how to run an overnight audit
-- `docs/LIRA.md` — LiRA design and usage (v0.5.0, planned)
+- `docs/LIRA.md` — LiRA design and usage (v0.5.0, shipped)
 - `CONTEXT.md` §"Future Directions" — embedding-layer MIA research thread (deferred to v1.0.0)
