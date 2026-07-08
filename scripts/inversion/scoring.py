@@ -190,6 +190,24 @@ def compute_fpr_at_threshold(
     return false_positives / len(non_member_scores)
 
 
+def _extract_assistant_turn(record: dict) -> str:
+    """Extract the final assistant message content from a record.
+
+    Returns the content of the last message with role='assistant',
+    or empty string if none exists. This is the suffix that per-token
+    MIA scoring operates on — the model's generation, not the prompt.
+
+    Reference: MUSE 2023 defaults to scoring only the suffix (assistant
+    turn), not the full record. The system+user prompt is context; the
+    assistant turn is the candidate for memorization.
+    """
+    messages = record.get("messages", [])
+    for msg in reversed(messages):
+        if msg.get("role") == "assistant":
+            return msg.get("content", "")
+    return ""
+
+
 def _extract_full_text(record: dict) -> str:
     """Extract the full text content from all messages in a record."""
     messages = record.get("messages", [])
@@ -199,3 +217,103 @@ def _extract_full_text(record: dict) -> str:
         if content:
             parts.append(content)
     return "\n".join(parts)
+
+
+@dataclass
+class PerTokenMIAScore:
+    """Per-token MIA score for a single record (MUSE 2023 default).
+
+    Normalizes NLL by suffix token count, avoiding the bias that
+    full-record scoring has toward long records (which accumulate
+    more NLL just because they have more tokens).
+
+    Reference: Carlini et al. 2022, "Membership Inference Attacks
+    From First Principles," IEEE S&P. arXiv:2112.03570 §3.2.
+    MUSE library (2023), github.com/llm-membership/muse.
+    """
+
+    nll_per_token: float  # = NLL / num_suffix_tokens
+    nll_total: float  # raw NLL on the assistant turn
+    num_suffix_tokens: int  # suffix length
+    suffix_text: str  # the scored text (truncated to first 200 chars for storage)
+    membership_score: float  # = nll_per_token - alpha * zlib_ratio_per_token
+    alpha: float
+    zlib_ratio: (
+        float  # zlib_length / raw_length, per-byte ratio (more stable than per-token)
+    )
+
+
+def score_per_token(
+    record: dict,
+    model,
+    tokenizer,
+    alpha: float = 1.0,
+) -> PerTokenMIAScore:
+    """Score a record using per-suffix-token NLL (MUSE 2023 default).
+
+    The assistant turn is extracted from the record (final assistant
+    message), scored with NLL, and the NLL is normalized by suffix
+    token count. This avoids the bias that full-record scoring has
+    toward long records (which accumulate more NLL just because they
+    have more tokens).
+
+    The zlib_ratio field uses the per-byte ratio (compressed_length /
+    raw_length), NOT a per-token zlib ratio. The per-token zlib ratio
+    (zlib_length / num_tokens) is unstable because tokenization
+    granularity varies across sources. Per-byte ratio is length-stable
+    and well-calibrated.
+
+    Reference: Carlini et al. 2022, arXiv:2112.03570 §3.2.
+    MUSE library (2023), github.com/llm-membership/muse.
+    """
+    suffix_text = _extract_assistant_turn(record)
+
+    if not suffix_text:
+        # No assistant turn — cannot score
+        return PerTokenMIAScore(
+            nll_per_token=float("inf"),
+            nll_total=float("inf"),
+            num_suffix_tokens=0,
+            suffix_text="",
+            membership_score=float("inf"),
+            alpha=alpha,
+            zlib_ratio=0.0,
+        )
+
+    nll_total, num_suffix_tokens = compute_nll(model, tokenizer, suffix_text)
+    _, zlib_ratio = compute_zlib_metrics(suffix_text)
+
+    if num_suffix_tokens == 0:
+        nll_per_token = float("inf")
+        membership_score = float("inf")
+    else:
+        nll_per_token = nll_total / num_suffix_tokens
+        membership_score = nll_per_token - alpha * zlib_ratio
+
+    return PerTokenMIAScore(
+        nll_per_token=nll_per_token,
+        nll_total=nll_total,
+        num_suffix_tokens=num_suffix_tokens,
+        suffix_text=suffix_text[:200],
+        membership_score=membership_score,
+        alpha=alpha,
+        zlib_ratio=zlib_ratio,
+    )
+
+
+def zscore_normalize(scores: list[float]) -> list[float]:
+    """Z-score normalize a list of scores: (x - mean) / std.
+
+    Returns a list of floats. If std is 0, returns all zeros (constant
+    distribution — no information to threshold on). Empty list returns
+    empty list.
+    """
+    if not scores:
+        return []
+    n = len(scores)
+    mean = sum(scores) / n
+    variance = sum((x - mean) ** 2 for x in scores) / n
+    std = variance**0.5
+    if std == 0:
+        return [0.0] * n
+    return [(x - mean) / std for x in scores]

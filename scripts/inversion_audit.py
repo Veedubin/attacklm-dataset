@@ -35,6 +35,7 @@ from inversion import __version__
 from inversion.model_loader import load_model, detect_model_format
 from inversion.probe import run_carlini_probe
 from inversion.scoring import (
+    score_per_token,
     score_record,
 )
 from inversion.provenance import (
@@ -89,23 +90,47 @@ def build_parser() -> argparse.ArgumentParser:
         "--probe-carlini",
         action="store_true",
         default=True,
-        help="Enable Carlini prefix-completion extraction probe (default: on).",
+        help="DEPRECATED v0.4.0; use --attack. Will be removed in v0.6.0. "
+        "Enable Carlini prefix-completion extraction probe (default: on).",
     )
     parser.add_argument(
         "--no-probe-carlini",
         action="store_true",
-        help="Disable Carlini prefix-completion probe.",
+        help="DEPRECATED v0.4.0; use --attack. Will be removed in v0.6.0. "
+        "Disable Carlini prefix-completion probe.",
     )
     parser.add_argument(
         "--probe-mia",
         action="store_true",
         default=True,
-        help="Enable MIA loss+zlib scoring (default: on).",
+        help="DEPRECATED v0.4.0; use --attack. Will be removed in v0.6.0. "
+        "Enable MIA loss+zlib scoring (default: on).",
     )
     parser.add_argument(
         "--no-probe-mia",
         action="store_true",
-        help="Disable MIA scoring.",
+        help="DEPRECATED v0.4.0; use --attack. Will be removed in v0.6.0. "
+        "Disable MIA scoring.",
+    )
+    parser.add_argument(
+        "--attack",
+        choices=["extraction", "mia", "all"],
+        default="all",
+        help="Which attack class(es) to run. 'extraction' = Carlini 2021 "
+        "prefix-completion probing (LLM model inversion / TDE). "
+        "'mia' = membership inference attack. 'all' (default) = both. "
+        "Use --mia-method to pick a specific MIA technique.",
+    )
+    parser.add_argument(
+        "--mia-method",
+        choices=["reference", "zlib", "per_token", "lira", "all"],
+        default="reference",
+        help="MIA scoring method. 'reference' = NLL only (Carlini 2022 §3.2, "
+        "Loss attack). 'zlib' = NLL - zlib_length (Carlini 2022 §3.2, "
+        "zlib-entropy calibration). 'per_token' = NLL normalized by "
+        "suffix token count (MUSE 2023 default). 'lira' = "
+        "likelihood-ratio test from K shadow models (v0.5.0+). "
+        "'all' = run all available methods and report each.",
     )
     parser.add_argument(
         "--top-k",
@@ -279,14 +304,64 @@ def main(argv: list[str] | None = None) -> int:
         else:
             args.max_records = args.probe_count
 
+    # Detect legacy flag usage and map to --attack
+    legacy_used = (
+        getattr(args, "probe_carlini", None) is not None
+        or getattr(args, "no_probe_carlini", False)
+        or getattr(args, "probe_mia", None) is not None
+        or getattr(args, "no_probe_mia", False)
+    )
+    if legacy_used:
+        import warnings
+
+        warnings.warn(
+            "--probe-carlini / --probe-mia / --no-probe-* are deprecated since "
+            "v0.4.0; use --attack {extraction,mia,all} and --mia-method. "
+            "Will be removed in v0.6.0.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        # Map legacy flags → new --attack value (only if user explicitly
+        # passed --no-probe-* flags; default True means they didn't)
+        if args.no_probe_carlini and args.no_probe_mia:
+            args.attack = "none"  # sentinel: skip everything
+        elif args.no_probe_carlini:
+            args.attack = "mia"
+        elif args.no_probe_mia:
+            args.attack = "extraction"
+        # else: keep --attack as user set it (or default 'all')
+
+    # v0.5.0 guard for --mia-method lira
+    if args.mia_method == "lira":
+        print(
+            "ERROR: --mia-method lira requires attacklm-dataset v0.5.0 "
+            "(not yet implemented).",
+            file=sys.stderr,
+        )
+        print(
+            "Available methods: reference, zlib, per_token, all",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    # Derive run flags from --attack
+    run_extraction = args.attack in ("extraction", "all")
+    run_mia = args.attack in ("mia", "all")
+    # Sentinel: "none" means user explicitly disabled both — skip
+    if args.attack == "none":
+        print(
+            "No probes requested (legacy --no-probe-carlini --no-probe-mia). Exiting.",
+        )
+        return 0
+
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
     )
 
-    # Resolve flags
-    probe_carlini = args.probe_carlini and not args.no_probe_carlini
-    probe_mia = args.probe_mia and not args.no_probe_mia
+    # Resolve flags (derived from --attack above)
+    # probe_carlini/probe_mia are now set via --attack; legacy flags were
+    # mapped in the deprecation block above.
 
     audit_date = args.date or date.today().isoformat()
     dataset_root = args.dataset_root.resolve()
@@ -332,8 +407,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"  Model: {args.model}")
         print(f"  Dataset root: {dataset_root}")
         print(f"  Source filter: {source_filter or 'all'}")
-        print(f"  Carlini probe: {probe_carlini}")
-        print(f"  MIA probe: {probe_mia}")
+        print(f"  Carlini probe: {run_extraction}")
+        print(f"  MIA probe: {run_mia}")
         print(f"  Top-K: {args.top_k}")
         print(
             f"  Max new tokens: {args.max_new_tokens or 'adaptive (min(256, max(64, 2*suffix_tokens)))'}"
@@ -347,10 +422,10 @@ def main(argv: list[str] | None = None) -> int:
     logger.info("Loading model from %s", args.model)
     model_format = args.model_format or detect_model_format(args.model)
 
-    if model_format == "gguf" and probe_mia:
+    if model_format == "gguf" and run_mia:
         logger.error(
             "MIA scoring requires white-box access to model loss. "
-            "GGUF models do not expose loss. Use --no-probe-mia or "
+            "GGUF models do not expose loss. Use --attack extraction or "
             "provide a HuggingFace model with --model-format hf."
         )
         return 1
@@ -377,7 +452,7 @@ def main(argv: list[str] | None = None) -> int:
             "reconstruction_hash": "",
         }
 
-        if probe_carlini and model_format == "hf":
+        if run_extraction and model_format == "hf":
             logger.info("Carlini probe: record %d/%d", i + 1, len(records))
             try:
                 probe_result = run_carlini_probe(
@@ -404,7 +479,7 @@ def main(argv: list[str] | None = None) -> int:
             except Exception as e:
                 logger.warning("Carlini probe failed for record %d: %s", i, e)
 
-        if probe_mia and model_format == "hf":
+        if run_mia and model_format == "hf":
             logger.info("MIA scoring: record %d/%d", i + 1, len(records))
             try:
                 mia_score = score_record(record, model, tokenizer)
@@ -421,11 +496,30 @@ def main(argv: list[str] | None = None) -> int:
             except Exception as e:
                 logger.warning("MIA scoring failed for record %d: %s", i, e)
 
+            # Per-token MIA scoring (MUSE 2023 default)
+            if args.mia_method in ("per_token", "all"):
+                try:
+                    pt_score = score_per_token(record, model, tokenizer)
+                    row.update(
+                        {
+                            "nll_per_token": pt_score.nll_per_token,
+                            "nll_total_per_token": pt_score.nll_total,
+                            "num_suffix_tokens": pt_score.num_suffix_tokens,
+                            "suffix_text": pt_score.suffix_text,
+                            "membership_score_per_token": pt_score.membership_score,
+                            "zlib_ratio_per_token": pt_score.zlib_ratio,
+                        }
+                    )
+                except Exception as e:
+                    logger.warning(
+                        "Per-token MIA scoring failed for record %d: %s", i, e
+                    )
+
         results.append(row)
 
     # MIA threshold calibration
     mia_threshold_derivation = ""
-    if probe_mia and model_format == "hf":
+    if run_mia and model_format == "hf":
         member_scores = [
             r["membership_score"] for r in results if "membership_score" in r
         ]
@@ -533,8 +627,10 @@ def main(argv: list[str] | None = None) -> int:
         "model_format": model_format,
         "dataset_root": str(dataset_root),
         "source_filter": source_filter or ["all"],
-        "probe_carlini": probe_carlini,
-        "probe_mia": probe_mia,
+        "probe_carlini": run_extraction,
+        "probe_mia": run_mia,
+        "attack": args.attack,
+        "mia_method": args.mia_method,
         "top_k": args.top_k,
         "max_new_tokens": args.max_new_tokens or "adaptive",
         "temperature": args.temperature,
