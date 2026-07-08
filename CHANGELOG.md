@@ -1,12 +1,13 @@
-## [Unreleased] — 2026-07-08 — MIA Track 2: per-token + LiRA + audit screen
+## [0.4.0] — 2026-07-08 — MIA Track 2: per-token + LiRA + audit screen
 
-This is a single combined entry for the work on the
-`wip/inversion-audit-track2-2026-07-08` branch. It is NOT yet a tagged
-release; the version will be bumped to **v0.4.0** when this branch is
-merged and tagged. The per-token MIA scoring and the LiRA shadow-model
-MIA are the two major new capabilities. The Audit TUI screen and the
-tooltips retrofit are shipped in the `AttackLM/attacklm-gui` repo as
-**v0.11.0** (separate package, same release cycle).
+Per-token membership-inference scoring (MUSE 2023 default) and LiRA
+shadow-model MIA (Carlini 2022 §4) on the dataset side. CLI redesigned
+to attack-class-first with `--attack {extraction, mia, all}` and
+`--mia-method {reference, zlib, per_token, lira, all}`. New docs:
+`docs/ATTACK_TAXONOMY.md` and `docs/LIRA.md`. Drive-by fix:
+`pyproject.toml` was at `0.2.0` while the actual code was at `v0.3.1+`
+— now `0.4.0` matches the release. 34 new hermetic tests (13
+per_token_mia + 21 lira). All 106 tests pass.
 
 ### Added (in `attacklm-dataset`)
 - **`score_per_token()`** in `scripts/inversion/scoring.py` — per-suffix-token NLL scoring (MUSE 2023 default). Normalizes NLL by suffix token count, removing the length bias in full-record scoring. Returns a `PerTokenMIAScore` dataclass with `nll_per_token`, `nll_total`, `num_suffix_tokens`, `suffix_text`, `membership_score`, `alpha`, and `zlib_ratio`.
