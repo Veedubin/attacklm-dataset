@@ -15,4 +15,4 @@ Threat model: identify what an adversary could extract so the model
 owner can harden and produce evidence for regulators.
 """
 
-__version__ = "0.5.0"
+__version__ = "0.3.1"

@@ -4,7 +4,7 @@ build-backend = "setuptools.backends._legacy:_Backend"
 
 [project]
 name = "attacklm-dataset"
-version = "0.5.0"
+version = "0.3.1"
 description = "MITRE ATT&CK-grounded security fine-tuning dataset with per-record provenance"
 readme = "README.md"
 license = {text = "MIT"}
