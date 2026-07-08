@@ -1,4 +1,28 @@
-## [0.3.1] — 2026-07-07 — Inversion Audit Fixes + Runner
+## [0.4.0] — 2026-07-08 — Per-Token MIA Scoring + Attack-Class CLI Redesign
+
+### Added
+- **`score_per_token()`** in `scripts/inversion/scoring.py` — per-suffix-token NLL scoring (MUSE 2023 default). Normalizes NLL by suffix token count, removing the length bias in full-record scoring. Includes `PerTokenMIAScore` dataclass with `nll_per_token`, `nll_total`, `num_suffix_tokens`, `suffix_text`, `membership_score`, `alpha`, and `zlib_ratio`.
+- **`zscore_normalize()`** helper in `scripts/inversion/scoring.py` — Z-score normalization for cross-source MIA threshold calibration. Returns all zeros for constant distributions.
+- **`_extract_assistant_turn()`** helper in `scripts/inversion/scoring.py` — extracts the final assistant message content from a record (the MUSE 2023 suffix).
+- **`--attack {extraction,mia,all}`** CLI flag (default `all`) — replaces the binary `--probe-carlini` / `--probe-mia` flags with an attack-class-first design. See `docs/ATTACK_TAXONOMY.md` §5 for the full mapping.
+- **`--mia-method {reference,zlib,per_token,lira,all}`** CLI flag (default `reference`) — selects which MIA scoring method to use. `per_token` writes `membership_score_per_token` and related fields to the output JSONL. `all` writes both full-record and per-token columns. `lira` exits with an error message (v0.5.0+).
+- 13 new hermetic tests in `tests/test_per_token_mia.py` (per-token scoring, z-score normalization, integration with full-record scoring)
+- New doc: `docs/ATTACK_TAXONOMY.md` (the 3-attack taxonomy, LLM MI=TDE collapse argument, CLI mapping, references)
+
+### Changed
+- **`--probe-carlini` / `--probe-mia` / `--no-probe-*`** are now **DEPRECATED** (since v0.4.0). They still work but emit `DeprecationWarning`. They will be removed in v0.6.0. The deprecation block in `main()` maps legacy flags to `--attack` values.
+- Version bumped: `0.2.0` → `0.4.0` (this is a version-skip bug fix — the code was at v0.3.1+ but `pyproject.toml` said `0.2.0`)
+
+### Fixed
+- `pyproject.toml` version now matches the actual release series (was `0.2.0`, should be `0.4.0`)
+- `scripts/inversion/__init__.py` `__version__` now matches `pyproject.toml` (was `0.1.0`, now `0.4.0`)
+
+### Threat model
+- Per-token MIA scoring operates on the assistant turn only (not the full record), which is the correct unit of analysis for membership inference on generative LLMs (MUSE 2023).
+- No changes to raw output handling (chmod 0600 remains).
+
+---
+
 
 ### Added
 - `--mia-threshold-mode {median,percentile,holdout_file}` CLI flag (default `percentile`) and `--mia-percentile` (default 5) for MIA threshold calibration. Replaces the previous median-of-scores fallback which classified 50% of records as members by construction. See `docs/MIA_THRESHOLD_CALIBRATION.md`.
