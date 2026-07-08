@@ -1,3 +1,25 @@
+## [0.5.0] — 2026-07-08 — LiRA Shadow-Model MIA (Track 2)
+
+### Added
+- **`scripts/inversion/lira.py`** — LiRA (Likelihood Ratio Attack) scoring module (Carlini 2022 §4). Implements `LiRAScore`, `GaussianParams`, `fit_gaussian`, `fit_gaussians_per_record`, `compute_lira_logit`, `score_lira`, `calibrate_lira_threshold`, `save_shadow_params`, `load_shadow_params`. LiRA is "10× more powerful at low FPR" than reference MIA per Carlini 2022 §4.4.
+- **`scripts/inversion/shadow_train.py`** — CLI scaffold for the 3-step LiRA workflow (train K shadows, score each, fit Gaussians). Reads precomputed shadow loss files and produces `shadow_params.json` for use with `--mia-method lira`.
+- **`--mia-method lira`** in `inversion_audit.py` — Replaces the "not yet implemented" error with working LiRA scoring. Requires `--lira-params <path>` pointing to the shadow_params.json file.
+- **`--lira-k`** flag (default 16) — Number of shadow models for LiRA (K=1 = reference-model MIA, K=4 = cheap LiRA, K=16 = gold standard).
+- **`--lira-params`** flag — Path to shadow_params.json (output of `inversion.shadow_train`). Required when `--mia-method lira` is used.
+- **`--mia-threshold-mode lrt`** — Natural 0.0 threshold for LiRA (positive logit = member). No `holdout_file` needed.
+- 17 new hermetic tests in `tests/test_lira.py` (fit_gaussian, fit_gaussians_per_record, gaussian_log_pdf, compute_lira_logit, calibrate_lira_threshold, score_lira, save/load shadow_params, integration with inversion_audit).
+- New doc: `docs/LIRA.md` (design, workflow, compute cost, K parameter guide, storage cost, threshold, references).
+
+### Changed
+- Version bumped: 0.4.0 → 0.5.0
+- `docs/ATTACK_TAXONOMY.md` §3.4 updated from "PLANNED" to "SHIPPED"; §5 CLI mapping updated with `--lira-params` flag.
+
+### Threat model
+- LiRA scoring requires precomputed shadow parameters (4 floats per record = 16 bytes). The shadow-model training is the user's responsibility and happens OUT-OF-BAND.
+- Audit-time compute is identical to the reference attack: 1 forward pass on the target model per record, plus 4 floats of Gaussian parameters.
+
+---
+
 ## [0.4.0] — 2026-07-08 — Per-Token MIA Scoring + Attack-Class CLI Redesign
 
 ### Added

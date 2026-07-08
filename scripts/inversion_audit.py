@@ -34,6 +34,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from inversion import __version__
 from inversion.model_loader import load_model, detect_model_format
 from inversion.probe import run_carlini_probe
+from inversion.lira import (
+    GaussianParams,
+    load_shadow_params,
+    score_lira,
+)
 from inversion.scoring import (
     score_per_token,
     score_record,
@@ -173,12 +178,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--mia-threshold-mode",
-        choices=["median", "percentile", "holdout_file"],
+        choices=["median", "percentile", "holdout_file", "lrt"],
         default="percentile",
         help="MIA threshold calibration mode. 'median': median of probed scores "
         "(calibration artifact — WARNING logged). 'percentile': Nth percentile "
         "of probed scores (default). 'holdout_file': read threshold from a JSON "
-        "file (Track 2 placeholder).",
+        "file. 'lrt': natural 0.0 threshold for LiRA (positive logit = member).",
     )
     parser.add_argument(
         "--mia-percentile",
@@ -186,6 +191,21 @@ def build_parser() -> argparse.ArgumentParser:
         default=5,
         help="Percentile for MIA threshold when --mia-threshold-mode=percentile "
         "(default: 5, meaning only the bottom 5%% of scores are flagged).",
+    )
+    parser.add_argument(
+        "--lira-k",
+        type=int,
+        default=16,
+        help="Number of shadow models for LiRA (default: 16). "
+        "K=1 = reference-model MIA, K=4 = cheap LiRA, K=16 = gold standard. "
+        "Only used when --mia-method lira is specified.",
+    )
+    parser.add_argument(
+        "--lira-params",
+        type=str,
+        default=None,
+        help="Path to shadow_params.json (output of inversion.shadow_train). "
+        "Required when --mia-method lira is used.",
     )
     parser.add_argument(
         "--dry-run",
@@ -331,18 +351,28 @@ def main(argv: list[str] | None = None) -> int:
             args.attack = "extraction"
         # else: keep --attack as user set it (or default 'all')
 
-    # v0.5.0 guard for --mia-method lira
-    if args.mia_method == "lira":
-        print(
-            "ERROR: --mia-method lira requires attacklm-dataset v0.5.0 "
-            "(not yet implemented).",
-            file=sys.stderr,
+    # Validate LiRA requirements
+    lira_shadow_params: dict[str, GaussianParams] | None = None
+    if args.mia_method in ("lira", "all"):
+        if not args.lira_params:
+            print(
+                "ERROR: --mia-method lira requires --lira-params "
+                "(path to shadow_params.json).",
+                file=sys.stderr,
+            )
+            print(
+                "Produce shadow_params.json with: "
+                "python -m inversion.shadow_train --loss-dir ... --output shadow_params.json",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        lira_shadow_params_dict, lira_k_loaded = load_shadow_params(args.lira_params)
+        lira_shadow_params = lira_shadow_params_dict
+        logger.info(
+            "Loaded LiRA shadow params for %d records (K=%d from file)",
+            len(lira_shadow_params),
+            lira_k_loaded,
         )
-        print(
-            "Available methods: reference, zlib, per_token, all",
-            file=sys.stderr,
-        )
-        sys.exit(1)
 
     # Derive run flags from --attack
     run_extraction = args.attack in ("extraction", "all")
@@ -515,6 +545,40 @@ def main(argv: list[str] | None = None) -> int:
                         "Per-token MIA scoring failed for record %d: %s", i, e
                     )
 
+            # LiRA scoring (Carlini 2022 §4)
+            if args.mia_method in ("lira", "all") and lira_shadow_params is not None:
+                record_id = record.get("id", str(i))
+                if record_id in lira_shadow_params:
+                    try:
+                        lira_result = score_lira(
+                            record, model, tokenizer, lira_shadow_params[record_id]
+                        )
+                        row.update(
+                            {
+                                "lira_logit": lira_result.lira_logit,
+                                "lira_mu_in": lira_result.mu_in,
+                                "lira_sigma_in": lira_result.sigma_in,
+                                "lira_mu_out": lira_result.mu_out,
+                                "lira_sigma_out": lira_result.sigma_out,
+                                "lira_loss_target": lira_result.loss_target,
+                                "lira_nll_per_token": lira_result.nll_per_token,
+                                "lira_num_suffix_tokens": lira_result.num_suffix_tokens,
+                            }
+                        )
+                    except Exception as e:
+                        logger.warning(
+                            "LiRA scoring failed for record %d (id=%s): %s",
+                            i,
+                            record_id,
+                            e,
+                        )
+                else:
+                    logger.warning(
+                        "No shadow params for record %d (id=%s); skipping LiRA",
+                        i,
+                        record_id,
+                    )
+
         results.append(row)
 
     # MIA threshold calibration
@@ -592,6 +656,17 @@ def main(argv: list[str] | None = None) -> int:
                     member_threshold,
                     holdout_path,
                 )
+            elif args.mia_threshold_mode == "lrt":
+                # LiRA natural threshold: 0.0 (positive logit = member)
+                threshold_mode = "lrt"
+                member_threshold = 0.0
+                mia_threshold_derivation = (
+                    "lrt: natural 0.0 threshold for LiRA (positive logit = likely IN)"
+                )
+                logger.info(
+                    "MIA threshold=0.0 (LiRA natural threshold; "
+                    "positive lira_logit = likely member)"
+                )
             else:
                 # Should not reach here due to argparse choices
                 raise ValueError(
@@ -602,6 +677,13 @@ def main(argv: list[str] | None = None) -> int:
             for row in results:
                 if "membership_score" in row:
                     row["mia_member"] = row["membership_score"] < member_threshold
+                # LiRA classification (positive logit = member, threshold = 0.0)
+                if "lira_logit" in row:
+                    row["lira_member"] = (
+                        row["lira_logit"] >= member_threshold
+                        if args.mia_threshold_mode == "lrt"
+                        else row["lira_logit"] >= 0.0
+                    )
 
     # Write threshold.md
     if mia_threshold_derivation:
@@ -631,6 +713,8 @@ def main(argv: list[str] | None = None) -> int:
         "probe_mia": run_mia,
         "attack": args.attack,
         "mia_method": args.mia_method,
+        "lira_k": args.lira_k,
+        "lira_params": args.lira_params or "none",
         "top_k": args.top_k,
         "max_new_tokens": args.max_new_tokens or "adaptive",
         "temperature": args.temperature,
@@ -686,6 +770,10 @@ def _write_threshold_md(
         lines.append("  Interpretation as a memorization signal is not supported.")
     elif mode == "holdout_file":
         lines.append("- **Holdout file**: see derivation below")
+    elif mode == "lrt":
+        lines.append(
+            "- **LRT**: LiRA natural threshold (0.0); positive logit = likely member"
+        )
     lines.extend(
         [
             f"- **Threshold value**: {threshold:.4f}",
