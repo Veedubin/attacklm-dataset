@@ -1,3 +1,37 @@
+from __future__ import annotations
+
+# PROVENANCE METADATA — scripts/inversion/lira.py
+# ================================================================================
+# Attack class:        LiRA (Likelihood Ratio Attack) — Carlini 2022 §4
+# Original authors:    Nicholas Carlini, Steve Chien, Milad Nasr, Shuang Song,
+#                      Andreas Terzis, Florian Tramer
+# Paper title:         Membership Inference Attacks From First Principles
+# Year / venue:        2022 / IEEE Symposium on Security and Privacy
+# Paper URL:           https://arxiv.org/abs/2112.03570
+# Canonical repo:      N/A (no official code release by the authors)
+#
+# Implementation:
+#   Type:              CLEAN_ROOM_REIMPLEMENTATION (this module implements the
+#                      SCORING side of LiRA only; shadow-model training is
+#                      the user's responsibility — see scripts/inversion/
+#                      shadow_train.py and docs/LIRA.md for the workflow)
+#   Lines of port:     N/A
+#   Upstream license:  N/A
+#
+# Foundational work this builds on:
+#   - Shokri et al. 2017 (https://arxiv.org/abs/1610.05820) — original
+#     shadow-model MIA paper; LiRA is the modern, theoretically-grounded
+#     refinement.
+#
+# Per Carlini 2022 §4, LiRA is "10× more powerful at FPR=0.1%" than the
+# reference loss+threshold attack. The natural decision threshold is 0.0
+# (log-likelihood ratio).
+#
+# Data sources: N/A (this file attacks a model, it does not ingest data)
+#
+# Rights claim contact: veedubin.legal@example.com
+# See:                  RIGHTS.md (root), data/LEGAL.md, data/REMOVAL.md
+# ================================================================================
 """LiRA (Likelihood Ratio Attack) — Carlini 2022 §4.
 
 The gold-standard MIA: trains K shadow models on disjoint subsets of the
@@ -27,7 +61,7 @@ will be audited. The shadow training script (user-side) is responsible
 for producing this artifact.
 """
 
-from __future__ import annotations
+
 
 import json
 import math

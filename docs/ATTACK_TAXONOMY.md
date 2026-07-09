@@ -2,7 +2,30 @@
 
 > **Status**: v0.5.0 (updated; LiRA shipped)
 > **Audience**: anyone running, extending, or auditing the AttackLM inversion-audit program
-> **Last updated**: 2026-07-08
+> **Last updated**: 2026-07-09
+
+## 0. Provenance & rights
+
+The attack classes and MIA scoring methods enumerated in this document are
+derived from the following primary sources. **All rights in the underlying
+algorithms and paper texts belong to the original authors; the
+implementations in `scripts/inversion/` are clean-room reimplementations
+based on the published paper texts.**
+
+| Attack class / MIA method                | Paper (click for arXiv)                                                  | Year | Authors                                                                                                                                |
+| ---------------------------------------- | ------------------------------------------------------------------------ | ---- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| Training-data extraction (Strategy 1)    | [Carlini et al. 2021](https://arxiv.org/abs/2012.07805)                  | 2021 | N. Carlini, F. Tramer, E. Wallace, M. Jagielski, A. Herbert-Voss, K. Lee, A. Roberts, T. Brown, D. Song, U. Erlingsson, A. Oprea, C. Raffel |
+| Production extraction                    | [Nasr et al. 2023](https://arxiv.org/abs/2311.17035)                     | 2023 | M. Nasr, N. Carlini, J. Hayase, M. Jagielski, A. F. Cooper, D. Ippolito, C. A. Choquette-Choo, E. Wallace, F. Tramèr, K. Lee             |
+| MIA reference attack (loss + zlib)       | [Carlini et al. 2022](https://arxiv.org/abs/2112.03570) (§3)             | 2022 | N. Carlini, S. Chien, M. Nasr, S. Song, A. Terzis, F. Tramer                                                                            |
+| LiRA (likelihood-ratio MIA)              | [Carlini et al. 2022](https://arxiv.org/abs/2112.03570) (§4)             | 2022 | (same as above)                                                                                                                        |
+| Per-token MIA (MUSE default)             | [Shi et al. 2024 / MUSE](https://arxiv.org/abs/2407.06460)               | 2024 | W. Shi, J. Lee, Y. Huang, S. Malladi, J. Zhao, A. Holtzman, D. Liu, L. Zettlemoyer, N. A. Smith, C. Zhang                              |
+| Original MIA (shadow-model paradigm)     | [Shokri et al. 2017](https://arxiv.org/abs/1610.05820)                   | 2017 | R. Shokri, M. Stronati, C. Song, V. Shmatikov                                                                                            |
+| Per-example loss-threshold MIA           | [Yeom et al. 2018](https://arxiv.org/abs/1709.01604)                    | 2018 | S. Yeom, I. Giacomelli, M. Fredrikson, S. Jha                                                                                            |
+| BLEU-4 (extraction scoring metric)       | [Papineni et al. 2002](https://aclanthology.org/P02-1040/)               | 2002 | K. Papineni, S. Roukos, T. Ward, W.-J. Zhu                                                                                              |
+
+**Rights claim contact:** veedubin.legal@example.com — see [../RIGHTS.md](../RIGHTS.md).
+
+---
 
 This document explains what "inversion attack" means in the AttackLM context,
 why we have a two-attack CLI surface (not three), and which MIA methods are

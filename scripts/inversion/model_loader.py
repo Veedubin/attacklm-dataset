@@ -1,3 +1,29 @@
+from __future__ import annotations
+
+# PROVENANCE METADATA — scripts/inversion/model_loader.py
+# ================================================================================
+# Attack class:        N/A (this file is infrastructure; it loads models
+#                      for the attack code in probe.py / scoring.py / lira.py)
+# Original authors:    Veedubin (in-repo author)
+# Paper title:         N/A (internal)
+# Year / venue:        2026 / in-repo
+# Paper URL:           N/A
+# Canonical repo:      N/A
+#
+# Implementation:
+#   Type:              ORIGINAL_WORK
+#   Lines of port:     N/A
+#   Upstream license:  N/A
+#
+# Upstream dependencies (not derived from, just used by):
+#   - HuggingFace transformers library (https://github.com/huggingface/transformers)
+#   - llama-cpp-python (https://github.com/abetlen/llama-cpp-python)
+#
+# Data sources: N/A
+#
+# Rights claim contact: veedubin.legal@example.com
+# See:                  RIGHTS.md (root), data/LEGAL.md, data/REMOVAL.md
+# ================================================================================
 """Model loading for the inversion audit harness.
 
 Supports two model formats:
@@ -9,7 +35,7 @@ access to the model's loss tensor. LMStudio/Ollama are NOT acceptable
 because they don't expose loss.
 """
 
-from __future__ import annotations
+
 
 import logging
 from pathlib import Path

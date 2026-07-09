@@ -1,8 +1,32 @@
 # LiRA: Likelihood Ratio Attack — Design and Usage
 
 > **Status**: v0.5.0 (shipped)
-> **Last updated**: 2026-07-08
+> **Last updated**: 2026-07-09
 > **Module**: `scripts/inversion/lira.py`, `scripts/inversion/shadow_train.py`
+
+## 0. Provenance & rights
+
+This document and the code it describes are derived from the following primary
+source. **All rights in the underlying algorithm and paper text belong to the
+original authors; this implementation is a clean-room reimplementation
+based on the published paper text.**
+
+| | |
+|---|---|
+| **Original authors** | Nicholas Carlini, Steve Chien, Milad Nasr, Shuang Song, Andreas Terzis, Florian Tramer |
+| **Paper title** | Membership Inference Attacks From First Principles |
+| **Year / venue** | 2022 / IEEE Symposium on Security and Privacy (S&P 2022) |
+| **Paper URL** | https://arxiv.org/abs/2112.03570 |
+| **Canonical repo** | N/A (the original authors did not release official code) |
+| **Implementation type** | Clean-room reimplementation of the §4 algorithm |
+| **Foundational work** | Shokri et al. 2017 (https://arxiv.org/abs/1610.05820) — the original shadow-model MIA paper that LiRA refines |
+| **Rights claim contact** | veedubin.legal@example.com (see [../RIGHTS.md](../RIGHTS.md)) |
+
+If you believe any content in this document or the corresponding code violates
+your copyright or license terms, see [../RIGHTS.md §5](../RIGHTS.md#5-rights-claims-and-takedown-requests)
+for the takedown-request process.
+
+---
 
 ## 1. What is LiRA?
 

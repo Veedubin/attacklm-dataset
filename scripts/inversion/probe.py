@@ -1,3 +1,32 @@
+from __future__ import annotations
+
+# PROVENANCE METADATA — scripts/inversion/probe.py
+# ================================================================================
+# Attack class:        Carlini 2021 Strategy 1: prefix-completion extraction
+# Original authors:    Nicholas Carlini, Florian Tramer, Eric Wallace, Matthew
+#                      Jagielski, Ariel Herbert-Voss, Katherine Lee, Adam Roberts,
+#                      Tom Brown, Dawn Song, Ulfar Erlingsson, Alina Oprea,
+#                      Colin Raffel
+# Paper title:         Extracting Training Data from Large Language Models
+# Year / venue:        2021 / USENIX Security Symposium
+# Paper URL:           https://arxiv.org/abs/2012.07805
+# Canonical repo:      N/A (no official code release by the authors)
+#
+# Implementation:
+#   Type:              CLEAN_ROOM_REIMPLEMENTATION (translated from §4 of the
+#                      paper into Python; the original authors did not release code)
+#   Lines of port:     N/A
+#   Upstream license:  N/A
+#
+# Scoring metric:      BLEU-4 (Papineni et al. 2002, ACL,
+#                      https://aclanthology.org/P02-1040/)
+#
+# Data sources: N/A (this file attacks a model, it does not ingest data)
+#
+# Rights claim contact: veedubin.legal@example.com
+# See:                  RIGHTS.md (root), data/LEGAL.md, data/REMOVAL.md
+# ================================================================================
+
 """Carlini prefix-completion extraction probe.
 
 Strategy 1 from Carlini et al. (2021): extract memorized training data
@@ -8,9 +37,8 @@ against the original assistant turn using exact match, LCS, and BLEU-4.
 Reference:
     Carlini, N., et al. "Extracting Training Data from Large Language
     Models." USENIX Security Symposium, 2021.
+    https://arxiv.org/abs/2012.07805
 """
-
-from __future__ import annotations
 
 import hashlib
 import logging

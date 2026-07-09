@@ -1,4 +1,10 @@
 #!/usr/bin/env python3
+# CREDITS — ORIGINAL WORK
+# ----------------------------------
+# This script is ORIGINAL WORK by the AttackLM maintainer. It does not ingest
+# any third-party data; it parses JSONL files that other AttackLM extractors
+# have already produced. No attribution is required.
+# ----------------------------------
 """
 extract_by_tactic.py — Parse all AttackLM data sources and group techniques
 by MITRE ATT&CK tactic, producing merged JSON manifests.

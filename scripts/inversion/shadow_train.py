@@ -1,3 +1,32 @@
+from __future__ import annotations
+
+# PROVENANCE METADATA — scripts/inversion/shadow_train.py
+# ================================================================================
+# Attack class:        LiRA shadow-model training (Carlini 2022 §4)
+# Original authors:    Nicholas Carlini, Steve Chien, Milad Nasr, Shuang Song,
+#                      Andreas Terzis, Florian Tramer
+# Paper title:         Membership Inference Attacks From First Principles
+# Year / venue:        2022 / IEEE Symposium on Security and Privacy
+# Paper URL:           https://arxiv.org/abs/2112.03570
+# Canonical repo:      N/A (no official code release by the authors)
+#
+# Implementation:
+#   Type:              CLEAN_ROOM_REIMPLEMENTATION (orchestration only;
+#                      this file does NOT train models — it produces the
+#                      per-record (μ_in, σ_in, μ_out, σ_out) from shadow
+#                      loss logs that the user provides out-of-band)
+#   Lines of port:     N/A
+#   Upstream license:  N/A
+#
+# Foundational work this builds on:
+#   - Shokri et al. 2017 (https://arxiv.org/abs/1610.05820) — original
+#     shadow-model MIA paradigm that LiRA refines.
+#
+# Data sources: N/A (this file orchestrates training, it does not ingest data)
+#
+# Rights claim contact: veedubin.legal@example.com
+# See:                  RIGHTS.md (root), data/LEGAL.md, data/REMOVAL.md
+# ================================================================================
 """Shadow-model training orchestrator for LiRA.
 
 This module does NOT train models — that cost is the user's. What it does:
@@ -43,7 +72,7 @@ Usage:
 Step 3 is what this module implements. Steps 1-2 are user-side.
 """
 
-from __future__ import annotations
+
 
 import argparse
 import json

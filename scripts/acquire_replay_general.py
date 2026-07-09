@@ -1,4 +1,13 @@
 #!/usr/bin/env python3
+# CREDITS — DATA SOURCE ATTRIBUTION
+# ----------------------------------
+# This script downloads from multiple permissive public datasets. The exact
+# upstream set is configurable; see `data/datasets/buckets/sources/replay-general/
+# SOURCE.md` for the current target list and per-source licenses.
+# All targets are believed permissive (Apache-2.0 / MIT / CC-BY-SA / ODC-BY) as
+# of 2026-06-22. **You must re-verify each upstream license before redistribution**
+# because upstream licenses change without notice.
+# ----------------------------------
 """Acquire and sample license-clean general-domain replay corpora for AttackLM.
 
 This script downloads small, stratified samples from permissive public datasets

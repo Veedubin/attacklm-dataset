@@ -1,8 +1,19 @@
 # AttackLM Dataset
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Provenance: 100%](https://img.shields.io/badge/provenance-100%25-brightgreen.svg)](data/ATTRIBUTION.md)
 
 **A MITRE ATT&CK-grounded security fine-tuning dataset with 100% per-record provenance and license attribution.**
+
+---
+
+## Legal & Provenance
+
+This project implements privacy auditing techniques (training-data extraction and membership-inference attacks) derived from published academic research. All attack code is for **defensive, audit, and academic-research use only** — see [RIGHTS.md](./RIGHTS.md) for the full rights statement, [PROVENANCE.md](./PROVENANCE.md) for the per-file attribution template, and the canonical paper list in [RIGHTS.md §2](./RIGHTS.md#2-authoritative-sources-canonical-papers).
+
+For per-record dataset attribution and license metadata, see [data/ATTRIBUTION.md](./data/ATTRIBUTION.md) and [data/LEGAL.md](./data/LEGAL.md). For removal requests from rights-holders, see [data/REMOVAL.md](./data/REMOVAL.md).
+
+**Rights-claim contact:** `veedubin.legal@example.com` (placeholder — replace before public release).
 
 ---
 

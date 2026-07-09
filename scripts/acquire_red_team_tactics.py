@@ -1,4 +1,14 @@
 #!/usr/bin/env python3
+# CREDITS — DATA SOURCE ATTRIBUTION
+# ----------------------------------
+# This script downloads data from: RED_team_tactics_dataset (HuggingFace)
+# Repository: https://huggingface.co/datasets/REDteamtactics/RED_team_tactics_dataset
+# License:    Apache-2.0
+#
+# When the HF download fails, the script falls back to synthetic data
+# generated in-repo. The synthetic data is ORIGINAL WORK and carries no
+# third-party attribution requirements.
+# ----------------------------------
 """acquire_red_team_tactics.py — Download RED_team_tactics_dataset from HuggingFace
 and convert to AttackLM bucket format.
 
