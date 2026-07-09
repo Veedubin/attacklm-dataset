@@ -1,4 +1,32 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
+# PROVENANCE METADATA — scripts/inversion_audit.py
+# ================================================================================
+# Attack class:        CLI driver for Carlini 2021 prefix-completion +
+#                      Carlini 2022 MIA (loss + zlib) + LiRA (2022 §4) +
+#                      per-token MIA (MUSE 2023)
+# Original authors:    CLI: Veedubin (in-repo author)
+#                      Attacks: see scripts/inversion/probe.py, scoring.py,
+#                               lira.py for per-attack paper provenance
+# Paper title:         CLI driver — see per-attack files for the papers
+# Year / venue:        CLI 2026 / in-repo
+# Paper URL:           CLI N/A; see per-attack files
+# Canonical repo:      N/A
+#
+# Implementation:
+#   Type:              ORIGINAL_WORK (orchestration only; the attack code
+#                      lives in the modules imported below)
+#   Lines of port:     N/A
+#   Upstream license:  N/A
+#
+# Data sources: N/A (this file is a CLI driver; it does not ingest data
+# itself — it operates on whatever the user passes via --dataset-root)
+#
+# Rights claim contact: veedubin.legal@example.com
+# See:                  RIGHTS.md (root), data/LEGAL.md, data/REMOVAL.md
+# ================================================================================
+
 """Inversion-attack audit harness for AttackLM — CLI driver.
 
 Defensive audit tooling to probe the user's OWN models for memorized
@@ -18,7 +46,6 @@ Usage:
 All flags are documented in the argument parser below.
 """
 
-from __future__ import annotations
 
 import argparse
 import hashlib

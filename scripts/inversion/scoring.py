@@ -1,3 +1,44 @@
+from __future__ import annotations
+
+# PROVENANCE METADATA — scripts/inversion/scoring.py
+# ================================================================================
+# Attack class:        Carlini 2022 reference attack (loss + zlib) +
+#                      per-token MIA scoring (MUSE 2023 default)
+# Original authors:    Nicholas Carlini, Steve Chien, Milad Nasr, Shuang Song,
+#                      Andreas Terzis, Florian Tramer (for the MIA formulas)
+#                      + Weijia Shi, Jaechan Lee, Yangsibo Huang, Sadhika
+#                      Malladi, Jieyu Zhao, Ari Holtzman, Daogao Liu, Luke
+#                      Zettlemoyer, Noah A. Smith, Chiyuan Zhang (for the
+#                      per-token aggregation pattern; MUSE 2024)
+# Paper title:         (1) Membership Inference Attacks From First Principles
+#                      (2) MUSE: Machine Unlearning Six-Way Evaluation
+# Year / venue:        (1) 2022 / IEEE Symposium on Security and Privacy
+#                      (2) 2024 / ICLR 2025
+# Paper URL:           (1) https://arxiv.org/abs/2112.03570
+#                      (2) https://arxiv.org/abs/2407.06460
+# Canonical repo:      (1) N/A (no official code release)
+#                      (2) https://github.com/woooooda/MUSE_unlearning
+#
+# Implementation:
+#   Type:              CLEAN_ROOM_REIMPLEMENTATION
+#   Lines of port:     N/A
+#   Upstream license:  N/A
+#
+# Related foundational work:
+#   - Shokri et al. 2017 (https://arxiv.org/abs/1610.05820) — original MIA paper
+#     that introduced the shadow-model paradigm; we do NOT use shadow models.
+#   - Yeom et al. 2018 (https://arxiv.org/abs/1709.01604) — per-example loss
+#     threshold MIA; we use this in our per-token variant.
+#
+# Scoring formula:
+#     membership_score = NLL - alpha * zlib_length
+#     Lower scores → more likely memorized (member).
+#
+# Data sources: N/A (this file attacks a model, it does not ingest data)
+#
+# Rights claim contact: veedubin.legal@example.com
+# See:                  RIGHTS.md (root), data/LEGAL.md, data/REMOVAL.md
+# ================================================================================
 """Membership-inference attack (MIA) scoring.
 
 Strategy 2 from Carlini et al. (2022): use NLL + zlib entropy to
@@ -7,6 +48,7 @@ required — we calibrate the threshold on held-out sources.
 Reference:
     Carlini, N., et al. "Membership Inference Attacks From First Principles."
     IEEE Symposium on Security and Privacy, 2022.
+    https://arxiv.org/abs/2112.03570
 
 Scoring formula:
     membership_score = NLL - alpha * zlib_length
@@ -16,7 +58,7 @@ The held-out sources (azure-pyrit, cyberark-fuzzyai) with n_records=0
 in _index.json provide natural non-member calibration data.
 """
 
-from __future__ import annotations
+
 
 import math
 import zlib

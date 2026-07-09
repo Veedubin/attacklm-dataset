@@ -1,3 +1,28 @@
+from __future__ import annotations
+
+# PROVENANCE METADATA — scripts/inversion/provenance.py
+# ================================================================================
+# Attack class:        N/A (this file is provenance + license enforcement;
+#                      it does not implement an attack)
+# Original authors:    Veedubin (in-repo author)
+# Paper title:         N/A (internal)
+# Year / venue:        2026 / in-repo
+# Paper URL:           N/A
+# Canonical repo:      N/A
+#
+# Implementation:
+#   Type:              ORIGINAL_WORK
+#   Lines of port:     N/A
+#   Upstream license:  N/A
+#
+# Data sources:
+#   Upstream repo:     N/A (this file is metadata-handling only)
+#   Upstream license:  N/A
+#   Per-record:        see data/ATTRIBUTION.md
+#
+# Rights claim contact: veedubin.legal@example.com
+# See:                  RIGHTS.md (root), data/LEGAL.md, data/REMOVAL.md
+# ================================================================================
 """Provenance tracking and license enforcement for the inversion audit.
 
 Three responsibilities:
@@ -8,7 +33,7 @@ Three responsibilities:
    EXPORTABLE_SUMMARY based on the license and content type.
 """
 
-from __future__ import annotations
+
 
 import json
 from dataclasses import dataclass

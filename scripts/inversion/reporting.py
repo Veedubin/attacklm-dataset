@@ -1,3 +1,25 @@
+from __future__ import annotations
+
+# PROVENANCE METADATA — scripts/inversion/reporting.py
+# ================================================================================
+# Attack class:        N/A (this file is reporting infrastructure; it does
+#                      not implement an attack)
+# Original authors:    Veedubin (in-repo author)
+# Paper title:         N/A (internal)
+# Year / venue:        2026 / in-repo
+# Paper URL:           N/A
+# Canonical repo:      N/A
+#
+# Implementation:
+#   Type:              ORIGINAL_WORK
+#   Lines of port:     N/A
+#   Upstream license:  N/A
+#
+# Data sources: N/A
+#
+# Rights claim contact: veedubin.legal@example.com
+# See:                  RIGHTS.md (root), data/LEGAL.md, data/REMOVAL.md
+# ================================================================================
 """Audit report generation for the inversion harness.
 
 Writes structured output to data/audit/<date>/ with three tiers:
@@ -11,7 +33,7 @@ Pre-flight checks:
     3. All raw reconstruction text stays in inversion_results.jsonl.
 """
 
-from __future__ import annotations
+
 
 import json
 import logging
