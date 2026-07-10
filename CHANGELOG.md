@@ -1,3 +1,65 @@
+## [Unreleased] — 2026-07-10 — Decision: dataset is GH-only, no PyPI publish
+
+Considered publishing `attacklm-dataset` to PyPI as the missing version
+after the 2026-07-09 audit caught the build-backend bug in `pyproject.toml`.
+Implemented (in commits 1229f71, 098cccc, 20a9580, 34e3621) and rolled
+back: the dataset is a **data package** (8,147 tracked JSONL files,
+~50MB compressed, plus a 3-file Python wrapper) and PyPI is the wrong
+place for it. A `pip install attacklm-dataset` for a 50MB data bundle
+goes against the typical "small Python library" expectation of PyPI,
+and the actual data distribution is already handled by `attacklm init`
+in the AttackLM package (which downloads `attacklm-dataset.tar.gz` from
+GitHub Releases).
+
+**Decision: no PyPI publish for `attacklm-dataset`.**
+
+What was rolled back:
+- v0.4.1 tag (was `e64c782`) and v0.4.2 tag (was `95c70c2`) — both
+  deleted from local and remote, both never reached PyPI.
+- The hatchling build-backend fix (commit 1229f71) — note: this was
+  a real bug fix (`setuptools.backends._legacy:_Backend` doesn't
+  exist in any setuptools version, blocking `python -m build`); the
+  decision to roll it back is **purely** about not publishing to
+  PyPI, not about whether the fix is good. If you want a
+  GitHub-Releases-only flow, the hatchling fix is still needed for
+  `python -m build` to produce the tarball. **Open question** for
+  the user: re-apply the build fix without bumping the version?
+- The CI workflow at `.github/workflows/ci.yml` — deleted, the
+  audit worked on the local `pytest tests/` invocation only.
+- The release workflow at `.github/workflows/release.yml` — deleted.
+  Would have failed at the trusted-publishing step anyway because the
+  PyPI trusted publisher is not configured for this project.
+
+What stays:
+- v0.4.0 tag (244cb00), which was already PUSHED before this session
+  and remains on origin. **Not on PyPI** (build was broken). The
+  `attacklm init` download flow in AttackLM uses the GitHub Releases
+  tarball, which is a separate artifact from the git tag.
+
+What this means for users:
+- `pip install attacklm-dataset` does not work and is **not** supported.
+  Use the AttackLM package's `attacklm init` command instead, or
+  `git clone https://github.com/Veedubin/attacklm-dataset`.
+- `pip install "attacklm[all]"` (AttackLM) does not pull in
+  `attacklm-dataset` from PyPI; the `[dataset]` extra in AttackLM is
+  for the **GitHub Releases download** path, not a PyPI dep.
+
+### Known issues (carried over from the audit)
+- `pyproject.toml` still uses `setuptools.backends._legacy:_Backend`
+  which does not exist. `python -m build` fails. Local
+  `pip install -e .` works because it doesn't go through the build
+  backend. **Fix when re-applying the hatchling patch.**
+- `__version__.py` says "0.1.0" while `__init__.py` hardcodes
+  "0.4.0" and the v0.4.0 tag exists. Three sources of truth,
+  all disagreeing. **Fix when re-applying the single-source-of-truth
+  refactor.**
+- `__init__.py` DATA_DIR is computed relative to
+  `Path(__file__).parent.parent` which gives the wrong root
+  (`src/` instead of repo root). Not used by any `scripts/` code
+  (they all define their own DATA_DIR from their own
+  `Path(__file__).parent.parent`), so the bug is purely cosmetic.
+  **Fix when re-applying the path refactor.**
+
 ## [0.4.0] — 2026-07-08 — MIA Track 2: per-token + LiRA + audit screen
 
 Per-token membership-inference scoring (MUSE 2023 default) and LiRA
