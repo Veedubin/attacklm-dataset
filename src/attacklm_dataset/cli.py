@@ -90,23 +90,65 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _args_to_argv(args: argparse.Namespace) -> list[str]:
+    """Serialize the parsed argparse namespace into a CLI argv list.
+
+    Walks the known subcommand fields and emits the ones that were set
+    on the command line. This is the bridge between the wrapper CLI's
+    strict argparse and the underlying script's argparse (which has
+    its own --yes / --from-source / etc. flags that the wrapper
+    accepts but does not re-implement).
+    """
+    # Map of attr name → CLI flag (long form, no abbreviation).
+    flag_map = {
+        "yes": "--yes",
+        "from_source": "--from-source",
+        "dataset_url": "--dataset-url",
+        "extract_only": "--extract-only",
+        "buckets_only": "--buckets-only",
+        "attribute_only": "--attribute-only",
+        "clone_only": "--clone-only",
+        "profile": "--profile",
+        "preset": "--preset",
+        "strategy": "--strategy",
+        "source": "--source",
+        "count": "--count",
+    }
+    out: list[str] = []
+    for attr, flag in flag_map.items():
+        if not hasattr(args, attr):
+            continue
+        value = getattr(args, attr)
+        if value is None:
+            continue
+        # Boolean flags: only emit if True.
+        if isinstance(value, bool):
+            if value:
+                out.append(flag)
+        else:
+            out.extend([flag, str(value)])
+    # Trailing positional argv (REMAINDER) goes last, untouched.
+    if getattr(args, "argv", None):
+        out.extend(args.argv)
+    return out
+
+
 def main() -> int:
     parser = build_parser()
     args = parser.parse_args()
 
-    if args.command == "init":
-        return _run_python_script("init_pipeline.py", args.argv)
-    elif args.command == "balance":
-        return _run_python_script("balance_buckets.py", args.argv)
-    elif args.command == "evolve":
-        return _run_python_script("evolve_pairs.py", args.argv)
-    elif args.command == "audit":
-        return _run_python_script("audit_dataset.py", args.argv)
-    elif args.command == "package":
-        return _run_python_script("package_dataset.py", args.argv)
-    else:
+    script_map = {
+        "init": "init_pipeline.py",
+        "balance": "balance_buckets.py",
+        "evolve": "evolve_pairs.py",
+        "audit": "audit_dataset.py",
+        "package": "package_dataset.py",
+    }
+    script = script_map.get(args.command)
+    if script is None:
         parser.print_help()
         return 0
+    return _run_python_script(script, _args_to_argv(args))
 
 
 if __name__ == "__main__":
