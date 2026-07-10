@@ -22,6 +22,7 @@ from datetime import datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent / "lib"))
 from mitre_tactic_lookup import get_tactic_for_technique  # noqa: E402
 
 DATA_DIR = Path("data/datasets")
@@ -97,12 +98,17 @@ def extract_technique_id(messages: list[dict]) -> str | None:
     return None
 
 
-def move_bucket(src_name: str, dest_rel: str) -> tuple[Path, Path]:
+def move_bucket(
+    src_name: str, dest_rel: str, dry_run: bool = False
+) -> tuple[Path, Path]:
     """Move a bucket directory. Returns (src, dest)."""
     src = BUCKETS_DIR / src_name
     dest = BUCKETS_DIR / dest_rel
     if not src.exists():
         print(f"  WARNING: source {src_name} does not exist, skipping")
+        return src, dest
+    if dry_run:
+        print(f"  [DRY RUN] would move: {src_name}/ → {dest_rel}/")
         return src, dest
     dest.parent.mkdir(parents=True, exist_ok=True)
     if dest.exists():
@@ -275,9 +281,19 @@ def rebuild_manifest():
     return manifest
 
 
-def main():
+def main(dry_run: bool = False, buckets_dir: Path | None = None) -> int:
+    """Reorganize buckets into the new nested layout.
+
+    Returns 0 on success, 1 on error.
+    """
+    global BUCKETS_DIR, DATA_DIR
+
+    if buckets_dir is not None:
+        BUCKETS_DIR = Path(buckets_dir)
+        DATA_DIR = BUCKETS_DIR.parent
+
     print("=" * 70)
-    print("REORGANIZING BUCKETS")
+    print("REORGANIZING BUCKETS" + (" [DRY RUN]" if dry_run else ""))
     print("=" * 70)
     print()
 
@@ -287,7 +303,7 @@ def main():
         ("prompt_injection", "ai-models/prompt-injection"),
         ("jailbreak", "ai-models/jailbreaking"),
     ]:
-        move_bucket(src, dest)
+        move_bucket(src, dest, dry_run=dry_run)
     print()
 
     # Step 2: Move metasploit, infection_monkey, rta → tools/
@@ -297,52 +313,84 @@ def main():
         ("infection_monkey", "tools/infection_monkey"),
         ("rta", "tools/rta"),
     ]:
-        move_bucket(src, dest)
+        move_bucket(src, dest, dry_run=dry_run)
     print()
 
     # Step 3: Merge atomic_red_team + caldera into MITRE tactic buckets
     print("Step 3: Merging atomic_red_team + caldera into MITRE tactic buckets")
-    merged = merge_attack_based_buckets(TO_MERGE, dry_run=False)
+    merged = merge_attack_based_buckets(TO_MERGE, dry_run=dry_run)
     print()
 
     # Step 4: Remove the now-empty source buckets
     print("Step 4: Removing empty source buckets (atomic_red_team, caldera_plugins)")
-    for bn in TO_MERGE:
-        bp = BUCKETS_DIR / bn
-        if bp.exists():
-            shutil.rmtree(bp)
-            print(f"  Removed: {bn}/")
+    if not dry_run:
+        for bn in TO_MERGE:
+            bp = BUCKETS_DIR / bn
+            if bp.exists():
+                shutil.rmtree(bp)
+                print(f"  Removed: {bn}/")
+    else:
+        print("  [DRY RUN] would remove atomic_red_team/ and caldera_plugins/")
     print()
 
     # Step 5: Update metadata for moved buckets
     print("Step 5: Updating metadata for moved buckets")
-    update_metadata_for_moved_buckets()
+    if not dry_run:
+        update_metadata_for_moved_buckets()
+    else:
+        print("  [DRY RUN] skipping metadata update")
     print()
 
     # Step 6: Rebuild manifest
     print("Step 6: Rebuilding manifest.json")
-    manifest = rebuild_manifest()
-    print(f"  Total buckets: {manifest['total_buckets']}")
-    print(f"  Total pairs:   {manifest['total_pairs']:,}")
+    if not dry_run:
+        manifest = rebuild_manifest()
+        print(f"  Total buckets: {manifest['total_buckets']}")
+        print(f"  Total pairs:   {manifest['total_pairs']:,}")
+    else:
+        print("  [DRY RUN] skipping manifest rebuild")
     print()
 
     # Final summary
-    print("=" * 70)
-    print("FINAL LAYOUT")
-    print("=" * 70)
-    by_category = {}
-    for b in manifest["buckets"]:
-        cat = b.get("category", "?")
-        by_category.setdefault(cat, []).append(b)
-    for cat, blist in by_category.items():
-        n = sum(b["count"] for b in blist)
-        print(f"  [{cat}]")
-        for b in blist:
-            extra = f" ({b['mitre_tactic']})" if b.get("mitre_tactic") else ""
-            print(f"    {b['path']:40s} {b['count']:>6,d} pairs{extra}")
+    if not dry_run:
+        print("=" * 70)
+        print("FINAL LAYOUT")
+        print("=" * 70)
+        by_category = {}
+        for b in manifest["buckets"]:
+            cat = b.get("category", "?")
+            by_category.setdefault(cat, []).append(b)
+        for cat, blist in by_category.items():
+            n = sum(b["count"] for b in blist)
+            print(f"  [{cat}]")
+            for b in blist:
+                extra = f" ({b['mitre_tactic']})" if b.get("mitre_tactic") else ""
+                print(f"    {b['path']:40s} {b['count']:>6,d} pairs{extra}")
+    else:
+        print("  [DRY RUN] no changes made")
     print()
     print("Done!")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        description="Reorganize buckets into the new nested layout "
+        "(ai-models/, tools/, MITRE tactic buckets)."
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        default=False,
+        help="Print what would be done without making any changes.",
+    )
+    parser.add_argument(
+        "--buckets-dir",
+        type=Path,
+        default=None,
+        help="Path to the buckets directory (default: data/datasets/buckets).",
+    )
+    args = parser.parse_args()
+    raise SystemExit(main(dry_run=args.dry_run, buckets_dir=args.buckets_dir))

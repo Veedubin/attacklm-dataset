@@ -1,7 +1,7 @@
 """Regression net: every script in scripts/ imports cleanly and runs --help.
 
 This is the "did someone break the build?" canary. If any of the
-47 scripts in scripts/ have a syntax error, a missing import, a
+scripts in scripts/ have a syntax error, a missing import, a
 broken argparse setup, or a top-level exception at import time, the
 test fails. The user explicitly asked for this — "we don't want
 things that once worked, breaking from new changes and us not
@@ -22,12 +22,11 @@ What this does NOT catch (and shouldn't):
     tests)
   - Permissions / network / GPU failures (those are environmental)
 
-Known issues (scripts that fail --help and the WHY):
-  - bucket_loader.py, device_utils.py, evolved_mixer.py,
-    mitre_tactic_lookup.py, replay_mixer.py: library modules,
-    no argparse.
-  - rebuild_manifest.py, reorganize_buckets.py: maintenance scripts
-    that run unconditionally, no argparse.
+Architectural note: library modules live in ``scripts/lib/`` rather
+than ``scripts/`` so that this test can enforce a clean contract:
+every ``*.py`` in ``scripts/`` is a CLI entry point with ``--help``.
+Library code in ``scripts/lib/`` is tested separately in
+``test_lib_imports.py``.
 """
 
 from __future__ import annotations
@@ -55,15 +54,9 @@ _SCRIPTS_DIR = _REPO_ROOT / "scripts"
 IMPORT_BROKEN: dict[str, str] = {}
 
 # Scripts that don't have --help (no argparse). The --help test is skipped.
-HELP_BROKEN: dict[str, str] = {
-    "bucket_loader.py": "library module, no argparse",
-    "device_utils.py": "library module, no argparse",
-    "evolved_mixer.py": "library module, no argparse",
-    "mitre_tactic_lookup.py": "library module, no argparse",
-    "replay_mixer.py": "library module, no argparse",
-    "rebuild_manifest.py": "maintenance script, runs unconditionally",
-    "reorganize_buckets.py": "maintenance script, runs unconditionally",
-}
+# After moving library modules to scripts/lib/, all remaining scripts
+# in scripts/ should be CLI entry points with argparse.
+HELP_BROKEN: dict[str, str] = {}
 
 # Scripts that don't have main() and don't have a module docstring.
 # (All scripts now pass — this set is empty.)
@@ -207,6 +200,7 @@ class TestScriptsDirectory:
     def test_at_least_20_scripts(self):
         # Sanity check: if this drops below 20, scripts are being
         # deleted in bulk which is probably wrong.
+        # Note: library modules are in scripts/lib/, not scripts/.
         assert len(_SCRIPTS) >= 20, f"Only {len(_SCRIPTS)} scripts; expected >= 20"
 
     def test_no_duplicate_script_names(self):
