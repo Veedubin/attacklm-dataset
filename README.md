@@ -1,29 +1,147 @@
-# AttackLM Dataset
+# attacklm-dataset
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Provenance: 100%](https://img.shields.io/badge/provenance-100%25-brightgreen.svg)](data/ATTRIBUTION.md)
+[![Sources: 11 active](https://img.shields.io/badge/sources-11_active-blue.svg)](#dataset-composition)
+[![Tests: 106+](https://img.shields.io/badge/tests-106%2B-brightgreen.svg)](#testing)
+[![Distribution: GH-only](https://img.shields.io/badge/distribution-GH--only-yellow.svg)](#distribution)
 
-**A MITRE ATT&CK-grounded security fine-tuning dataset with 100% per-record provenance and license attribution.**
+**A MITRE ATT&CK-grounded security fine-tuning dataset, an extraction
+pipeline from 11+ upstream security sources, and a privacy-audit
+harness (Carlini 2021 extraction + 4 MIA methods).**
+
+This repo is the **data + research-toolkit side** of the AttackLM
+project. The trainer/tuner lives in the companion package
+[Veedubin/AttackLM](https://github.com/Veedubin/AttackLM). The two
+split in v0.11.0 to keep the audit code (defensive research) and
+the data (license-aware) isolated from the trainer (general-purpose
+infrastructure).
 
 ---
 
-## Legal & Provenance
+## What's in here
 
-This project implements privacy auditing techniques (training-data extraction and membership-inference attacks) derived from published academic research. All attack code is for **defensive, audit, and academic-research use only** — see [RIGHTS.md](./RIGHTS.md) for the full rights statement, [PROVENANCE.md](./PROVENANCE.md) for the per-file attribution template, and the canonical paper list in [RIGHTS.md §2](./RIGHTS.md#2-authoritative-sources-canonical-papers).
+Three things, in one repo:
 
-For per-record dataset attribution and license metadata, see [data/ATTRIBUTION.md](./data/ATTRIBUTION.md) and [data/LEGAL.md](./data/LEGAL.md). For removal requests from rights-holders, see [data/REMOVAL.md](./data/REMOVAL.md).
+1. **A 24,652-record dataset** of MITRE ATT&CK-grounded training
+   pairs. Every record carries full provenance (source, source URI,
+   license, license URI, rights contact). 18 source directories,
+   11 active after the v0.3.0 security review (3 high-risk sources
+   excluded: RTA, infection_monkey, BPL).
 
-**Rights-claim contact:** `veedubin.legal@example.com` (placeholder — replace before public release).
+2. **An extraction pipeline** — 23 `extract_*.py` scripts that read
+   upstream security tools (Metasploit, Atomic Red Team, Sigma,
+   Elastic, Splunk, Mordor, etc.) and write per-bucket JSONL files
+   in the `data/datasets/buckets/sources/<source>/<bucket>/<tactic>/`
+   layout. Re-runnable from source for upstream updates; the
+   pre-built tarball is shipped as a GitHub Release.
+
+3. **A privacy-audit harness** (`scripts/inversion/`) for owner-
+   side model security testing. Implements:
+
+   - **Prefix-completion extraction** (Carlini 2021)
+   - **MIA reference attack** (loss + zlib, Carlini 2022)
+   - **MIA per-token loss** (MUSE 2024 default)
+   - **MIA LiRA** (likelihood ratio, Carlini 2022 §4)
 
 ---
 
-## Overview
+## Distribution
 
-The AttackLM Dataset provides 24,652 high-quality training pairs across 16 security sources, organized by source → bucket → MITRE tactic. Every record carries full provenance: source, source URI, license, license URI, and rights contact.
+**This is a GitHub-only distribution. It is not on PyPI.**
 
-## Dataset Composition
+The reason: this is a **data bundle** (8,147 tracked JSONL files,
+~50MB compressed), not a Python library. A 50MB `pip install
+attacklm-dataset` goes against the typical "small Python library"
+expectation of PyPI, and the data distribution is already handled
+by `attacklm init` in the AttackLM package (which downloads
+`attacklm-dataset.tar.gz` from GitHub Releases).
 
-| Category | Source Examples | Approx. Pairs | License |
+Users get the data in one of three ways:
+
+```bash
+# (Recommended) Through the AttackLM trainer
+pip install "attacklm[all]"
+attacklm init --yes   # downloads the GitHub Releases tarball
+
+# Or as a git clone (gives you the data + the extractors + the audit harness)
+git clone https://github.com/Veedubin/attacklm-dataset.git
+cd attacklm-dataset
+
+# Or as a Python wrapper only (no data — use this for the CLI tools)
+pip install -e .
+attacklm-dataset --help
+```
+
+The `attacklm-dataset` Python wrapper is small (3 source files, ~8KB).
+The data is what makes the package large, and the data lives at
+`data/datasets/buckets/sources/<source>/<bucket>/<tactic>/data.jsonl`
+in this repo.
+
+---
+
+## Quickstart
+
+### As a data consumer (most users)
+
+Just use the AttackLM trainer. It downloads the pre-built tarball
+and sets up the bucket layout for you:
+
+```bash
+pip install "attacklm[all]"
+attacklm init --yes                          # downloads + organizes
+attacklm balance --profile 7b-16gb          # builds a balanced subset
+attacklm train -- --dataset data/datasets/balanced/balanced_7b-16gb.jsonl --epochs 10 --train
+```
+
+### As a researcher (audit harness)
+
+```bash
+git clone https://github.com/Veedubin/attacklm-dataset.git
+cd attacklm-dataset
+pip install -e ".[inversion]"
+
+# Audit a model (e.g., your trained AttackLM)
+attacklm-dataset audit --model /path/to/model --attack all --mia-method per_token
+```
+
+### As a data contributor (extractors)
+
+```bash
+git clone https://github.com/Veedubin/attacklm-dataset.git
+cd attacklm-dataset
+pip install -e ".[extract]"
+
+# Build from upstream sources (clones ~6GB of Metasploit, Sigma, etc.)
+attacklm-dataset init --from-source
+```
+
+See [`scripts/`](scripts/) for the 23 per-source extractors. Each
+has a docstring with the source URI, license, and a usage example.
+
+---
+
+## CLI reference
+
+`attacklm-dataset` is a thin CLI wrapper that dispatches to the
+scripts in [`scripts/`](scripts/):
+
+| Command | What it runs | Purpose |
+| :--- | :--- | :--- |
+| `attacklm-dataset init` | `scripts/init_pipeline.py` | Download pre-built tarball OR build from upstream sources |
+| `attacklm-dataset balance` | `scripts/balance_buckets.py` | Build a balanced training subset (anti-source-bias) |
+| `attacklm-dataset evolve` | `scripts/evolve_pairs.py` | Synthetically expand short pairs into complex reasoning examples |
+| `attacklm-dataset audit` | `scripts/audit_dataset.py` | Run the privacy-audit harness on a model |
+| `attacklm-dataset package` | `scripts/package_dataset.py` | Package the dataset for distribution (the GitHub Release tarball) |
+
+Each command has its own flag set; `attacklm-dataset <cmd> --help`
+shows them.
+
+---
+
+## Dataset composition
+
+| Category | Source examples | Approx. pairs | License |
 | :--- | :--- | :--- | :--- |
 | **Offensive** | Metasploit, Atomic Red Team, MITRE Stockpile | 15,000+ | BSD-3 / MIT / Apache-2.0 |
 | **Defensive** | Sigma, Elastic, Splunk, Mordor, ThreatHunter | 7,000+ | DRL-1.1 / Apache-2.0 |
@@ -31,57 +149,28 @@ The AttackLM Dataset provides 24,652 high-quality training pairs across 16 secur
 | **Meta/IR** | NIST IR, Orchestrator | 500+ | Public Domain / MIT |
 | **Synthetic** | LLM-generated, AttackLM synthetic, Replay | 2,000+ | GPL-3.0 / MIT |
 
-**Total**: 24,652 records across 16 active sources (18 directories, 2 reserved for future)
+**Total**: 24,652 records across 16 active sources (18 directories,
+2 reserved for future; 3 high-risk sources in the
+`archive/restricted-sources/` dir are gitignored and never
+re-ingested).
 
-## Quickstart
+### Directory layout
 
-```bash
-# Install
-pip install attacklm-dataset
-
-# Initialize the dataset (downloads pre-built tarball)
-attacklm-dataset init --yes
-
-# Or build from source
-attacklm-dataset init --from-source
-
-# Build a balanced training subset
-attacklm-dataset balance --profile 7b-16gb --preset red-team
+```
+data/datasets/buckets/sources/
+  <source>/                    # 18 source directories
+    LICENSE.md                 # License excerpt + URI
+    SOURCE.md                  # Source description + URI
+    <bucket>/                  # Training bucket
+      <tactic>/                # MITRE TAxxxx
+        data.jsonl             # Human-sourced pairs
+        data_llm.jsonl         # LLM-generated pairs
+        data_synth.jsonl       # Deterministic templates
 ```
 
-## Inversion Audit
+### Per-record provenance
 
-Audit your own model for memorized training data using Carlini's prefix-completion extraction + MIA loss+zlib scoring.
-
-```bash
-# Example audit run
-attacklm-dataset audit --model <path_to_model> --probe-count 50
-```
-
-**Key Flags:**
-- `--model`: Path to the model being audited.
-- `--source-filter`: Filter probes to specific sources.
-- `--probe-count`: Number of probes per source.
-- `--top-k`: Number of top-k candidates to evaluate.
-- `--mia-threshold-mode`: Threshold method (`median`, `percentile`, `holdout_file`).
-- `--mia-percentile`: Percentile for thresholding (default: 5).
-
-**Output Structure:**
-Results are stored in `data/audit/<date>/` with the following files:
-- `summary.json`: High-level aggregate metrics.
-- `threshold.md`: Documentation of the MIA threshold derivation.
-- `inversion_results.jsonl`: Raw record-level reconstructions.
-
-**⚠️ WARNING**: Raw reconstructions are sensitive and must stay workspace-internal (`chmod 0600`). Only aggregate metrics should be exported. Training data carries various licenses (BSD-3, DRL-1.1, etc.); exporting raw samples may violate these terms.
-
-**Further Reading:**
-- See [docs/AUDIT_RUNNER.md](docs/AUDIT_RUNNER.md) for the overnight-runner plan.
-- See [docs/PROBE_TOKEN_BUDGET.md](docs/PROBE_TOKEN_BUDGET.md) for the probe-length rationale.
-- See [docs/MIA_THRESHOLD_CALIBRATION.md](docs/MIA_THRESHOLD_CALIBRATION.md) for the threshold calibration design.
-
-## Per-Record Provenance
-
-Every record in this dataset carries these fields:
+Every record in the dataset carries these fields:
 
 ```json
 {
@@ -93,32 +182,128 @@ Every record in this dataset carries these fields:
 }
 ```
 
-## Directory Layout
+For the full per-record attribution (which record came from which
+file in which upstream repo), see
+[data/ATTRIBUTION.md](data/ATTRIBUTION.md).
+
+---
+
+## Privacy audit (research toolkit)
+
+The `scripts/inversion/` package is the **owner-side model security
+test**. The question is "if I ship this model, what can an attacker
+extract from it?" — which the model owner wants to know *before*
+shipping.
+
+### Attack classes
+
+| Attack class | Paper | What it measures |
+| :--- | :--- | :--- |
+| **Prefix-completion extraction** | Carlini et al. 2021 ([arXiv:2012.07805](https://arxiv.org/abs/2012.07805)) | Whether the model can regenerate verbatim training data given a prefix. |
+| **MIA reference attack (loss + zlib)** | Carlini et al. 2022 ([arXiv:2112.03570](https://arxiv.org/abs/2112.03570)) | Whether per-record loss is lower on members than on non-members. |
+| **MIA per-token loss** | Shi et al. (MUSE) 2024 ([arXiv:2407.06460](https://arxiv.org/abs/2407.06460)) | Same idea, normalized by suffix-token count (removes length bias). |
+| **MIA LiRA (likelihood ratio)** | Carlini et al. 2022 §4 ([arXiv:2112.03570](https://arxiv.org/abs/2112.03570)) | The "10× more powerful at low FPR" MIA. Requires K shadow-model loss files. |
+
+### Running the audit
+
+```bash
+# From the AttackLM trainer
+attacklm audit --attack all --mia-method per_token --model <path>
+
+# Or directly from this repo
+attacklm-dataset audit --model <path> --attack all --mia-method per_token
+
+# Just prefix-completion extraction, 100 probes
+attacklm audit --attack extraction --max-records 100
+
+# Just LiRA MIA (requires pre-computed shadow loss files)
+attacklm audit --attack mia --mia-method lira --lira-params shadow_params.json
+```
+
+**Output structure** is `data/audit/<date>/` with:
+- `summary.json` — high-level aggregate metrics (safe to share)
+- `threshold.md` — documentation of the MIA threshold derivation
+- `inversion_results.jsonl` — raw record-level reconstructions
+  (**chmod 0600**, stay workspace-internal; training data carries
+  BSD-3, DRL-1.1, and other terms that may not allow redistribution
+  of raw samples)
+
+**Design docs** (the "why" behind each design decision):
+- [docs/ATTACK_TAXONOMY.md](docs/ATTACK_TAXONOMY.md) — the 3-attack
+  taxonomy, the LLM MI = TDE collapse argument, and the CLI flag
+  mapping
+- [docs/LIRA.md](docs/LIRA.md) — LiRA design, K parameter guide,
+  compute cost, threshold calibration
+- [docs/MIA_THRESHOLD_CALIBRATION.md](docs/MIA_THRESHOLD_CALIBRATION.md) —
+  threshold derivation
+- [docs/PROBE_TOKEN_BUDGET.md](docs/PROBE_TOKEN_BUDGET.md) — probe
+  length rationale
+- [docs/AUDIT_RUNNER.md](docs/AUDIT_RUNNER.md) — overnight-runner plan
+
+**Hermetic design.** The audit harness is hermetic — no network
+calls, no GPU required, runs on a CPU laptop in minutes. Mocked
+model loaders mean you can test the audit pipeline in CI without
+owning a real model.
+
+---
+
+## Legal & provenance
+
+This project implements privacy auditing techniques (training-data
+extraction and membership-inference attacks) derived from published
+academic research. All attack code is for **defensive, audit, and
+academic-research use only**.
+
+- **[RIGHTS.md](RIGHTS.md)** — full rights statement, the canonical
+  paper list (8 papers), 11-source data attribution table, and the
+  takedown-request process. This is the "trend" DMCA-style notice
+  the user requested.
+- **[PROVENANCE.md](PROVENANCE.md)** — per-file attribution template
+  used by every Python file in this repo. Every attack code file
+  has a `PROVENANCE` block at the top naming the paper, full author
+  list, year/venue, arXiv URL, and rights-claim contact.
+- **[data/ATTRIBUTION.md](data/ATTRIBUTION.md)** — per-record
+  attribution for every record in the dataset.
+- **[data/REMOVAL.md](data/REMOVAL.md)** — how to file a removal
+  request if you're a rights-holder of one of the upstream sources.
+
+**Rights-claim contact:** `veedubin.legal@example.com` (placeholder
+— replace before public release).
+
+---
+
+## Testing
+
+As of v0.4.0 there are 106+ tests across 4 test files, all hermetic:
 
 ```
-data/datasets/buckets/sources/
-  <source>/                    # 18 source directories
-    LICENSE.md                 # License excerpt + URI
-    SOURCE.md                  # Source description + URI
-    <bucket>/                  # Training bucket
-      <tactic>/               # MITRE TAxxxx
-        data.jsonl             # Human-sourced pairs
-        data_llm.jsonl         # LLM-generated pairs
-        data_synth.jsonl       # Deterministic templates
+tests/test_inversion_audit.py      (47 tests — full audit harness, MIA + extraction)
+tests/test_lira.py                 (21 tests — LiRA scoring + shadow params)
+tests/test_per_token_mia.py        (13 tests — per-token MIA scoring)
+tests/test_probe_token_budget.py   (25 tests — probe length calibration)
 ```
 
-## License
+Run them all:
 
-- **Project**: MIT
-- **Data**: Mixed — see per-source `LICENSE.md` and [ATTRIBUTION.md](ATTRIBUTION.md) for full details
-- **Rights holders**: See [data/REMOVAL.md](data/REMOVAL.md) for removal requests
+```bash
+git clone https://github.com/Veedubin/attacklm-dataset.git
+cd attacklm-dataset
+pip install -e ".[inversion]"
+pytest tests/ -v
+```
+
+The tests use `MagicMock` for the model and tokenizer, so the full
+audit pipeline (Carlini probe, MIA scoring, LiRA scoring, threshold
+derivation, JSONL output) can be exercised without a real model
+or GPU. This is the regression net for "did someone break the audit
+harness?".
+
+---
 
 ## Related
 
-- [AttackLM](https://github.com/Veedubin/AttackLM) — Training pipeline that consumes this dataset
-
-## Documentation
-
-- [PROBE_TOKEN_BUDGET.md](docs/PROBE_TOKEN_BUDGET.md) — Rationale for adaptive probe length.
-- [MIA_THRESHOLD_CALIBRATION.md](docs/MIA_THRESHOLD_CALIBRATION.md) — Design of the MIA thresholding system.
-- [AUDIT_RUNNER.md](docs/AUDIT_RUNNER.md) — Execution plan for large-scale audits.
+- **[Veedubin/AttackLM](https://github.com/Veedubin/AttackLM)** —
+  the trainer/tuner/TUI that consumes this dataset
+- **[RIGHTS.md](RIGHTS.md)** — full rights statement + canonical paper list
+- **[PROVENANCE.md](PROVENANCE.md)** — per-file attribution template
+- **[CHANGELOG.md](CHANGELOG.md)** — full version history
