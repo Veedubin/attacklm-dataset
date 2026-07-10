@@ -41,6 +41,7 @@ from pathlib import Path
 from typing import Any
 
 sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).parent / "lib"))
 from mitre_tactic_lookup import get_tactic_for_technique, get_tactic_name
 
 # ---------------------------------------------------------------------------
