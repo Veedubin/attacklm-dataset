@@ -32,15 +32,6 @@ import sys
 from pathlib import Path
 from typing import Any
 
-try:
-    from datasets import load_dataset
-except ImportError:
-    print(
-        "ERROR: 'datasets' package is required. Install with: pip install datasets",
-        file=sys.stderr,
-    )
-    sys.exit(1)
-
 # ---------------------------------------------------------------------------
 # Paths
 # ---------------------------------------------------------------------------
@@ -173,6 +164,17 @@ def main() -> int:
 
     # Download dataset with streaming for memory efficiency
     print("Downloading dataset (streaming mode)...", file=sys.stderr)
+    # Lazy import: ``datasets`` is an optional dependency.  Kept out of
+    # module scope so that ``python extract_cybersec_llm_cve.py --help``
+    # works without it installed.
+    try:
+        from datasets import load_dataset  # noqa: WPS433
+    except ImportError:
+        print(
+            "ERROR: 'datasets' package is required. Install with: pip install datasets",
+            file=sys.stderr,
+        )
+        return 1
     try:
         dataset = load_dataset(DATASET_NAME, split=DATASET_SPLIT, streaming=True)
     except Exception as exc:

@@ -22,20 +22,12 @@ What this does NOT catch (and shouldn't):
     tests)
   - Permissions / network / GPU failures (those are environmental)
 
-Known issues (scripts that fail import or --help and the WHY):
-  - extract_cybersec_llm_cve.py: requires the `datasets` library,
-    which is an optional dev dependency. Not installed in CI.
-  - init_pipeline.py: has a Python 3.14 incompatibility (dataclass
-    with `from __future__ import annotations` and a frozen=True
-    class — the `KW_ONLY` sentinel can't be resolved). Tracked
-    separately.
-  - bucket_loader.py, evolved_mixer.py, mitre_tactic_lookup.py,
-    replay_mixer.py: utility modules, no main() and no top-level
-    docstring (they're library code, not CLI scripts). The import
-    succeeds; the assertion is too strict.
-  - device_utils.py: no argparse. Maintenance utility, not a CLI.
-  - rebuild_manifest.py, reorganize_buckets.py: no --help; they're
-    maintenance scripts that do their thing unconditionally.
+Known issues (scripts that fail --help and the WHY):
+  - bucket_loader.py, device_utils.py, evolved_mixer.py,
+    mitre_tactic_lookup.py, replay_mixer.py: library modules,
+    no argparse.
+  - rebuild_manifest.py, reorganize_buckets.py: maintenance scripts
+    that run unconditionally, no argparse.
 """
 
 from __future__ import annotations
@@ -43,6 +35,7 @@ from __future__ import annotations
 import importlib
 import importlib.util
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -59,15 +52,7 @@ _SCRIPTS_DIR = _REPO_ROOT / "scripts"
 
 
 # Scripts that fail to import — the test for them is skipped.
-IMPORT_BROKEN: dict[str, str] = {
-    "extract_cybersec_llm_cve.py": "requires the `datasets` library (optional dev dep)",
-    "init_pipeline.py": (
-        "Python 3.14 incompatibility — dataclass(frozen=True) with "
-        "`from __future__ import annotations` and the KW_ONLY sentinel "
-        "isn't resolvable. Tracked separately; needs a port to 3.10-style "
-        "forward refs."
-    ),
-}
+IMPORT_BROKEN: dict[str, str] = {}
 
 # Scripts that don't have --help (no argparse). The --help test is skipped.
 HELP_BROKEN: dict[str, str] = {
@@ -81,14 +66,8 @@ HELP_BROKEN: dict[str, str] = {
 }
 
 # Scripts that don't have main() and don't have a module docstring.
-# These are utility/library modules, not CLI scripts. The assertion
-# is too strict for them.
-NO_MAIN_OR_DOCSTRING: set[str] = {
-    "bucket_loader.py",
-    "evolved_mixer.py",
-    "mitre_tactic_lookup.py",
-    "replay_mixer.py",
-}
+# (All scripts now pass — this set is empty.)
+NO_MAIN_OR_DOCSTRING: set[str] = set()
 
 
 # ---------------------------------------------------------------------------
@@ -138,9 +117,19 @@ def test_script_imports_cleanly(script_path: Path) -> None:
     assert spec is not None, f"Could not build spec for {script_path}"
     module = importlib.util.module_from_spec(spec)
     assert module is not None
-    # This is the canary: any syntax error, import error, or
-    # top-level exception fires here.
-    spec.loader.exec_module(module)  # type: ignore[union-attr]
+    # Register in sys.modules so Python 3.14+ dataclass frozen/KW_ONLY
+    # lookups succeed.  Without this, ``from __future__ import annotations``
+    # combined with ``@dataclass(frozen=True)`` tries
+    # ``sys.modules.get(cls.__module__).__dict__`` to find the KW_ONLY
+    # sentinel — which returns None for our synthetic module name, causing
+    # AttributeError.  Clean up the registration even if exec_module raises.
+    sys.modules[spec.name] = module
+    try:
+        # This is the canary: any syntax error, import error, or
+        # top-level exception fires here.
+        spec.loader.exec_module(module)  # type: ignore[union-attr]
+    finally:
+        sys.modules.pop(spec.name, None)
 
 
 @pytest.mark.parametrize("script_path", _SCRIPTS, ids=SCRIPT_NAMES)
@@ -159,9 +148,13 @@ def test_script_has_main_or_docstring(script_path: Path) -> None:
 
     source = script_path.read_text(encoding="utf-8", errors="replace")
     has_main = "def main" in source
-    has_docstring = source.lstrip().startswith('"""') or source.lstrip().startswith(
-        "'''"
+    # Strip shebangs and encoding declarations before checking for docstring.
+    # Files like ``#!/usr/bin/env python3\n"""..."""`` have a valid docstring
+    # on line 2, but lstrip() only removes whitespace — not comment lines.
+    _DOCSTRING_RE = re.compile(
+        r"^(?:\s*#!.*\n|\s*#.*coding[=:].*\n)*\s*(\"\"\"|\'\'\')"
     )
+    has_docstring = bool(_DOCSTRING_RE.match(source))
     assert has_main or has_docstring, (
         f"{script_path.name} has no main() and no docstring — is this an empty file?"
     )
