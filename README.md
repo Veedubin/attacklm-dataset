@@ -3,7 +3,7 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Provenance: 100%](https://img.shields.io/badge/provenance-100%25-brightgreen.svg)](data/ATTRIBUTION.md)
 [![Sources: 11 active](https://img.shields.io/badge/sources-11_active-blue.svg)](#dataset-composition)
-[![Tests: 106+](https://img.shields.io/badge/tests-106%2B-brightgreen.svg)](#testing)
+[![Tests: 457+](https://img.shields.io/badge/tests-457%2B-brightgreen.svg)](#testing)
 [![Distribution: GH-only](https://img.shields.io/badge/distribution-GH--only-yellow.svg)](#distribution)
 
 **A MITRE ATT&CK-grounded security fine-tuning dataset, an extraction
@@ -29,7 +29,7 @@ Three things, in one repo:
    11 active after the v0.3.0 security review (3 high-risk sources
    excluded: RTA, infection_monkey, BPL).
 
-2. **An extraction pipeline** — 23 `extract_*.py` scripts that read
+2. **An extraction pipeline** — 21 `extract_*.py` scripts that read
    upstream security tools (Metasploit, Atomic Red Team, Sigma,
    Elastic, Splunk, Mordor, etc.) and write per-bucket JSONL files
    in the `data/datasets/buckets/sources/<source>/<bucket>/<tactic>/`
@@ -40,7 +40,7 @@ Three things, in one repo:
    side model security testing. Implements:
 
    - **Prefix-completion extraction** (Carlini 2021)
-   - **MIA reference attack** (loss + zlib, Carlini 2022)
+    - **MIA reference attack** (loss on assistant turn + zlib entropy, Carlini 2022)
    - **MIA per-token loss** (MUSE 2024 default)
    - **MIA LiRA** (likelihood ratio, Carlini 2022 §4)
 
@@ -131,7 +131,7 @@ scripts in [`scripts/`](scripts/):
 | `attacklm-dataset init` | `scripts/init_pipeline.py` | Download pre-built tarball OR build from upstream sources |
 | `attacklm-dataset balance` | `scripts/balance_buckets.py` | Build a balanced training subset (anti-source-bias) |
 | `attacklm-dataset evolve` | `scripts/evolve_pairs.py` | Synthetically expand short pairs into complex reasoning examples |
-| `attacklm-dataset audit` | `scripts/audit_dataset.py` | Run the privacy-audit harness on a model |
+| `attacklm-dataset audit` | `scripts/inversion_audit.py` | Run the privacy-audit harness on a model |
 | `attacklm-dataset package` | `scripts/package_dataset.py` | Package the dataset for distribution (the GitHub Release tarball) |
 
 Each command has its own flag set; `attacklm-dataset <cmd> --help`
@@ -149,7 +149,7 @@ shows them.
 | **Meta/IR** | NIST IR, Orchestrator | 500+ | Public Domain / MIT |
 | **Synthetic** | LLM-generated, AttackLM synthetic, Replay | 2,000+ | GPL-3.0 / MIT |
 
-**Total**: 24,652 records across 16 active sources (18 directories,
+**Total**: 24,652 records across 11 active sources (18 directories,
 2 reserved for future; 3 high-risk sources in the
 `archive/restricted-sources/` dir are gitignored and never
 re-ingested).
@@ -200,7 +200,7 @@ shipping.
 | Attack class | Paper | What it measures |
 | :--- | :--- | :--- |
 | **Prefix-completion extraction** | Carlini et al. 2021 ([arXiv:2012.07805](https://arxiv.org/abs/2012.07805)) | Whether the model can regenerate verbatim training data given a prefix. |
-| **MIA reference attack (loss + zlib)** | Carlini et al. 2022 ([arXiv:2112.03570](https://arxiv.org/abs/2112.03570)) | Whether per-record loss is lower on members than on non-members. |
+| **MIA reference attack (loss on assistant turn + zlib)** | Carlini et al. 2022 ([arXiv:2112.03570](https://arxiv.org/abs/2112.03570)) | Whether per-record loss is lower on members than on non-members. |
 | **MIA per-token loss** | Shi et al. (MUSE) 2024 ([arXiv:2407.06460](https://arxiv.org/abs/2407.06460)) | Same idea, normalized by suffix-token count (removes length bias). |
 | **MIA LiRA (likelihood ratio)** | Carlini et al. 2022 §4 ([arXiv:2112.03570](https://arxiv.org/abs/2112.03570)) | The "10× more powerful at low FPR" MIA. Requires K shadow-model loss files. |
 
@@ -223,8 +223,7 @@ attacklm audit --attack mia --mia-method lira --lira-params shadow_params.json
 **Output structure** is `data/audit/<date>/` with:
 - `summary.json` — high-level aggregate metrics (safe to share)
 - `threshold.md` — documentation of the MIA threshold derivation
-- `inversion_results.jsonl` — raw record-level reconstructions
-  (**chmod 0600**, stay workspace-internal; training data carries
+- `inversion_results.jsonl` — raw record-level reconstructions, including `prompt_text` and `best_reconstruction` fields for a self-contained evidence chain (**chmod 0600**, stay workspace-internal; training data carries
   BSD-3, DRL-1.1, and other terms that may not allow redistribution
   of raw samples)
 
@@ -274,13 +273,15 @@ academic-research use only**.
 
 ## Testing
 
-As of v0.4.0 there are 106+ tests across 4 test files, all hermetic:
+As of v0.4.0 there are 457+ tests across 10 test files, all hermetic:
 
 ```
 tests/test_inversion_audit.py      (47 tests — full audit harness, MIA + extraction)
 tests/test_lira.py                 (21 tests — LiRA scoring + shadow params)
 tests/test_per_token_mia.py        (13 tests — per-token MIA scoring)
 tests/test_probe_token_budget.py   (25 tests — probe length calibration)
+tests/test_audit_bugfixes.py       (14 tests — regression for commit 4386995)
+... (and 5 other utility/pipeline tests)
 ```
 
 Run them all:

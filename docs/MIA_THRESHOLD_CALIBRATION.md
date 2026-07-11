@@ -34,13 +34,14 @@ The 2026-07-07 inversion audit reported **0 exact matches** across all three pro
 
 ### 1.1 What the harness actually did (empirically confirmed)
 
-The MIA decision threshold is applied in `scripts/inversion_audit.py` lines 410–468. Tracing the code path for the 2026-07-07 run:
+The MIA decision threshold is applied in `scripts/inversion_audit.py` lines 613–710 (was 410–468 in the original implementation; line numbers shifted after the `--mia-threshold-mode` refactor and the bug-fix commits). Tracing the code path for the 2026-07-07 run:
 
-1. `get_held_out_sources(dataset_root)` returns `["azure-pyrit", "cyberark-fuzzyai"]` because both have `n_records=0` in `_index.json` (line 142–147 of `provenance.py`).
-2. `load_records(dataset_root, ["azure-pyrit", "cyberark-fuzzyai"])` walks the source directories, finds **zero JSONL files** (both `azure-pyrit/ai/jailbreaking/` and `cyberark-fuzzyai/ai/jailbreaking/` are empty), and returns `[]`.
-3. The `if held_out_records:` check fails, so control falls through to `member_threshold = statistics.median(member_scores)` (line 463).
-4. The threshold applied was `51.95` — the **median of all 150 membership_scores** of the records being audited.
-5. The classifier rule is `membership_score < threshold`, so **exactly 75/150 records (50%) got `mia_member=True` by construction** — confirmed empirically: per-source splits were 22/50 (atomic-red-team), 29/50 (metasploit-framework), 24/50 (sigma-hq).
+1. `--mia-threshold-mode` defaulted to `percentile` with `--mia-percentile 5` (NOT `median` — the 2026-07-07 run was before the refactor; see git log for the chronology). For the current code path the median branch is reachable via `--mia-threshold-mode median`.
+2. When the median branch is taken (line 625), the threshold applied is `statistics.median(member_scores)` (line 628).
+3. The threshold applied in the 2026-07-07 run was `51.95` — the **median of all 150 membership_scores** of the records being audited.
+4. The classifier rule is `membership_score < threshold`, so **exactly 75/150 records (50%) got `mia_member=True` by construction** — confirmed empirically: per-source splits were 22/50 (atomic-red-team), 29/50 (metasploit-framework), 24/50 (sigma-hq).
+
+**Note (post-bugfix-2026-07-10):** The `membership_score` itself is now computed from the **assistant turn only** (after commit `4386995` fixed Bug #1: `score_record` now uses `_extract_assistant_turn` instead of `_extract_full_text`). This is a correctness improvement, not a calibration-method change — the threshold-calibration methodology described in this doc still applies. The per-record loss is no longer biased by prompt length, which makes the MIA score a cleaner signal of memorization of the assistant turn.
 
 This is a **self-referential threshold**: the decision boundary is the median of the very scores it is meant to classify. It cannot produce a meaningful "is this a member" answer. The "0 exact matches" finding is *also* a probe artifact (Carlini `max_new_tokens=64` cannot reconstruct records of mean length 150–212 tokens) but that is a separate issue addressed in §6 (out of scope for this doc).
 
@@ -159,7 +160,7 @@ If the user rejects Track 1 (C) entirely as "too weak," the only honest path is 
 
 | File | Change |
 |---|---|
-| `scripts/inversion_audit.py` | Add `--mia-threshold-mode {median, percentile:N, absolute:V, holdout_file:PATH}` to `build_parser()` (around line 150). Refactor lines 416–463 to dispatch on the mode. |
+| `scripts/inversion_audit.py` | `--mia-threshold-mode` already exists at line 210 in `build_parser()`. Threshold-mode dispatch is at lines 617–701. (This was implemented after §1.1 was written; the doc was retro-fitted.) |
 | `scripts/inversion/scoring.py` | Add `select_threshold(scores: list[float], mode: str) -> float` function. Keep `calibrate_threshold` for the holdout case. |
 | `tests/test_inversion_audit.py` | Add `TestMIAModes` class with `test_median_mode`, `test_percentile_mode`, `test_absolute_mode`, `test_median_fallback_warning_logged`, `test_holdout_mode`. |
 | `data/audit/2026-07-07/threshold.md` | **New file.** Document the 2026-07-07 run's threshold (median=51.95, 75/150 flagged, calibration artifact). |

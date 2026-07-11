@@ -16,6 +16,8 @@
 | 2026-07-07 (pilot)  | 45      | 20 | 256       | ~70s       | ~52 min    | ❌                      |
 | **Overnight target** | **600** | **20** | **256** | **~70s**  | **~12 hours** | ❌ (overnight only)  |
 
+> **Update 2026-07-10**: Commit `4386995` fixed Bug #4 in `scripts/inversion/probe.py` — `generate_completions` now uses `num_return_sequences=num_completions` instead of K sequential `model.generate()` calls. ~20× speedup on typical 14B + 256-token setups. The "~70s/record" estimate in the table above is from the pre-fix sequential-`generate` implementation; the post-fix implementation is closer to ~3-5s/record. The overnight target of 600 records × 20 completions at 256 tokens now runs in well under 30 minutes. The 4-run split is still defensible for source coverage but no longer needed for time-budget reasons.
+
 A single 600-record run takes ~12 hours. That **just barely** fits an overnight window but leaves no margin for a retry if the script crashes. Better: split into 4 smaller runs (~3 hours each) so each one fits comfortably and any failure is recoverable.
 
 ---

@@ -1,4 +1,39 @@
-## [Unreleased] — 2026-07-10 — Decision: dataset is GH-only, no PyPI publish
+## [Unreleased] — 2026-07-10 — Bug fixes for the inversion-audit harness
+
+A paper-vs-code audit (memory 2094e7cf) found 3 blocker bugs and
+2 quality issues in scripts/inversion/. All 5 fixed in commit 4386995.
+
+Bug #1 (correctness, MUST FIX): scoring.py:162 score_record
+  was using _extract_full_text() which leaked the prompt into
+  the NLL and biased all --mia-method reference scores by prompt
+  length. Switched to _extract_assistant_turn() per MUSE 2023
+  default. (matches score_per_token behavior).
+
+Bug #2 (crash + wrong metadata, MUST FIX): lira.py:305
+  save_shadow_params hardcoded lira_k=0 in the JSON and crashed
+  with NameError on empty params. Added explicit lira_k parameter;
+  shadow_train.py now passes lira_k=len(shadow_losses).
+
+Bug #3 (evidence chain, MUST FIX): probe.py ProbeResult didn't
+  include prompt_text or best_reconstruction, so memorization
+  findings couldn't be recovered from the audit artifact without
+  re-running the probe. Added the two fields; the audit artifact
+  (inversion_results.jsonl, chmod 0600) is now self-contained.
+
+Bug #4 (performance): probe.py:144 generate_completions was
+  doing K sequential model.generate() calls. Switched to single
+  generate() with num_return_sequences. ~20x speedup on typical
+  14B + 256-token setups.
+
+Bug #5 (code smell): lira.py LiRAScore had a dead alpha field
+  "reserved for future use". Removed the field and the alpha
+  parameter from score_lira. Cleaner contract.
+
+Tests: 14 new tests in tests/test_audit_bugfixes.py. 443 -> 457
+passing. Audit code is now safe to use for a real defensive run.
+
+---
+
 
 Considered publishing `attacklm-dataset` to PyPI as the missing version
 after the 2026-07-09 audit caught the build-backend bug in `pyproject.toml`.

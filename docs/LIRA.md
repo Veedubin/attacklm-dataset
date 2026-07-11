@@ -126,7 +126,7 @@ python scripts/inversion_audit.py \
 - `--lira-params <path>` — path to the `shadow_params.json` file produced by step 3
 
 **Optional flags**:
-- `--lira-k 16` — number of shadow models (informational; K is derived from the shadow params file)
+- `--lira-k 16` — number of shadow models (informational only; the audit reads the K from the shadow params file at `args.lira_params`, written there by `shadow_train.py` from `len(shadow_losses)`)
 - `--mia-threshold-mode lrt` — use the natural 0.0 threshold (default for LiRA)
 
 ## 5. Compute cost
