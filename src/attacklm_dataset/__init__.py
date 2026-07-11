@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-__version__ = "0.4.0"
+from .__version__ import __version__
 
 PACKAGE_ROOT = Path(__file__).parent.parent
 DATA_DIR = PACKAGE_ROOT / "data" / "datasets" / "buckets" / "sources"
