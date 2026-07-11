@@ -303,10 +303,19 @@ class TestCarliniProbe(unittest.TestCase):
         mock_tokenizer.eos_token_id = 2
         mock_tokenizer.pad_token_id = 0
 
-        # Mock model.generate to return tensor
+        # Mock model.generate to return tensor with shape (num_completions, seq_len)
+        # After Bug #4 fix, generate_completions uses num_return_sequences,
+        # so the output has shape (K, prompt_len + new_tokens).
         import torch
 
-        output_ids = torch.tensor([[1, 2, 3, 10, 20, 30]])
+        # 3 completions, prompt_len=5, total=6 (1 new token per completion)
+        output_ids = torch.tensor(
+            [
+                [1, 2, 3, 4, 5, 10],
+                [1, 2, 3, 4, 5, 20],
+                [1, 2, 3, 4, 5, 30],
+            ]
+        )
         mock_model.generate.return_value = output_ids
         mock_model.device = MagicMock()
         mock_model.device.type = "cpu"

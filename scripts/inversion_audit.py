@@ -531,6 +531,8 @@ def main(argv: list[str] | None = None) -> int:
                         "num_completions": probe_result.num_completions,
                         "prompt_hash": probe_result.prompt_hash,
                         "reconstruction_hash": probe_result.reconstruction_hash,
+                        "prompt_text": probe_result.prompt_text,
+                        "best_reconstruction": probe_result.best_reconstruction,
                     }
                 )
             except Exception as e:

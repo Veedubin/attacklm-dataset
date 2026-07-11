@@ -62,7 +62,6 @@ for producing this artifact.
 """
 
 
-
 import json
 import math
 from dataclasses import dataclass
@@ -89,7 +88,6 @@ class LiRAScore:
     loss_target: float
     nll_per_token: float  # = loss_target / num_suffix_tokens (for cross-check)
     num_suffix_tokens: int
-    alpha: float  # calibration weight (default 1.0; tune per attack)
 
 
 @dataclass
@@ -245,7 +243,6 @@ def score_lira(
     model,
     tokenizer,
     shadow_params: GaussianParams,
-    alpha: float = 1.0,
 ) -> LiRAScore:
     """Score a single record with LiRA.
 
@@ -259,7 +256,6 @@ def score_lira(
         model: HuggingFace model (used for the target loss computation).
         tokenizer: HuggingFace tokenizer.
         shadow_params: The fitted (μ_in, σ_in, μ_out, σ_out) for this record.
-        alpha: Calibration weight (reserved for future use; default 1.0).
     """
     # Extract the assistant turn (per the M1 pattern; reuse the helper)
     suffix_text = _extract_assistant_turn(record)
@@ -273,7 +269,6 @@ def score_lira(
             loss_target=float("inf"),
             nll_per_token=float("inf"),
             num_suffix_tokens=0,
-            alpha=alpha,
         )
 
     loss_target, num_suffix_tokens = compute_nll(model, tokenizer, suffix_text)
@@ -298,15 +293,20 @@ def score_lira(
         loss_target=loss_target,
         nll_per_token=nll_per_token,
         num_suffix_tokens=num_suffix_tokens,
-        alpha=alpha,
     )
 
 
 def save_shadow_params(
     params: dict[str, GaussianParams],
     output_path: Path | str,
+    lira_k: int = 0,
 ) -> None:
     """Save per-record Gaussian parameters to a JSON file.
+
+    Args:
+        params: Per-record Gaussian parameters from fit_gaussians_per_record.
+        output_path: Path to write the JSON file.
+        lira_k: Number of shadow models used. Default 0 (unknown).
 
     Format:
     {
@@ -326,13 +326,6 @@ def save_shadow_params(
 
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
-
-    # Derive lira_k from params if available (best effort)
-    if params:
-        # We can't know K from the Gaussian params alone (it's the number
-        # of shadow models, not derivable from 4 floats). The caller should
-        # set this externally. Default to 0 (unknown).
-        lira_k = 0
 
     data = {
         "lira_k": lira_k,

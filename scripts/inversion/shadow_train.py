@@ -73,7 +73,6 @@ Step 3 is what this module implements. Steps 1-2 are user-side.
 """
 
 
-
 import argparse
 import json
 import logging
@@ -241,8 +240,12 @@ def main(argv: list[str] | None = None) -> int:
     logger.info("Fitted Gaussians for %d records", len(params))
 
     # Save
-    save_shadow_params(params, args.output)
-    logger.info("Saved shadow params to %s", args.output)
+    save_shadow_params(params, args.output, lira_k=len(shadow_losses))
+    logger.info(
+        "Saved shadow params to %s (K=%d shadow models)",
+        args.output,
+        len(shadow_losses),
+    )
     return 0
 
 
