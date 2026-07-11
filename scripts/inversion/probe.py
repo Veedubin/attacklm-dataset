@@ -62,6 +62,8 @@ class ProbeResult:
     original_length: int
     best_completion_length: int
     num_completions: int
+    prompt_text: str = ""
+    best_reconstruction: str = ""
 
 
 def normalize_text(text: str) -> str:
@@ -140,21 +142,21 @@ def generate_completions(
     if hasattr(model, "device") and model.device.type != "cpu":
         inputs = {k: v.to(model.device) for k, v in inputs.items()}
 
+    with torch.no_grad():
+        outputs = model.generate(
+            **inputs,
+            max_new_tokens=max_new_tokens,
+            temperature=temperature,
+            top_p=top_p,
+            do_sample=True,
+            num_return_sequences=num_completions,
+            pad_token_id=tokenizer.eos_token_id or tokenizer.pad_token_id,
+        )
+    prompt_len = inputs["input_ids"].shape[1]
     completions = []
     for i in range(num_completions):
-        with torch.no_grad():
-            outputs = model.generate(
-                **inputs,
-                max_new_tokens=max_new_tokens,
-                temperature=temperature,
-                top_p=top_p,
-                do_sample=True,
-                pad_token_id=tokenizer.eos_token_id or tokenizer.pad_token_id,
-            )
-        # Decode only the generated part (skip the prefix)
-        generated_ids = outputs[0][inputs["input_ids"].shape[1] :]
-        completion = tokenizer.decode(generated_ids, skip_special_tokens=True)
-        completions.append(completion)
+        generated_ids = outputs[i][prompt_len:]
+        completions.append(tokenizer.decode(generated_ids, skip_special_tokens=True))
 
     return completions
 
@@ -323,6 +325,8 @@ def run_carlini_probe(
         original_length=len(target),
         best_completion_length=len(completions[best_idx]),
         num_completions=len(completions),
+        prompt_text=prefix,
+        best_reconstruction=completions[best_idx],
     )
 
 

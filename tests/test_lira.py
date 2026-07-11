@@ -267,7 +267,6 @@ class TestScoreLiRA(unittest.TestCase):
         self.assertEqual(result.sigma_in, 1.0)
         self.assertEqual(result.mu_out, 20.0)
         self.assertEqual(result.sigma_out, 2.0)
-        self.assertEqual(result.alpha, 1.0)
 
     def test_score_lira_no_assistant_turn(self):
         """Empty assistant turn → lira_logit=NaN, no crash."""

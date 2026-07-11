@@ -59,7 +59,6 @@ in _index.json provide natural non-member calibration data.
 """
 
 
-
 import math
 import zlib
 from dataclasses import dataclass
@@ -158,8 +157,8 @@ def score_record(
 
     Combines NLL from model forward pass with zlib entropy.
     """
-    # Concatenate all message content for full-record scoring
-    text = _extract_full_text(record)
+    # Extract just the assistant turn (per MUSE 2023 default)
+    text = _extract_assistant_turn(record)
 
     nll, num_tokens = compute_nll(model, tokenizer, text)
     zlib_length, zlib_ratio = compute_zlib_metrics(text)
