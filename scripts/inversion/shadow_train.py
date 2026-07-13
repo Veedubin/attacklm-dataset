@@ -56,11 +56,13 @@ Usage:
           ...
 
   # Step 2: Score each shadow model on the audit set
+  # (uses scripts/score_shadow.py — the canonical helper)
   for k in range(K):
-      attacklm-dataset/scripts/score_shadow.py \\
-          --model models/shadow_${k} \\
-          --records data/audit_set.jsonl \\
-          --output losses/shadow_${k}.json
+      python scripts/score_shadow.py \
+          --model models/shadow_${k} \
+          --records data/audit_set.jsonl \
+          --output-dir losses/ \
+          --shadow-index ${k}
 
   # Step 3: Produce the per-record Gaussian parameters
   python -m inversion.shadow_train \\

@@ -1,6 +1,20 @@
-## [Unreleased] — 2026-07-10 — Bug fixes for the inversion-audit harness
+## [Unreleased] — 2026-07-13 — LiRA shadow scoring & Offline MIA baseline
 
-A paper-vs-code audit (memory 2094e7cf) found 3 blocker bugs and
+- Added `scripts/score_shadow.py`: CLI for LiRA workflow step 2 (score a
+  shadow model on the audit set, writes `shadow_{K}.json`). Closes the
+  LiRA workflow loop — previously the user had to write this themselves.
+- Added `--mia-method offline` to `inversion_audit.py`: white-box MIA
+  baseline using sample mean/std of audit-set NLL as the OUT distribution.
+  No shadow models required. Field names: `offline_z`, `offline_mu_out`,
+  `offline_sigma_out`, `offline_flagged`. Default threshold: -1.5,
+  configurable via `--offline-z-threshold`. Requires N >= 30 records.
+- Added `compute_offline_z()` to `inversion.scoring` (reuses
+  `zscore_normalize()` for the σ=0 guard).
+- Added 15 new tests (10 in `test_score_shadow.py`, 5 in
+  `test_offline_mia.py`). Total tests: 475 passing, 0 skipped.
+
+### Bug fixes for the inversion-audit harness
+A paper-vs-code audit (memory 209 laL) found 3 blocker bugs and
 2 quality issues in scripts/inversion/. All 5 fixed in commit 4386995.
 
 Bug #1 (correctness, MUST FIX): scoring.py:162 score_record
