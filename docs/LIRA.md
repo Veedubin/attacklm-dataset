@@ -72,16 +72,26 @@ done
 
 ### Step 2: Score each shadow model on the audit set
 
-Compute each shadow's loss on each record:
+Compute each shadow model's loss on each audit record. This step uses
+`scripts/score_shadow.py` — the canonical helper that loads a HF model,
+reads a JSONL of training records, and writes one `shadow_{K}.json` file
+per shadow model.
 
 ```bash
+# Step 2: Score each shadow model on the audit set
+# (uses scripts/score_shadow.py — the canonical helper)
 for k in $(seq 0 15); do
-    attacklm-dataset/scripts/score_shadow.py \
+    python scripts/score_shadow.py \
         --model models/shadow_${k} \
         --records data/audit_set.jsonl \
-        --output losses/shadow_${k}.json
+        --output-dir losses/ \
+        --shadow-index ${k}
 done
 ```
+
+Each `shadow_{K}.json` contains `{record_id: total_nll, ...}` — a flat dict
+matching the format expected by `load_shadow_losses()` in
+`scripts/inversion/shadow_train.py`.
 
 ### Step 3: Fit per-record Gaussians
 
@@ -128,6 +138,41 @@ python scripts/inversion_audit.py \
 **Optional flags**:
 - `--lira-k 16` — number of shadow models (informational only; the audit reads the K from the shadow params file at `args.lira_params`, written there by `shadow_train.py` from `len(shadow_losses)`)
 - `--mia-threshold-mode lrt` — use the natural 0.0 threshold (default for LiRA)
+
+### 4.5. Quick baseline: `--mia-method offline`
+
+If you don't have time to train K=16 shadow models (~16h on a 3B model), the
+**offline MIA** provides a no-shadow-model baseline:
+
+```
+z = (nll - μ_out) / σ_out
+```
+
+where `μ_out` and `σ_out` are the sample mean and standard deviation of the
+audit set's own NLL values. Records with `z < threshold` (default -1.5) are
+flagged as potential training-set members.
+
+**Key properties:**
+
+- **NO shadow models required** — uses only the target model's NLL on the audit set
+- Equivalent to Carlini 2022 §3.2 (reference attack) with sample-std normalization
+- Requires **N >= 30 records** for the sample standard deviation to be reliable
+- The threshold is percentile-based, not theoretically grounded like LiRA's 0.0
+
+**Example invocation:**
+
+```bash
+python scripts/inversion_audit.py \
+    --model /path/to/target/model \
+    --dataset-root data/datasets/buckets/sources \
+    --attack mia \
+    --mia-method offline \
+    --offline-z-threshold -1.5
+```
+
+**Caveat:** This is a **baseline, not LiRA**. For gold-standard MIA at low FPR,
+train K=16 shadow models and use `--mia-method lira`. The offline method is
+useful for rapid sanity checks and as a lower bound on MIA power.
 
 ## 5. Compute cost
 

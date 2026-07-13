@@ -358,3 +358,45 @@ def zscore_normalize(scores: list[float]) -> list[float]:
     if std == 0:
         return [0.0] * n
     return [(x - mean) / std for x in scores]
+
+
+def compute_offline_z(nlls: list[float]) -> tuple[float, float, list[float]]:
+    """Compute offline (K=0) MIA z-scores from audit-set NLLs.
+
+    Uses the sample mean and sample standard deviation of the audit set's
+    own NLL values as the OUT distribution — no shadow models required.
+    This is equivalent to the Carlini 2022 reference attack (§3.2) with
+    sample-std normalization.
+
+    Records with z < threshold (default -1.5) are flagged as potential
+    members (their NLL is significantly lower than the group mean).
+
+    Args:
+        nlls: List of total NLL values from the audit set.
+
+    Returns:
+        (mu_out, sigma_out, z_scores) where:
+        - mu_out: sample mean of the NLL values
+        - sigma_out: sample standard deviation
+        - z_scores: per-record z-scores = (nll - mu_out) / sigma_out
+
+    Raises:
+        ValueError: If len(nlls) < 30 (sample std unreliable for small N).
+    """
+    if len(nlls) < 30:
+        raise ValueError(
+            f"offline MIA requires N >= 30 records for sample-std to be "
+            f"reliable; got N={len(nlls)}"
+        )
+
+    # Compute sample statistics
+    n = len(nlls)
+    mu_out = sum(nlls) / n
+    # Population variance (divide by N) for consistency with fit_gaussian
+    variance = sum((x - mu_out) ** 2 for x in nlls) / n
+    sigma_out = variance**0.5
+
+    # Use zscore_normalize for the σ=0 guard
+    z_scores = zscore_normalize(nlls)
+
+    return mu_out, sigma_out, z_scores

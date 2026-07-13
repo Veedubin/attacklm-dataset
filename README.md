@@ -3,7 +3,7 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Provenance: 100%](https://img.shields.io/badge/provenance-100%25-brightgreen.svg)](data/ATTRIBUTION.md)
 [![Sources: 11 active](https://img.shields.io/badge/sources-11_active-blue.svg)](#dataset-composition)
-[![Tests: 457+](https://img.shields.io/badge/tests-457%2B-brightgreen.svg)](#testing)
+[![Tests: 475+](https://img.shields.io/badge/tests-475%2B-brightgreen.svg)](#testing)
 [![Distribution: GH-only](https://img.shields.io/badge/distribution-GH--only-yellow.svg)](#distribution)
 
 **A MITRE ATT&CK-grounded security fine-tuning dataset, an extraction
@@ -39,10 +39,12 @@ Three things, in one repo:
 3. **A privacy-audit harness** (`scripts/inversion/`) for owner-
    side model security testing. Implements:
 
-   - **Prefix-completion extraction** (Carlini 2021)
+    - **MIA offline baseline** (sample z-score, no shadow models — `--mia-method offline`)
+    - **Shadow scoring** (`scripts/score_shadow.py` — LiRA Step 2 helper)
+    - **MIA LiRA** (likelihood ratio, Carlini 2022 §4)
+    - **MIA per-token loss** (MUSE 2024 default)
     - **MIA reference attack** (loss on assistant turn + zlib entropy, Carlini 2022)
-   - **MIA per-token loss** (MUSE 2024 default)
-   - **MIA LiRA** (likelihood ratio, Carlini 2022 §4)
+
 
 ---
 
@@ -202,6 +204,7 @@ shipping.
 | **Prefix-completion extraction** | Carlini et al. 2021 ([arXiv:2012.07805](https://arxiv.org/abs/2012.07805)) | Whether the model can regenerate verbatim training data given a prefix. |
 | **MIA reference attack (loss on assistant turn + zlib)** | Carlini et al. 2022 ([arXiv:2112.03570](https://arxiv.org/abs/2112.03570)) | Whether per-record loss is lower on members than on non-members. |
 | **MIA per-token loss** | Shi et al. (MUSE) 2024 ([arXiv:2407.06460](https://arxiv.org/abs/2407.06460)) | Same idea, normalized by suffix-token count (removes length bias). |
+| **MIA offline baseline (sample z-score)** | Carlini et al. 2022 §3.2 ([arXiv:2112.03570](https://arxiv.org/abs/2112.03570)) | No shadow models; uses sample mean/std of audit-set NLL. Requires N ≥ 30. |
 | **MIA LiRA (likelihood ratio)** | Carlini et al. 2022 §4 ([arXiv:2112.03570](https://arxiv.org/abs/2112.03570)) | The "10× more powerful at low FPR" MIA. Requires K shadow-model loss files. |
 
 ### Running the audit
@@ -218,6 +221,12 @@ attacklm audit --attack extraction --max-records 100
 
 # Just LiRA MIA (requires pre-computed shadow loss files)
 attacklm audit --attack mia --mia-method lira --lira-params shadow_params.json
+
+# Quick offline MIA baseline (no shadow models, needs N >= 30 records)
+attacklm audit --attack mia --mia-method offline --offline-z-threshold -1.5
+
+# Score a shadow model on the audit set (LiRA Step 2)
+python scripts/score_shadow.py --model models/shadow_0 --records data/audit_set.jsonl --output-dir losses/ --shadow-index 0
 ```
 
 **Output structure** is `data/audit/<date>/` with:
@@ -273,7 +282,7 @@ academic-research use only**.
 
 ## Testing
 
-As of v0.4.0 there are 457+ tests across 10 test files, all hermetic:
+As of v0.5.0 there are 475+ tests across 10 test files, all hermetic:
 
 ```
 tests/test_inversion_audit.py      (47 tests — full audit harness, MIA + extraction)

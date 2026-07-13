@@ -67,6 +67,7 @@ from inversion.lira import (
     score_lira,
 )
 from inversion.scoring import (
+    compute_offline_z,
     score_per_token,
     score_record,
 )
@@ -155,14 +156,23 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--mia-method",
-        choices=["reference", "zlib", "per_token", "lira", "all"],
+        choices=["reference", "zlib", "per_token", "lira", "offline", "all"],
         default="reference",
         help="MIA scoring method. 'reference' = NLL only (Carlini 2022 §3.2, "
         "Loss attack). 'zlib' = NLL - zlib_length (Carlini 2022 §3.2, "
         "zlib-entropy calibration). 'per_token' = NLL normalized by "
         "suffix token count (MUSE 2023 default). 'lira' = "
         "likelihood-ratio test from K shadow models (v0.5.0+). "
-        "'all' = run all available methods and report each.",
+        "'offline' = white-box baseline using sample mean/std of audit-set "
+        "NLL as the OUT distribution (no shadow models needed; requires "
+        "N >= 30 records). 'all' = run all available methods and report each.",
+    )
+    parser.add_argument(
+        "--offline-z-threshold",
+        type=float,
+        default=-1.5,
+        help="Z-score threshold for offline MIA. Records with z < threshold "
+        "are flagged as potential members. Default: -1.5.",
     )
     parser.add_argument(
         "--top-k",
@@ -574,6 +584,10 @@ def main(argv: list[str] | None = None) -> int:
                         "Per-token MIA scoring failed for record %d: %s", i, e
                     )
 
+            # Offline (K=0) MIA — white-box baseline, no shadow models needed
+            # This is handled as a batch operation AFTER the per-record loop,
+            # not per-record. See the offline MIA block below.
+
             # LiRA scoring (Carlini 2022 §4)
             if args.mia_method in ("lira", "all") and lira_shadow_params is not None:
                 record_id = record.get("id", str(i))
@@ -609,6 +623,32 @@ def main(argv: list[str] | None = None) -> int:
                     )
 
         results.append(row)
+
+    # Offline (K=0) MIA — white-box baseline, no shadow models needed
+    # Uses sample mean/std of audit-set NLL as the OUT distribution.
+    # Equivalent to Carlini 2022 reference attack with sample-std normalization.
+    if run_mia and args.mia_method in ("offline", "all") and model_format == "hf":
+        if len(results) < 30:
+            logger.error("offline MIA requires N >= 30 records; got N=%d", len(results))
+            return 1
+        nlls = [r["nll"] for r in results if "nll" in r]
+        if not nlls:
+            logger.warning("No NLLs available for offline MIA; skipping")
+        else:
+            mu_out, sigma_out, z_scores = compute_offline_z(nlls)
+            for r, z in zip(results, z_scores):
+                r["offline_z"] = z
+                r["offline_mu_out"] = mu_out
+                r["offline_sigma_out"] = sigma_out
+                r["offline_flagged"] = z < args.offline_z_threshold
+            logger.info(
+                "offline MIA: mu_out=%.4f sigma_out=%.4f threshold=%.2f flagged=%d/%d",
+                mu_out,
+                sigma_out,
+                args.offline_z_threshold,
+                sum(1 for r in results if r.get("offline_flagged", False)),
+                len(results),
+            )
 
     # MIA threshold calibration
     mia_threshold_derivation = ""
