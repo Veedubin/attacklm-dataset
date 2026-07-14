@@ -188,6 +188,26 @@ For the full per-record attribution (which record came from which
 file in which upstream repo), see
 [data/ATTRIBUTION.md](data/ATTRIBUTION.md).
 
+## Decontamination
+
+> Inspired by MAI-Thinking-1 §2.3.1 + §2.4.3 (Public Evaluation Decontamination + Deduplication) by The Microsoft AI Team, June 2026. Full doc: [docs/DECONTAM.md](docs/DECONTAM.md)
+
+Identify and isolate training data that overlaps with public evaluation benchmarks using 20-gram fuzzy matching to prevent data leakage.
+
+```bash
+attacklm-dataset decontam --eval-set-dir data/eval_sets/ --quarantine-output data/quarantine.jsonl
+```
+
+### Memorization-aware epoch capping
+
+> Inspired by MAI-Thinking-1 §2.5.4 (Mid-training Data Mixture — memorization-aware epoch capping) by The Microsoft AI Team, June 2026. Full doc: [docs/MEMORIZATION.md](docs/MEMORIZATION.md)
+
+Analyze training data for verbatim memorization and structural repetition using a per-token NLL proxy to recommend optimal epoch caps per source.
+
+```bash
+attacklm-dataset memorization-report --model /path/to/model
+```
+
 ---
 
 ## Privacy audit (research toolkit)
@@ -207,7 +227,15 @@ shipping.
 | **MIA offline baseline (sample z-score)** | Carlini et al. 2022 §3.2 ([arXiv:2112.03570](https://arxiv.org/abs/2112.03570)) | No shadow models; uses sample mean/std of audit-set NLL. Requires N ≥ 30. |
 | **MIA LiRA (likelihood ratio)** | Carlini et al. 2022 §4 ([arXiv:2112.03570](https://arxiv.org/abs/2112.03570)) | The "10× more powerful at low FPR" MIA. Requires K shadow-model loss files. |
 
-### Running the audit
+### Closed-loop audit
+
+> Inspired by MAI-Thinking-1 §5.2 (TAP closed-loop) by The Microsoft AI Team, June 202 la 2026. Full doc: [docs/AUDIT_ITER.md](docs/AUDIT_ITER.md)
+
+Perform iterative adversarial auditing to detect brittle memorization by generating semantic variants of fooling records.
+
+```bash
+attacklm-dataset audit --model <path> --audit-iter 3 --variant-strategies suffix,template
+```
 
 ```bash
 # From the AttackLM trainer

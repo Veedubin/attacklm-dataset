@@ -1,3 +1,32 @@
+## [0.7.0] — 2026-07-13
+
+- Added `scripts/memorization_report.py`: per-source memorization proxy + recommended epoch caps.
+- New `data/memorization_epoch_caps.json` (auto-generated) with default 4-tier cap table.
+- New docs: `docs/MEMORIZATION.md`.
+- [Methodology] Implemented technique from MAI-Thinking-1 §2.5.4 (Mid-training Data Mixture — memorization-aware epoch capping) by The Microsoft AI Team, June 2026.
+
+Default behavior: report-only (does NOT auto-apply caps). Caps are a recommendation for review before use.
+
+## [0.6.0] — 2026-07-13
+
+- Added `scripts/decontam.py`: 20-gram fuzzy decontamination against public evaluation sets.
+- New `data/eval_sets/` directory with 3 fixture JSONL files (atomic-red-team, metasploit, sigma).
+- New `datasketch>=1.5,<2.0` optional dependency (in `[inversion]` group).
+- New docs: `docs/DECONTAM.md`.
+- [Methodology] Implemented technique from MAI-Thinking-1 §2.3.1 (Public Evaluation Decontamination) and §2.4.3 (Deduplication) by The Microsoft AI Team, June 2026.
+
+Default behavior: report-only (no deletions). Use `--quarantine-output` to write matched records to a separate file for review.
+
+## [0.5.0] — 2026-07-13
+
+- Added `--audit-iter` flag to `inversion_audit.py` for closed-loop adversarial audits.
+- New `scripts/inversion/variant_generator.py` (paraphrase + suffix-injection + prompt-template).
+- New `scripts/inversion/attack_success_curve.py` (per-iteration success-rate aggregation).
+- New docs: `docs/AUDIT_ITER.md`.
+- [Methodology] Implemented technique from MAI-Thinking-1 §5.2 (TAP-style closed-loop adversarial audit) by The Microsoft AI Team, June 2026.
+
+Backward compatible: `--audit-iter 1` (default) is identical to v0.4.3 single-pass behavior.
+
 ## [Unreleased] — 2026-07-13 — LiRA shadow scoring & Offline MIA baseline
 
 - Added `scripts/score_shadow.py`: CLI for LiRA workflow step 2 (score a
