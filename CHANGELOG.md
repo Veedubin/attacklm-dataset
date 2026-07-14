@@ -1,3 +1,8 @@
+## [0.8.0] — 2026-07-13
+
+- Added held-out NLL evaluation suite (`scripts/split_held_out.py` + `scripts/held_out_nll.py`). Implements MAI-Thinking-1 §2.3-style weighted aggregate (Code/STEM/Math/General/Multilingual). New docs: `docs/HELD_OUT_NLL.md`. Backward compatible: existing training data is untouched.
+- [Methodology] Implemented technique from MAI-Thinking-1 §2.3 (Evaluation Methodology) + §2.3.2 (Comparison of Accuracy and NLL Evaluations) by The Microsoft AI Team, June 2026. Uses the paper's weighted Eq-3 aggregate across 5 buckets.
+
 ## [0.7.0] — 2026-07-13
 
 - Added `scripts/memorization_report.py`: per-source memorization proxy + recommended epoch caps.

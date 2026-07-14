@@ -208,6 +208,16 @@ Analyze training data for verbatim memorization and structural repetition using 
 attacklm-dataset memorization-report --model /path/to/model
 ```
 
+## Held-out NLL evaluation
+
+> Inspired by MAI-Thinking-1 §2.3 + §2.3.2 (Evaluation Methodology + Comparison of Accuracy and NLL Evaluations) by The Microsoft AI Team, June 2026. See [docs/HELD_OUT_NLL.md](docs/HELD_OUT_NLL.md).
+
+Compute a cheap, contamination-resistant signal for model improvement using held-out Negative Log-Likelihood (NLL) across 5 weighted buckets.
+
+```bash
+python scripts/held_out_nll.py --model /path/to/model --aggregation-formula mimic_mai
+```
+
 ---
 
 ## Privacy audit (research toolkit)
