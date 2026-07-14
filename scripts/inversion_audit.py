@@ -54,6 +54,7 @@ import logging
 import sys
 from datetime import date
 from pathlib import Path
+from typing import Any, Callable
 
 # Make the inversion package importable
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -85,8 +86,23 @@ from inversion.reporting import (
     write_exportable_summary,
     write_run_log,
 )
+from inversion.variant_generator import (
+    generate_suffix_injection,
+    generate_prompt_template,
+    generate_paraphrase,
+)
+from inversion.attack_success_curve import compute_success_curve, write_curve
 
 logger = logging.getLogger(__name__)
+
+
+class _ExpandVariantStrategies(argparse.Action):
+    """Custom argparse action that expands 'all' to all strategies."""
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        if "all" in values:
+            values = ["suffix", "template", "paraphrase"]
+        setattr(namespace, self.dest, values)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -94,6 +110,10 @@ def build_parser() -> argparse.ArgumentParser:
         description="Inversion-attack audit harness for AttackLM. "
         "Probes your OWN models for memorized training data.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="Methodology: implements MAI-Thinking-1 §5.2 closed-loop "
+        "adversarial audit pattern (Independent Red Teaming — TAP). "
+        "See docs/AUDIT_ITER.md and 'MAI-Thinking-1: Building a "
+        "Hill-Climbing Machine' (Microsoft AI Team, June 2026).",
     )
     parser.add_argument(
         "--model",
@@ -267,6 +287,44 @@ def build_parser() -> argparse.ArgumentParser:
         "--version",
         action="version",
         version=f"inversion-audit {__version__}",
+    )
+    parser.add_argument(
+        "--audit-iter",
+        type=int,
+        default=1,
+        help="Number of closed-loop iterations (default: 1 = single-pass, "
+        "identical to v0.4.3). Set >1 to enable iterative variant-based "
+        "auditing per MAI-Thinking-1 §5.2.",
+    )
+    parser.add_argument(
+        "--variant-strategies",
+        nargs="+",
+        default=["suffix", "template"],
+        choices=["paraphrase", "suffix", "template", "all"],
+        action=_ExpandVariantStrategies,
+        help="Variant generation strategies for closed-loop audit. "
+        "Default: suffix template. 'paraphrase' requires a model and "
+        "is opt-in. 'all' enables suffix, template, and paraphrase.",
+    )
+    parser.add_argument(
+        "--variant-count-per-iter",
+        type=int,
+        default=5,
+        help="Number of top-K fooling records to vary per iteration (default: 5).",
+    )
+    parser.add_argument(
+        "--iter-output-dir",
+        type=Path,
+        default=None,
+        help="Directory for per-iteration JSONL dumps (default: derived "
+        "from audit date).",
+    )
+    parser.add_argument(
+        "--iter-curve-output",
+        type=Path,
+        default=None,
+        help="Path for the final attack-success curve JSON "
+        "(default: <audit_date>/attack_success_curve.json).",
     )
     return parser
 
@@ -487,7 +545,17 @@ def main(argv: list[str] | None = None) -> int:
 
     # Load model
     logger.info("Loading model from %s", args.model)
-    model_format = args.model_format or detect_model_format(args.model)
+    try:
+        model_format = args.model_format or detect_model_format(args.model)
+    except ValueError:
+        # Auto-detection failed; default to hf for mock/CI environments.
+        # Users hitting this in production should specify --model-format.
+        logger.warning(
+            "Cannot auto-detect model format at %s; defaulting to 'hf'. "
+            "Specify --model-format explicitly to suppress this warning.",
+            args.model,
+        )
+        model_format = "hf"
 
     if model_format == "gguf" and run_mia:
         logger.error(
@@ -502,6 +570,91 @@ def main(argv: list[str] | None = None) -> int:
     # Create audit directory
     audit_dir = create_audit_dir(audit_output_root, audit_date)
     logger.info("Created audit directory: %s", audit_dir)
+
+    # Closed-loop audit path (--audit-iter > 1)
+    if args.audit_iter > 1:
+        iter_output_dir = args.iter_output_dir or audit_dir / "iter"
+        iter_curve_output = (
+            args.iter_curve_output or audit_dir / "attack_success_curve.json"
+        )
+
+        # Build an attack function that wraps the existing MIA scoring.
+        # For closed-loop audit, we compute membership scores then classify
+        # using the percentile threshold (same as single-pass, but per iteration).
+        def _attack_fn(
+            records: list[dict], model_handle: Any, **kwargs: Any
+        ) -> list[dict]:
+            results = []
+            scores = []
+            for i, rec in enumerate(records):
+                rec_id = rec.get("id", str(i))
+                row: dict = {
+                    "record_index": i,
+                    "id": rec_id,
+                }
+                if run_mia and model_format == "hf":
+                    try:
+                        mia_score = score_record(rec, model_handle, tokenizer)
+                        row["nll"] = mia_score.nll
+                        row["membership_score"] = mia_score.membership_score
+                        scores.append(mia_score.membership_score)
+                    except Exception:
+                        row["nll"] = float("inf")
+                        row["membership_score"] = float("inf")
+                        scores.append(float("inf"))
+                else:
+                    row["nll"] = float("inf")
+                    row["membership_score"] = float("inf")
+                    scores.append(float("inf"))
+                results.append(row)
+
+            # Classify using percentile threshold (same logic as single-pass)
+            if scores and run_mia:
+                valid_scores = [s for s in scores if s != float("inf")]
+                if valid_scores:
+                    threshold = _percentile(valid_scores, args.mia_percentile)
+                    for row, score in zip(results, scores):
+                        row["fooling"] = score < threshold
+                else:
+                    for row in results:
+                        row["fooling"] = False
+            else:
+                for row in results:
+                    row["fooling"] = False
+
+            return results
+
+        curve = run_closed_loop_audit(
+            records=records,
+            model_handle=model,
+            attack_fn=_attack_fn,
+            n_iter=args.audit_iter,
+            variant_strategies=args.variant_strategies,
+            k_per_iter=args.variant_count_per_iter,
+            iter_output_dir=iter_output_dir,
+        )
+
+        # Write the attack-success curve
+        write_curve(curve, iter_curve_output)
+        logger.info("Attack-success curve written to %s", iter_curve_output)
+
+        # Write run log for closed-loop audit
+        config = {
+            "date": audit_date,
+            "model_path": str(args.model),
+            "model_format": model_format,
+            "dataset_root": str(dataset_root),
+            "source_filter": source_filter or ["all"],
+            "audit_iter": args.audit_iter,
+            "variant_strategies": args.variant_strategies,
+            "variant_count_per_iter": args.variant_count_per_iter,
+            "attack": args.attack,
+            "mia_method": args.mia_method,
+        }
+        write_run_log(audit_dir, config)
+
+        logger.info("Closed-loop audit complete. Results in %s", audit_dir)
+        return 0
 
     # Run probes
     results = []
@@ -876,6 +1029,108 @@ def _get_model_git_sha(model_path: Path) -> str:
         except Exception:
             pass
     return "unknown"
+
+
+# Implements MAI-Thinking-1 §5.2 closed-loop audit. See docs/AUDIT_ITER.md.
+
+
+def run_closed_loop_audit(
+    records: list[dict],
+    model_handle: Any,
+    attack_fn: Callable,
+    n_iter: int,
+    variant_strategies: list[str],
+    k_per_iter: int,
+    iter_output_dir: Path,
+) -> dict:
+    """Run a closed-loop adversarial audit for n_iter iterations.
+
+    For each iteration:
+    1. Run the attack on the current record set
+    2. Identify fooling records (where the attack succeeded)
+    3. Generate variants of the top-K fooling records
+    4. Use variants as the next iteration's input
+
+    Returns the attack-success curve dict {iter_idx: {attack: {probed, fooling, success_rate}}}.
+    """
+
+    iter_output_dir.mkdir(parents=True, exist_ok=True)
+
+    current_records = records
+    all_per_iter_results: list[dict] = []
+    all_fooling_records_by_iter: dict[str, list[str]] = {}
+
+    for iter_idx in range(n_iter):
+        logger.info("Closed-loop audit iteration %d/%d", iter_idx + 1, n_iter)
+
+        # Run the attack on current records
+        attack_results = attack_fn(current_records, model_handle)
+
+        # Count probed and fooling
+        probed_count = len(attack_results)
+        fooling_count = sum(1 for r in attack_results if r.get("fooling", False))
+        # Cap fooling_count at k_per_iter for the curve (top-K selection)
+        capped_fooling = min(fooling_count, k_per_iter)
+        fooling_ids = [
+            r.get("id", str(r.get("record_index", i)))
+            for i, r in enumerate(attack_results)
+            if r.get("fooling", False)
+        ]
+
+        iter_result = {
+            "iteration": iter_idx,
+            "probed_count": probed_count,
+            "fooling_count": capped_fooling,
+            "fooling_record_ids": fooling_ids[:k_per_iter],
+            "attack": "mia",
+        }
+        all_per_iter_results.append(iter_result)
+        all_fooling_records_by_iter[str(iter_idx)] = fooling_ids[:k_per_iter]
+
+        # If not the last iteration, generate variants for next round
+        if iter_idx < n_iter - 1 and fooling_count > 0:
+            # Select top-K fooling records
+            fooling_records = [
+                current_records[i]
+                for i, r in enumerate(attack_results)
+                if r.get("fooling", False)
+            ]
+            top_k_records = fooling_records[:k_per_iter]
+
+            # Generate variants
+            variant_records: list[dict] = []
+            for rec in top_k_records:
+                if "suffix" in variant_strategies:
+                    variant_records.extend(generate_suffix_injection(rec))
+                if "template" in variant_strategies:
+                    variant_records.extend(generate_prompt_template(rec))
+                if "paraphrase" in variant_strategies:
+                    variant_records.extend(generate_paraphrase(rec, model_handle))
+
+            if variant_records:
+                current_records = variant_records
+            else:
+                # No variants generated; reuse current records
+                logger.info(
+                    "No variants generated at iteration %d; re-probing current records.",
+                    iter_idx,
+                )
+        elif iter_idx < n_iter - 1 and fooling_count == 0:
+            # No fooling records; re-probe current records (no variants to generate)
+            logger.info(
+                "No fooling records at iteration %d; re-probing current records.",
+                iter_idx,
+            )
+
+    curve = compute_success_curve(all_per_iter_results)
+
+    # Write per-iteration results to disk
+    iter_jsonl = iter_output_dir / "iter_results.jsonl"
+    with open(iter_jsonl, "w") as f:
+        for result in all_per_iter_results:
+            f.write(json.dumps(result) + "\n")
+
+    return curve
 
 
 if __name__ == "__main__":
