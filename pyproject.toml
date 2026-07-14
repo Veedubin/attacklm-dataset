@@ -4,7 +4,7 @@ build-backend = "setuptools.backends._legacy:_Backend"
 
 [project]
 name = "attacklm-dataset"
-version = "0.4.3"
+version = "0.6.0"
 description = "MITRE ATT&CK-grounded security fine-tuning dataset with per-record provenance"
 readme = "README.md"
 license = {text = "MIT"}
@@ -42,4 +42,5 @@ inversion = [
     "torch>=2.1",
     "nltk>=3.8",
     "llama-cpp-python>=0.2.60",
+    "datasketch>=1.5,<2.0",
 ]
