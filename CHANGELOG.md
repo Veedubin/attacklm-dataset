@@ -1,3 +1,15 @@
+## [0.9.0] — 2026-07-16
+
+- First real defensive audit on `AttackLM/uncensored` (Qwen2.5-Coder-14B-Instruct-uncensored, non-finetuned). 51 records, 17 per source (atomic-red-team, metasploit-framework, sigma-hq), `--attack all --mia-method per_token --top-k 5 --max-new-tokens 128`. Used MIA Track 1 default threshold (`--mia-threshold-mode percentile --mia-percentile 5`). Results in `data/audit/2026-07-16-defensive-v1/2026-07-16/` (chmod 0700 parent + 0600 on `inversion_results.jsonl`).
+- **Per-source metrics** (per_token NLL; lower = more memorized):
+  - atomic-red-team: mean NLL/pt 1.63, mean BLEU-4 0.047, 0 exact matches, 3 flagged
+  - metasploit-framework: mean NLL/pt 2.62, mean BLEU-4 0.063, 0 exact matches, 0 flagged
+  - sigma-hq: mean NLL/pt 2.53, mean BLEU-4 0.096, 0 exact matches, 0 flagged
+- **MIA threshold**: -125.08 (5th percentile of 51 scores, **3/51 flagged = 5.9%**). This validates MIA Track 1's calibration fix — the 2026-07-07 pilot (median threshold) flagged 50% by construction.
+- **Per-record evidence chain**: each result includes `prompt_text`, `best_reconstruction`, `suffix_text`, per-token NLL, membership score. `inversion_results.jsonl` is self-contained per the v0.4.1 audit bug fix.
+- No harness changes — `--mia-method per_token` (MUSE 2023 default) is the recommended single-method mode when shadow models are not available. For `reference`/`zlib`/`offline` coverage, run the audit 4 times with different `--mia-method` values.
+- No PyPI publish (attacklm-dataset is GH-only).
+
 ## [0.8.0] — 2026-07-13
 
 - Added held-out NLL evaluation suite (`scripts/split_held_out.py` + `scripts/held_out_nll.py`). Implements MAI-Thinking-1 §2.3-style weighted aggregate (Code/STEM/Math/General/Multilingual). New docs: `docs/HELD_OUT_NLL.md`. Backward compatible: existing training data is untouched.
