@@ -39,11 +39,11 @@ Three things, in one repo:
 3. **A privacy-audit harness** (`scripts/inversion/`) for owner-
    side model security testing. Implements:
 
-    - **MIA offline baseline** (sample z-score, no shadow models — `--mia-method offline`)
-    - **Shadow scoring** (`scripts/score_shadow.py` — LiRA Step 2 helper)
-    - **MIA LiRA** (likelihood ratio, Carlini 2022 §4)
-    - **MIA per-token loss** (MUSE 2024 default)
-    - **MIA reference attack** (loss on assistant turn + zlib entropy, Carlini 2022)
+     - **MIA offline baseline** (sample z-score, no shadow models — `--mia-method offline`)
+     - **Shadow scoring** (`scripts/score_shadow.py` — LiRA Step 2 helper)
+     - **MIA LiRA** (likelihood ratio, Carlini 2022 §4)
+     - **MIA per-token loss** (MUSE 2024 default)
+     - **MIA reference attack** (loss on assistant turn + zlib entropy, Carlini 2022)
 
 
 ---
@@ -104,7 +104,7 @@ cd attacklm-dataset
 pip install -e ".[inversion]"
 
 # Audit a model (e.g., your trained AttackLM)
-attacklm-dataset audit --model /path/to/model --attack all --mia-method per_token
+attacklm-dataset audit --model /path/to/model --attack all --mia-method per_token --mia-threshold-mode percentile --mia-percentile 5
 ```
 
 ### As a data contributor (extractors)
@@ -239,7 +239,7 @@ shipping.
 
 ### Closed-loop audit
 
-> Inspired by MAI-Thinking-1 §5.2 (TAP closed-loop) by The Microsoft AI Team, June 202 la 2026. Full doc: [docs/AUDIT_ITER.md](docs/AUDIT_ITER.md)
+> Inspired by MAI-Thinking-1 §5.2 (TAP closed-loop) by The Microsoft AI Team, June 202L 2026. Full doc: [docs/AUDIT_ITER.md](docs/AUDIT_ITER.md)
 
 Perform iterative adversarial auditing to detect brittle memorization by generating semantic variants of fooling records.
 
@@ -249,10 +249,10 @@ attacklm-dataset audit --model <path> --audit-iter 3 --variant-strategies suffix
 
 ```bash
 # From the AttackLM trainer
-attacklm audit --attack all --mia-method per_token --model <path>
+attacklm audit --attack all --mia-method per_token --mia-threshold-mode percentile --mia-percentile 5 --model <path>
 
 # Or directly from this repo
-attacklm-dataset audit --model <path> --attack all --mia-method per_token
+attacklm-dataset audit --model <path> --attack all --mia-method per_token --mia-threshold-mode percentile --mia-percentile 5
 
 # Just prefix-completion extraction, 100 probes
 attacklm audit --attack extraction --max-records 100
@@ -273,6 +273,20 @@ python scripts/score_shadow.py --model models/shadow_0 --records data/audit_set.
 - `inversion_results.jsonl` — raw record-level reconstructions, including `prompt_text` and `best_reconstruction` fields for a self-contained evidence chain (**chmod 0600**, stay workspace-internal; training data carries
   BSD-3, DRL-1.1, and other terms that may not allow redistribution
   of raw samples)
+
+## Documentation
+
+| Doc | What it covers |
+|-----|---------------|
+| [Attack Taxonomy](docs/ATTACK_TAXONOMY.md) | MITRE ATT&CK technique mapping and attack class taxonomy |
+| [Audit Runner](docs/AUDIT_RUNNER.md) | How to run the inversion/MIA audit harness end-to-end |
+| [MIA Threshold Calibration](docs/MIA_THRESHOLD_CALIBRATION.md) | How MIA thresholds are calibrated (percentile, median, holdout, LiRA) |
+| [LiRA](docs/LIRA.md) | Likelihood Ratio Attack — shadow-model-based MIA methodology |
+| [Decontamination](docs/DECONTAM.md) | 20-gram MinHash LSH decontamination (MAI-Thinking-1 §2.3.1) |
+| [Memorization](docs/MEMORIZATION.md) | NLL<0.01 memorization proxy and epoch capping (MAI-Thinking-1 §2.5.4) |
+| [Held-out NLL](docs/HELD_OUT_NLL.md) | Held-out NLL evaluation with 5-bucket weighted aggregate (MAI-Thinking-1 §2.3) |
+| [Closed-loop Audit](docs/AUDIT_ITER.md) | TAP-style closed-loop adversarial audit (MAI-Thinking-1 §5.2) |
+| [Probe Token Budget](docs/PROBE_TOKEN_BUDGET.md) | Why probe token budget matters for BLEU-4 extraction metrics |
 
 **Design docs** (the "why" behind each design decision):
 - [docs/ATTACK_TAXONOMY.md](docs/ATTACK_TAXONOMY.md) — the 3-attack
@@ -308,7 +322,8 @@ academic-research use only**.
   used by every Python file in this repo. Every attack code file
   has a `PROVENANCE` block at the top naming the paper, full author
   list, year/venue, arXiv URL, and rights-claim contact.
-- **[data/ATTRIBUTION.md](data/ATTRIBUTION.md)** — per-record
+- **[SECURITY.md](SECURITY.md)** — security policy and vulnerability reporting.
+- **[ATTRIBUTION.md](data/ATTRIBUTION.md)** — per-record
   attribution for every record in the dataset.
 - **[data/REMOVAL.md](data/REMOVAL.md)** — how to file a removal
   request if you're a rights-holder of one of the upstream sources.
@@ -350,8 +365,9 @@ harness?".
 
 ## Related
 
-- **[Veedubin/AttackLM](https://github.com/Veedubin/AttackLM)** —
+- **[Veed la-Veedubin/AttackLM](https://github.com/Veedubin/AttackLM)** —
   the trainer/tuner/TUI that consumes this dataset
 - **[RIGHTS.md](RIGHTS.md)** — full rights statement + canonical paper list
 - **[PROVENANCE.md](PROVENANCE.md)** — per-file attribution template
 - **[CHANGELOG.md](CHANGELOG.md)** — full version history
+

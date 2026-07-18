@@ -1,3 +1,11 @@
+## [0.9.1] — 2026-07-16
+
+- **`calibrate_threshold` FPR fix**: Fixed inverted quantile in `scoring.py`. Previously `target_fpr=0.01` produced ~99% FPR; now correctly produces ~1% FPR. Function is not used in the production audit pipeline (`inversion_audit.py` uses `_percentile` directly) but was a latent footgun for anyone calling it directly.
+- **BLEU-4 unification**: Replaced nltk-based `bleu4_score` in `probe.py` with pure-Python epsilon-smoothed implementation matching `AttackLM/scripts/audit_canary_extraction.py`. Removed `nltk>=3.8` from `pyproject.toml` inversion extras.
+- **Docs**: Updated README with docs index table, refreshed `MIA_THRESHOLD_CALIBRATION.md` for the corrected `calibrate_threshold` behavior.
+
+No PyPI publish (attacklm-dataset is GitHub-only distribution).
+
 ## [0.9.0] — 2026-07-16
 
 - First real defensive audit on `AttackLM/uncensored` (Qwen2.5-Coder-14B-Instruct-uncensored, non-finetuned). 51 records, 17 per source (atomic-red-team, metasploit-framework, sigma-hq), `--attack all --mia-method per_token --top-k 5 --max-new-tokens 128`. Used MIA Track 1 default threshold (`--mia-threshold-mode percentile --mia-percentile 5`). Results in `data/audit/2026-07-16-defensive-v1/2026-07-16/` (chmod 0700 parent + 0600 on `inversion_results.jsonl`).
