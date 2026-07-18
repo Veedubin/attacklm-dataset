@@ -263,9 +263,23 @@ class TestMIAThreshold(unittest.TestCase):
         threshold = calibrate_threshold(
             member_scores, non_member_scores, target_fpr=0.2
         )
-        # Threshold should be somewhere in the non-member range
-        self.assertGreater(threshold, max(member_scores))
-        self.assertLess(threshold, max(non_member_scores))
+        # Threshold at the FPR quantile: sorted non-members = [50, 55, 60, 65, 70]
+        # idx = min(int(5 * 0.2), 4) = 1 -> threshold = 55.0
+        # Only 1 of 5 non-members (50.0) is below -> FPR = 0.2
+        self.assertEqual(threshold, 55.0)
+        # Verify the FPR is approximately target_fpr
+        fpr = compute_fpr_at_threshold(non_member_scores, threshold)
+        self.assertAlmostEqual(fpr, 0.2, places=1)
+
+    def test_calibrated_threshold_fpr_not_inverted(self):
+        """Regression test: target_fpr=0.01 should NOT produce ~99% FPR."""
+        non_members = [float(i) for i in range(100, 200)]
+        threshold = calibrate_threshold(
+            member_scores=[50.0], non_member_scores=non_members, target_fpr=0.01
+        )
+        fpr = compute_fpr_at_threshold(non_members, threshold)
+        # Should be ~1%, NOT ~99%
+        self.assertLess(fpr, 0.05, f"FPR={fpr} should be <5% for target_fpr=0.01")
 
     def test_fpr_at_threshold(self):
         non_members = [50.0, 60.0, 55.0, 70.0, 65.0]
