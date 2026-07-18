@@ -197,9 +197,12 @@ def calibrate_threshold(
     if not non_member_scores:
         raise ValueError("Need at least one non-member score for calibration")
 
-    # Sort non-member scores; threshold at the (1 - target_fpr) quantile
+    # Sort non-member scores; threshold at the target_fpr quantile (low end)
+    # so that only ~target_fpr fraction of non-members fall below it.
+    # For MIA where lower score = more likely member, we want
+    # FPR = P(score < threshold | non-member) ≈ target_fpr.
     sorted_non = sorted(non_member_scores)
-    idx = max(0, int(len(sorted_non) * (1 - target_fpr)) - 1)
+    idx = min(int(len(sorted_non) * target_fpr), len(sorted_non) - 1)
     return sorted_non[idx]
 
 
@@ -250,7 +253,12 @@ def _extract_assistant_turn(record: dict) -> str:
 
 
 def _extract_full_text(record: dict) -> str:
-    """Extract the full text content from all messages in a record."""
+    """Extract the full text content from all messages in a record.
+
+    Note: Not used in production scoring (which uses _extract_assistant_turn
+    per MUSE 2023). Retained as a utility for tests that need to contrast
+    assistant-only vs full-text extraction (see test_audit_bugfixes.py).
+    """
     messages = record.get("messages", [])
     parts = []
     for msg in messages:

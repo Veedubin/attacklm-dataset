@@ -189,49 +189,44 @@ def lcs_length(s1: str, s2: str) -> int:
 def bleu4_score(hypothesis: str, reference: str) -> float:
     """Compute BLEU-4 score between hypothesis and reference.
 
-    Uses nltk.translate.bleu_score for the computation.
-    Falls back to a simple n-gram overlap if nltk is unavailable.
+    Pure-Python BLEU-4 implementation (no nltk dependency).
+    Geometric mean of 1- to 4-gram precisions with brevity penalty.
+    Uses epsilon smoothing (p=0 -> epsilon) instead of returning 0
+    when any n-gram precision is zero, avoiding overly harsh scores
+    for short texts.
+
+    This is the canonical BLEU-4 implementation shared with
+    AttackLM/scripts/audit_canary_extraction.py:bleu4_simple.
     """
-    try:
-        from nltk.translate.bleu_score import SmoothingFunction, sentence_bleu
-        from nltk.tokenize import word_tokenize
+    import math
+    from collections import Counter
 
-        ref_tokens = word_tokenize(reference.lower())
-        hyp_tokens = word_tokenize(hypothesis.lower())
-
-        if len(hyp_tokens) == 0:
-            return 0.0
-
-        smoothing = SmoothingFunction().method1
-        try:
-            return sentence_bleu(
-                [ref_tokens],
-                hyp_tokens,
-                weights=(0.25, 0.25, 0.25, 0.25),
-                smoothing_function=smoothing,
-            )
-        except Exception:
-            # If BLEU-4 fails (e.g., too short), return simple overlap
-            return _simple_overlap(hyp_tokens, ref_tokens)
-    except ImportError:
-        # nltk not available — fall back to simple n-gram overlap
-        ref_tokens = reference.lower().split()
-        hyp_tokens = hypothesis.lower().split()
-        return _simple_overlap(hyp_tokens, ref_tokens)
-
-
-def _simple_overlap(hyp_tokens: list[str], ref_tokens: list[str]) -> float:
-    """Simple unigram overlap as a fallback for BLEU."""
-    if not ref_tokens or not hyp_tokens:
+    ref_tokens = reference.split()
+    hyp_tokens = hypothesis.split()
+    if not hyp_tokens or not ref_tokens:
         return 0.0
-    ref_set = set(ref_tokens)
-    hyp_set = set(hyp_tokens)
-    overlap = len(ref_set & hyp_set)
-    precision = overlap / len(hyp_set) if hyp_set else 0.0
-    recall = overlap / len(ref_set) if ref_set else 0.0
-    if precision + recall == 0:
-        return 0.0
-    return 2 * precision * recall / (precision + recall)
+
+    def ngram_counts(tokens: list[str], n: int) -> Counter:
+        return Counter(tuple(tokens[i : i + n]) for i in range(len(tokens) - n + 1))
+
+    epsilon = 1e-7
+    precisions: list[float] = []
+    for n in (1, 2, 3, 4):
+        ref_n = ngram_counts(ref_tokens, n)
+        cand_n = ngram_counts(hyp_tokens, n)
+        if not cand_n:
+            precisions.append(epsilon)
+            continue
+        clipped = sum(min(c, ref_n[g]) for g, c in cand_n.items())
+        total = sum(cand_n.values())
+        if clipped == 0 or total == 0:
+            precisions.append(epsilon)
+        else:
+            precisions.append(clipped / total)
+
+    log_geo = sum(math.log(p) for p in precisions) / 4.0
+    bp = min(1.0, math.exp(1.0 - len(ref_tokens) / max(1, len(hyp_tokens))))
+    return bp * math.exp(log_geo)
 
 
 def score_completions(
