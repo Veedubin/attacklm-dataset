@@ -1,3 +1,14 @@
+## [0.11.0] — 2026-09-22
+
+- **The `defensive/*` buckets are reachable at last.** `resolve_dataset_spec()` had no way to address them — `grep -c defensive scripts/lib/bucket_loader.py` returned 0 — so `--dataset defensive/` raised `ValueError` and `--dataset all` silently resolved **34 of 37 buckets**, excluding **7,688 pairs (29.1% of the corpus)**: `defensive/detection_engineering` 7,154 (sigma-hq 3,132, elastic-rules 1,908, splunk-content 2,114), `defensive/threat_hunting` 366, `defensive/incident_response` 168. The data itself was never broken — extracted, schema-valid, in the manifest, shipped in the tarball. Only the resolver could not see it.
+- **`all` now genuinely means all**: 34 → 37 buckets, 18,771 → 26,459 pairs. This is a deliberate behaviour change for anyone relying on `--dataset all`, and it shifts training composition substantially: the corpus goes from offence-only to 29% defensive (detection engineering, threat hunting, incident response).
+- **New frozen alias `all-offensive`** holds exactly the 12 categories `all` contained before this release. Without it, every model trained with `--dataset all` before today would have become unreproducible, and any comparison spanning the change would have attributed a 29% composition shift to whatever variable was actually under test. **It must never gain new categories.**
+- Verified independently of the implementation: `all` is a strict superset of `all-offensive`; the difference is exactly the three defensive buckets; `all-offensive` contains none of them; pair counts 26,459 / 18,771 / 7,688 reconcile exactly.
+- The combined-dataset cache is unaffected by design — `cache_key()` hashes the sorted bucket list, so 34 → 37 changes the key and a stale combined file cannot be silently reused. Checked rather than assumed.
+- Consumers should record the **resolved** bucket list, not the spec string: `AttackLM` now does this via `train_all._export_dataset_provenance` → `state.json[dataset][resolved]`, carrying buckets, count, dataset version and cache key.
+- 13 new tests in `tests/test_bucket_loader.py`; suite 719 passed. No existing test weakened or deleted.
+- No PyPI publish (attacklm-dataset is GitHub-only distribution).
+
 ## [0.10.2] — 2026-09-22
 
 - **Data-index staleness fix**: `data/datasets/buckets/sources/_index.json` regenerated from disk. It had drifted from reality — 7 on-disk sources were missing entirely (elastic-rules 1,908 records, sigma-hq 3,132, splunk-content 2,114, mordor 339, nist-ir 168, threathunter-playbook 27, replay-general 12) and `attacklm-synthetic` was stale (index said 9,029 records / 9 buckets; disk has 380 / 1). Totals corrected: 12 → 19 sources, 27,408 → 26,459 records. Index totals now reconcile exactly with `manifest.json` (26,459 pairs / 19 sources / 37 buckets), which was already disk-truth since v0.10.0.
