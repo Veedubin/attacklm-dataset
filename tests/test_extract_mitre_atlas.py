@@ -187,3 +187,14 @@ def test_sub_technique_names_parent(atlas, idx):
     pairs = ex.technique_pairs(sub, atlas, idx)
     desc_pair = pairs[0]
     assert "Test Technique" in desc_pair["messages"][2]["content"]
+
+
+def test_mitigation_pairs(atlas, idx):
+    mit = atlas["mitigations"]["AML.M0000"]
+    pairs = ex.mitigation_pairs(mit, atlas, idx)
+    # 1 description pair + 1 per mitigates edge (fixture has 1)
+    assert len(pairs) == 2
+    rel_pair = [p for p in pairs if "AML.T0001" in p["mitre_ids"]]
+    assert len(rel_pair) == 1
+    assert "Mitigates the test technique." in rel_pair[0]["messages"][2]["content"]
+    assert "AML.M0000" in rel_pair[0]["mitre_ids"]

@@ -166,6 +166,53 @@ def technique_pairs(tech: dict, data: dict, idx: dict) -> list[dict]:
     return pairs
 
 
+def mitigation_pairs(mit: dict, data: dict, idx: dict) -> list[dict]:
+    mid = mit["id"]
+    name = mit["name"]
+    desc = mit.get("description", "").strip()
+    phases = ", ".join(mit.get("lifecycle-phases", [])) or "Not specified"
+    categories = ", ".join(mit.get("categories", [])) or "Not specified"
+
+    # One pair per technique this mitigation mitigates (invert mitigates
+    # index) — computed first so the description pair routes to the same
+    # tactic as the first linked technique.
+    techs = data.get("techniques", {})
+    mitigates = [
+        tid for tid, mids in idx["tech_to_mitigations"].items() if mid in mids
+    ]
+    linked_tactic = "Defense Evasion"
+    for tid in sorted(mitigates):
+        if tid in techs:
+            _, linked_tactic = _tactic_info(tid, data, idx)
+            break
+
+    pairs = [
+        _record(
+            f"Describe ATLAS mitigation {mid} ({name}).",
+            f"## {name}\n**ATLAS Mitigation:** {mid}\n\n{desc}\n\n"
+            f"**Lifecycle phases:** {phases}\n**Categories:** {categories}",
+            linked_tactic,
+            [mid],
+        )
+    ]
+
+    for tid in sorted(mitigates):
+        tech = techs.get(tid)
+        if not tech:
+            continue
+        _, tactic_name = _tactic_info(tid, data, idx)
+        pairs.append(
+            _record(
+                f"How can you mitigate ATLAS technique {tid} "
+                f"({tech['name']})?",
+                f"**{mid} ({name})** mitigates {tid}:\n\n{desc}",
+                tactic_name,
+                [mid, tid],
+            )
+        )
+    return pairs
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Extract MITRE ATLAS into AttackLM JSONL training pairs."
