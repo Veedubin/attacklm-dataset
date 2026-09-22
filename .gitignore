@@ -13,6 +13,8 @@ build/
 .venv/
 venv/
 
+docs/
+
 # Upstream source data (cloned by `attacklm-dataset init`; the upstream
 # git repo is the source of truth, no point in re-tracking the clone)
 # These dirs contain raw upstream data (Metasploit, Sigma, Atomic Red
