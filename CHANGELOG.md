@@ -1,3 +1,7 @@
+## [0.9.4] — 2026-09-21
+
+- **Removed the restricted-source extractors**: `scripts/extract_rta_to_jsonl.py` and `scripts/extract_infection_monkey_to_jsonl.py` deleted. RTA (AGPL-3.0) and infection_monkey (GPL-3.0) have been excluded from the public dataset since v0.3.0; keeping their extractors in the public repo invited re-ingestion. The denylist in `scripts/inversion/provenance.py` and the tarball verifier in `scripts/package_dataset.py` remain as guardrails.
+
 ## [0.9.3] — 2026-09-21
 
 - **History rewrite (compliance purge)**: Full `git filter-repo` rewrite removing content that should never have been tracked, from all 38 commits and all 11 tags:
