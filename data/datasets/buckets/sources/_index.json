@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-22T11:42:21.476733+00:00",
-  "total_sources": 12,
-  "total_records": 27408,
+  "generated_at": "2026-09-22T19:17:31.182328+00:00",
+  "total_sources": 19,
+  "total_records": 26459,
   "sources": [
     {
       "name": "atomic-red-team",
@@ -56,74 +56,14 @@
       "license_uri": "https://opensource.org/licenses/MIT",
       "upstream_url": "https://github.com/Veedubin/AttackLM",
       "risk": "low",
-      "n_records": 9029,
+      "n_records": 380,
       "buckets": [
-        {
-          "bucket": "ai/prompt-injection",
-          "files": {
-            "data.jsonl": 624
-          },
-          "total": 624
-        },
-        {
-          "bucket": "attack_tactics/red_team_tactics",
-          "files": {
-            "data.jsonl": 1420,
-            "data_synth.jsonl": 300
-          },
-          "total": 1720
-        },
-        {
-          "bucket": "cloud/attacks",
-          "files": {
-            "data.jsonl": 1298
-          },
-          "total": 1298
-        },
-        {
-          "bucket": "ics/attacks",
-          "files": {
-            "data.jsonl": 50,
-            "data_synth.jsonl": 250
-          },
-          "total": 300
-        },
         {
           "bucket": "orchestrator",
           "files": {
             "data.jsonl": 380
           },
           "total": 380
-        },
-        {
-          "bucket": "social_engineering/phishing",
-          "files": {
-            "data.jsonl": 2820
-          },
-          "total": 2820
-        },
-        {
-          "bucket": "supply_chain/attacks",
-          "files": {
-            "data.jsonl": 50,
-            "data_synth.jsonl": 215
-          },
-          "total": 265
-        },
-        {
-          "bucket": "web_app/attacks",
-          "files": {
-            "data.jsonl": 1311
-          },
-          "total": 1311
-        },
-        {
-          "bucket": "wireless/attacks",
-          "files": {
-            "data.jsonl": 50,
-            "data_synth.jsonl": 261
-          },
-          "total": 311
         }
       ]
     },
@@ -148,6 +88,24 @@
       "n_records": 0,
       "status": "reserved",
       "buckets": []
+    },
+    {
+      "name": "elastic-rules",
+      "display": "Elastic detection-rules (Elastic Security)",
+      "license": "Elastic-2.0",
+      "license_uri": "https://github.com/elastic/detection-rules/blob/main/LICENSE.txt",
+      "upstream_url": "https://github.com/elastic/detection-rules",
+      "risk": "low",
+      "n_records": 1908,
+      "buckets": [
+        {
+          "bucket": "defensive/detection_engineering",
+          "files": {
+            "data.jsonl": 1908
+          },
+          "total": 1908
+        }
+      ]
     },
     {
       "name": "llm-generated",
@@ -405,7 +363,7 @@
     },
     {
       "name": "mitre-stockpile",
-      "display": "MITRE Caldera \u2014 Stockpile",
+      "display": "MITRE Caldera — Stockpile",
       "license": "Apache-2.0",
       "license_uri": "https://www.apache.org/licenses/LICENSE-2.0",
       "upstream_url": "https://github.com/mitre/stockpile",
@@ -446,6 +404,42 @@
             "data.jsonl": 20
           },
           "total": 20
+        }
+      ]
+    },
+    {
+      "name": "mordor",
+      "display": "Mordor Security Datasets (OTRF)",
+      "license": "Apache-2.0",
+      "license_uri": "https://www.apache.org/licenses/LICENSE-2.0",
+      "upstream_url": "https://github.com/OTRF/Security-Datasets",
+      "risk": "low",
+      "n_records": 339,
+      "buckets": [
+        {
+          "bucket": "defensive/threat_hunting",
+          "files": {
+            "data.jsonl": 339
+          },
+          "total": 339
+        }
+      ]
+    },
+    {
+      "name": "nist-ir",
+      "display": "NIST SP 800-61r3 (Incident Response)",
+      "license": "Public-Domain",
+      "license_uri": "https://www.nist.gov/open/copyright-fair-use-and-licensing-statements-srd-data-software-and-technical-series-publications",
+      "upstream_url": "https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-61r3.pdf",
+      "risk": "low",
+      "n_records": 168,
+      "buckets": [
+        {
+          "bucket": "defensive/incident_response",
+          "files": {
+            "data.jsonl": 168
+          },
+          "total": 168
         }
       ]
     },
@@ -500,6 +494,81 @@
             "data.jsonl": 30
           },
           "total": 30
+        }
+      ]
+    },
+    {
+      "name": "replay-general",
+      "display": "Replay General (mixed-domain replay corpus)",
+      "license": "mixed (per-record; see LICENSE.md)",
+      "license_uri": "",
+      "upstream_url": "",
+      "risk": "low",
+      "n_records": 12,
+      "buckets": [
+        {
+          "bucket": "base/replay",
+          "files": {
+            "data_code.jsonl": 3,
+            "data_conversation.jsonl": 3,
+            "data_factual.jsonl": 3,
+            "data_reasoning.jsonl": 3
+          },
+          "total": 12
+        }
+      ]
+    },
+    {
+      "name": "sigma-hq",
+      "display": "Sigma (SigmaHQ)",
+      "license": "DRL-1.1",
+      "license_uri": "https://github.com/SigmaHQ/sigma/blob/master/LICENSE",
+      "upstream_url": "https://github.com/SigmaHQ/sigma",
+      "risk": "low",
+      "n_records": 3132,
+      "buckets": [
+        {
+          "bucket": "defensive/detection_engineering",
+          "files": {
+            "data.jsonl": 3132
+          },
+          "total": 3132
+        }
+      ]
+    },
+    {
+      "name": "splunk-content",
+      "display": "Splunk Security Content",
+      "license": "Apache-2.0",
+      "license_uri": "https://www.apache.org/licenses/LICENSE-2.0",
+      "upstream_url": "https://github.com/splunk/security_content",
+      "risk": "low",
+      "n_records": 2114,
+      "buckets": [
+        {
+          "bucket": "defensive/detection_engineering",
+          "files": {
+            "data.jsonl": 2114
+          },
+          "total": 2114
+        }
+      ]
+    },
+    {
+      "name": "threathunter-playbook",
+      "display": "ThreatHunter-Playbook (OTRF)",
+      "license": "Apache-2.0",
+      "license_uri": "https://www.apache.org/licenses/LICENSE-2.0",
+      "upstream_url": "https://github.com/OTRF/ThreatHunter-Playbook",
+      "risk": "low",
+      "n_records": 27,
+      "buckets": [
+        {
+          "bucket": "defensive/threat_hunting",
+          "files": {
+            "data.jsonl": 27
+          },
+          "total": 27
         }
       ]
     }

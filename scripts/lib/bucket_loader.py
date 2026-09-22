@@ -45,7 +45,6 @@ computed and a fresh file is built.
 import hashlib
 import json
 import random
-from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
@@ -481,7 +480,7 @@ def format_specs_human(specs: list[str]) -> str:
                 parts.append(f"{n}/{total} {cat}")
             else:
                 parts.append(f"{n} buckets ({', '.join(names)})")
-        except ValueError as e:
+        except ValueError:
             parts.append(f"{spec} (invalid)")
     return " + ".join(parts)
 

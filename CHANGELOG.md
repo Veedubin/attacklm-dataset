@@ -1,3 +1,11 @@
+## [0.10.2] — 2026-09-22
+
+- **Data-index staleness fix**: `data/datasets/buckets/sources/_index.json` regenerated from disk. It had drifted from reality — 7 on-disk sources were missing entirely (elastic-rules 1,908 records, sigma-hq 3,132, splunk-content 2,114, mordor 339, nist-ir 168, threathunter-playbook 27, replay-general 12) and `attacklm-synthetic` was stale (index said 9,029 records / 9 buckets; disk has 380 / 1). Totals corrected: 12 → 19 sources, 27,408 → 26,459 records. Index totals now reconcile exactly with `manifest.json` (26,459 pairs / 19 sources / 37 buckets), which was already disk-truth since v0.10.0.
+- **Manifest license fields cleared**: the 7 source-level and 4 bucket-level `license: "unknown"` values in `manifest.json` are gone after re-running `scripts/rebuild_manifest.py`. Root cause: `scripts/lib/manifest_builder.py` derives per-source license/display/risk from `_index.json` (falling back to `"unknown"`), so the missing index entries propagated to the manifest; no builder change needed once the index was fixed.
+- **Cosmetics**: fixed a template artifact in `data/datasets/buckets/sources/mitre-atlas/LICENSE.md` ("e.g. `atomic-red-team`" → "`mitre-atlas`"); removed pre-existing ruff F401/F841 in `scripts/lib/bucket_loader.py` (unused `datetime` import, unused `except ValueError as e` binding).
+- Loader verified: `resolve_dataset_spec('atlas/')` still resolves 16 buckets; full test suite green (706 passed).
+- No PyPI publish (attacklm-dataset is GitHub-only distribution).
+
 ## [0.10.1] — 2026-09-22
 
 - **Docs-only**: corrected two script names in the v0.10.0 CHANGELOG entry below — the MITRE ATLAS extractor is `scripts/extract_mitre_atlas.py` (not `scripts/extract_atlas_to_jsonl.py`), and the manifest builder ships as `scripts/rebuild_manifest.py` + `scripts/lib/manifest_builder.py` (not `scripts/build_manifest.py`). Caught by the final whole-branch review; no code or data changes.

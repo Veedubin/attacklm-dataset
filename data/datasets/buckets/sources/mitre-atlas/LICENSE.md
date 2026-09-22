@@ -22,7 +22,7 @@ The full license text is available at:
 This directory holds the records derived from `MITRE ATLAS`. Every
 record carries the following provenance fields:
 
-- `source`: the canonical source name (e.g. `atomic-red-team`)
+- `source`: the canonical source name (`mitre-atlas`)
 - `source_uri`: link to the upstream project
 - `license`: SPDX license identifier (e.g. `MIT`, `Apache-2.0`)
 - `license_uri`: link to the full license text

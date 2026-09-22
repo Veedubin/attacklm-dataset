@@ -8,7 +8,7 @@
     "guardicore/infection_monkey (GPL-3.0)",
     "TheBigPromptLibrary (mixed/unclear)"
   ],
-  "created": "2026-09-22T11:37:24.888481+00:00",
+  "created": "2026-09-22T19:17:45.761866+00:00",
   "total_buckets": 37,
   "total_pairs": 26459,
   "tier_totals": {
@@ -112,11 +112,11 @@
     },
     "elastic-rules": {
       "name": "elastic-rules",
-      "display": "elastic-rules",
-      "license": "unknown",
-      "license_uri": "",
-      "upstream_url": "",
-      "risk": "unknown",
+      "display": "Elastic detection-rules (Elastic Security)",
+      "license": "Elastic-2.0",
+      "license_uri": "https://github.com/elastic/detection-rules/blob/main/LICENSE.txt",
+      "upstream_url": "https://github.com/elastic/detection-rules",
+      "risk": "low",
       "n_records": 1908,
       "buckets": [
         {
@@ -358,11 +358,11 @@
     },
     "mordor": {
       "name": "mordor",
-      "display": "mordor",
-      "license": "unknown",
-      "license_uri": "",
-      "upstream_url": "",
-      "risk": "unknown",
+      "display": "Mordor Security Datasets (OTRF)",
+      "license": "Apache-2.0",
+      "license_uri": "https://www.apache.org/licenses/LICENSE-2.0",
+      "upstream_url": "https://github.com/OTRF/Security-Datasets",
+      "risk": "low",
       "n_records": 339,
       "buckets": [
         {
@@ -374,11 +374,11 @@
     },
     "nist-ir": {
       "name": "nist-ir",
-      "display": "nist-ir",
-      "license": "unknown",
-      "license_uri": "",
-      "upstream_url": "",
-      "risk": "unknown",
+      "display": "NIST SP 800-61r3 (Incident Response)",
+      "license": "Public-Domain",
+      "license_uri": "https://www.nist.gov/open/copyright-fair-use-and-licensing-statements-srd-data-software-and-technical-series-publications",
+      "upstream_url": "https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-61r3.pdf",
+      "risk": "low",
       "n_records": 168,
       "buckets": [
         {
@@ -438,11 +438,11 @@
     },
     "replay-general": {
       "name": "replay-general",
-      "display": "replay-general",
-      "license": "unknown",
+      "display": "Replay General (mixed-domain replay corpus)",
+      "license": "mixed (per-record; see LICENSE.md)",
       "license_uri": "",
       "upstream_url": "",
-      "risk": "unknown",
+      "risk": "low",
       "n_records": 12,
       "buckets": [
         {
@@ -469,11 +469,11 @@
     },
     "sigma-hq": {
       "name": "sigma-hq",
-      "display": "sigma-hq",
-      "license": "unknown",
-      "license_uri": "",
-      "upstream_url": "",
-      "risk": "unknown",
+      "display": "Sigma (SigmaHQ)",
+      "license": "DRL-1.1",
+      "license_uri": "https://github.com/SigmaHQ/sigma/blob/master/LICENSE",
+      "upstream_url": "https://github.com/SigmaHQ/sigma",
+      "risk": "low",
       "n_records": 3132,
       "buckets": [
         {
@@ -485,11 +485,11 @@
     },
     "splunk-content": {
       "name": "splunk-content",
-      "display": "splunk-content",
-      "license": "unknown",
-      "license_uri": "",
-      "upstream_url": "",
-      "risk": "unknown",
+      "display": "Splunk Security Content",
+      "license": "Apache-2.0",
+      "license_uri": "https://www.apache.org/licenses/LICENSE-2.0",
+      "upstream_url": "https://github.com/splunk/security_content",
+      "risk": "low",
       "n_records": 2114,
       "buckets": [
         {
@@ -501,11 +501,11 @@
     },
     "threathunter-playbook": {
       "name": "threathunter-playbook",
-      "display": "threathunter-playbook",
-      "license": "unknown",
-      "license_uri": "",
-      "upstream_url": "",
-      "risk": "unknown",
+      "display": "ThreatHunter-Playbook (OTRF)",
+      "license": "Apache-2.0",
+      "license_uri": "https://www.apache.org/licenses/LICENSE-2.0",
+      "upstream_url": "https://github.com/OTRF/ThreatHunter-Playbook",
+      "risk": "low",
       "n_records": 27,
       "buckets": [
         {
@@ -685,7 +685,7 @@
         "replay-general": 12
       },
       "dominant_source": "replay-general",
-      "license": "unknown"
+      "license": "mixed (per-record; see LICENSE.md)"
     },
     {
       "name": "tools_metasploit",
@@ -1088,7 +1088,7 @@
         "splunk-content": 2114
       },
       "dominant_source": "sigma-hq",
-      "license": "unknown"
+      "license": "DRL-1.1"
     },
     {
       "name": "defensive_incident_response",
@@ -1104,7 +1104,7 @@
         "nist-ir": 168
       },
       "dominant_source": "nist-ir",
-      "license": "unknown"
+      "license": "Public-Domain"
     },
     {
       "name": "defensive_threat_hunting",
@@ -1121,7 +1121,7 @@
         "threathunter-playbook": 27
       },
       "dominant_source": "mordor",
-      "license": "unknown"
+      "license": "Apache-2.0"
     }
   ]
 }
