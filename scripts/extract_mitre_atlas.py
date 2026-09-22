@@ -213,38 +213,134 @@ def mitigation_pairs(mit: dict, data: dict, idx: dict) -> list[dict]:
     return pairs
 
 
+def order_steps(steps: list[dict]) -> list[dict]:
+    """Order case-study steps by walking the leads-to graph.
+
+    Falls back to step-id sort, then document order, when the graph is
+    ambiguous (no unique head) or contains cycles/unreachable nodes.
+    """
+    by_id = {s.get("step-id"): s for s in steps if s.get("step-id")}
+    if len(by_id) != len(steps):
+        return list(steps)
+    referenced = {t for s in by_id.values() for t in (s.get("leads-to") or [])}
+    heads = [sid for sid in by_id if sid not in referenced]
+    if len(heads) != 1:
+        return sorted(steps, key=lambda s: s.get("step-id", ""))
+    ordered: list[dict] = []
+    seen: set[str] = set()
+    cur: str | None = heads[0]
+    while cur and cur not in seen and cur in by_id:
+        seen.add(cur)
+        step = by_id[cur]
+        ordered.append(step)
+        nxt = [t for t in (step.get("leads-to") or []) if t not in seen]
+        cur = nxt[0] if nxt else None
+    for sid in sorted(by_id):
+        if sid not in seen:
+            ordered.append(by_id[sid])
+    return ordered
+
+
+def case_study_pairs(cs: dict, data: dict, idx: dict) -> list[dict]:
+    cid = cs["id"]
+    name = cs["name"]
+    actor = cs.get("actor", "the adversary")
+    techs = data.get("techniques", {})
+    tactics = data.get("tactics", {})
+    steps = order_steps(idx["case_steps"].get(cid, []))
+
+    pairs: list[dict] = []
+    flow_lines: list[str] = []
+    for i, step in enumerate(steps, 1):
+        tid = step["target"]
+        tech = techs.get(tid, {})
+        tech_name = tech.get("name", tid)
+        ta_id = step.get("tactic", "")
+        tactic_name = tactics.get(ta_id, {}).get("name", "AI Model Access")
+        step_desc = (step.get("description") or "").strip()
+        flow_lines.append(f"{i}. **{tid} ({tech_name})** [{tactic_name}]")
+        pairs.append(
+            _record(
+                f"In the {name} case study, how did {actor} perform "
+                f"{tech_name} ({tid})?",
+                f"**{name} ({cid}) — step {step.get('step-id', i)}:**\n\n"
+                f"{step_desc}",
+                tactic_name,
+                [tid],
+                extra={"case_study": cid},
+            )
+        )
+
+    if steps:
+        first_ta = steps[0].get("tactic", "")
+        tactic_name = tactics.get(first_ta, {}).get("name", "AI Model Access")
+        pairs.append(
+            _record(
+                f"Walk through the full attack sequence of the {name} "
+                f"case study ({cid}).",
+                f"## {name} ({cid})\n**Actor:** {actor} | "
+                f"**Target:** {cs.get('target', 'unknown')}\n\n"
+                + "\n".join(flow_lines),
+                tactic_name,
+                [s["target"] for s in steps],
+                extra={"case_study": cid},
+            )
+        )
+    return pairs
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Extract MITRE ATLAS into AttackLM JSONL training pairs."
     )
     parser.add_argument("--dry-run", action="store_true",
-                        help="Count pairs without writing files.")
+                        help="Print counts and 2 sample pairs; do not write")
     parser.add_argument("--input", type=Path, default=DEFAULT_INPUT,
                         help="Path to the vendored ATLAS YAML.")
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR,
                         help="Bucket output root.")
     args = parser.parse_args()
 
+    if not args.input.exists():
+        print(f"ATLAS YAML not found: {args.input}", file=sys.stderr)
+        return 1
+
     data = load_atlas(args.input)
     idx = build_indexes(data)
 
-    # Group technique pairs per tactic bucket.
-    buckets: dict[str, list[dict]] = defaultdict(list)
+    by_bucket: dict[str, list[dict]] = defaultdict(list)
+    n = 0
     for tech in data.get("techniques", {}).values():
-        for rec in technique_pairs(tech, data, idx):
-            buckets[rec["tactic"]].append(rec)
+        for p in technique_pairs(tech, data, idx):
+            by_bucket[f"atlas/{p['tactic']}"].append(p)
+            n += 1
+    for mit in data.get("mitigations", {}).values():
+        for p in mitigation_pairs(mit, data, idx):
+            by_bucket[f"atlas/{p['tactic']}"].append(p)
+            n += 1
+    for cs in data.get("case-studies", {}).values():
+        for p in case_study_pairs(cs, data, idx):
+            by_bucket[f"atlas/{p['tactic']}"].append(p)
+            n += 1
+
+    print(f"Generated {n} pairs across {len(by_bucket)} buckets",
+          file=sys.stderr)
+    for bucket in sorted(by_bucket):
+        print(f"  {bucket:35s} {len(by_bucket[bucket]):>5d}", file=sys.stderr)
 
     if args.dry_run:
-        total = sum(len(v) for v in buckets.values())
-        print(f"dry-run: {total} pairs across {len(buckets)} tactic buckets")
+        for p in (by_bucket[sorted(by_bucket)[0]])[:2]:
+            print(json.dumps(p, indent=2))
         return 0
 
-    for tactic, recs in sorted(buckets.items()):
-        out = args.output_dir / "atlas" / tactic
-        out.mkdir(parents=True, exist_ok=True)
-        with open(out / "data.jsonl", "w", encoding="utf-8") as f:
-            for rec in recs:
-                f.write(json.dumps(rec, ensure_ascii=False) + "\n")
+    for bucket, pairs in sorted(by_bucket.items()):
+        out_dir = args.output_dir / bucket
+        out_dir.mkdir(parents=True, exist_ok=True)
+        out_path = out_dir / "data.jsonl"
+        with open(out_path, "w", encoding="utf-8") as f:
+            for p in pairs:
+                f.write(json.dumps(p, ensure_ascii=False) + "\n")
+    print(f"Wrote {n} pairs under {args.output_dir}", file=sys.stderr)
     return 0
 
 

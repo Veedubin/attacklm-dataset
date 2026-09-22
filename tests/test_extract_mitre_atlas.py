@@ -214,3 +214,68 @@ def test_mitigation_pairs_no_linked_techniques(atlas, idx):
     assert len(pairs) == 1
     assert pairs[0]["tactic"] == "defense_evasion"
     assert pairs[0]["mitre_ids"] == ["AML.M9999"]
+
+
+def test_order_steps_follows_leads_to_not_document_order(idx):
+    steps = idx["case_steps"]["AML.CS0000"]
+    ordered = ex.order_steps(steps)
+    assert [s["step-id"] for s in ordered] == ["S00", "S01"]
+
+
+def test_order_steps_ambiguous_heads_fall_back_to_step_id_sort():
+    steps = [
+        {"step-id": "S01", "leads-to": []},
+        {"step-id": "S00", "leads-to": []},
+    ]
+    ordered = ex.order_steps(steps)
+    assert [s["step-id"] for s in ordered] == ["S00", "S01"]
+
+
+def test_order_steps_missing_ids_keep_document_order():
+    steps = [
+        {"description": "first", "leads-to": []},
+        {"step-id": "S01", "description": "second", "leads-to": []},
+    ]
+    ordered = ex.order_steps(steps)
+    assert [s.get("description") for s in ordered] == ["first", "second"]
+
+
+def test_order_steps_cycle_falls_back_to_step_id_sort():
+    steps = [
+        {"step-id": "S00", "leads-to": ["S01"]},
+        {"step-id": "S01", "leads-to": ["S00"]},
+    ]
+    ordered = ex.order_steps(steps)
+    assert [s["step-id"] for s in ordered] == ["S00", "S01"]
+
+
+def test_order_steps_branch_targets_appended_sorted_after_chain():
+    # S00 branches to both S01 and S02; the walk follows the first edge,
+    # and the skipped branch target is appended (sorted) after the chain.
+    steps = [
+        {"step-id": "S00", "leads-to": ["S01", "S02"]},
+        {"step-id": "S01", "leads-to": []},
+        {"step-id": "S02", "leads-to": []},
+    ]
+    ordered = ex.order_steps(steps)
+    assert [s["step-id"] for s in ordered] == ["S00", "S01", "S02"]
+
+
+def test_case_study_pairs(atlas, idx):
+    cs = atlas["case-studies"]["AML.CS0000"]
+    pairs = ex.case_study_pairs(cs, atlas, idx)
+    # 2 step pairs + 1 flow summary
+    assert len(pairs) == 3
+    step_pairs = [p for p in pairs if p.get("case_study") == "AML.CS0000"]
+    assert len(step_pairs) == 3
+    flow = [p for p in pairs if "flow" in p["messages"][0]["content"].lower()
+            or "sequence" in p["messages"][1]["content"].lower()]
+    assert len(flow) == 1
+    # step one content comes from the employs description, and order is S00 first
+    assert "Step one did X." in step_pairs[0]["messages"][2]["content"]
+    assert "Test Actor" in step_pairs[0]["messages"][1]["content"]
+
+
+def test_case_study_pairs_no_steps_returns_empty(atlas, idx):
+    cs = {"id": "AML.CS9999", "name": "Empty Study", "actor": "Nobody"}
+    assert ex.case_study_pairs(cs, atlas, idx) == []
