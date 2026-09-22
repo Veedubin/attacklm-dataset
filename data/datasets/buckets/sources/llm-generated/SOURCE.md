@@ -22,11 +22,11 @@ Output of an LLM, not human-authored. GPL-3.0 licensed per the Qwen license term
 
 ## How it's ingested
 
-The records in this directory are produced by
-`scripts/stamp_and_reorg.py`, which reads from
-`data/datasets/buckets/<bucket>/` and writes here.
+The `data_llm.jsonl` records in this directory are produced by
+`scripts/generate_synthetic_scarce.py` running against a local LMStudio
+server (qwen2.5-coder-14b-instruct, temperature 0.4) and committed here.
 
-To re-run: `uv run python scripts/stamp_and_reorg.py`
+To re-run: `uv run python scripts/generate_synthetic_scarce.py`
 
 ## Rights-holder contact
 

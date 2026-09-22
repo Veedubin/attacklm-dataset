@@ -23,10 +23,10 @@ BSD-3-Clause attribution. Each record is stamped with `license: BSD-3-Clause` an
 ## How it's ingested
 
 The records in this directory are produced by
-`scripts/stamp_and_reorg.py`, which reads from
-`data/datasets/buckets/<bucket>/` and writes here.
+`scripts/parse_metasploit_to_jsonl.py`, which walks the cloned
+`data/metasploit-framework/` repository and writes here.
 
-To re-run: `uv run python scripts/stamp_and_reorg.py`
+To re-run: `uv run python scripts/parse_metasploit_to_jsonl.py`
 
 ## Rights-holder contact
 

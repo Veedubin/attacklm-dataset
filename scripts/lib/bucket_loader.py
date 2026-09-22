@@ -287,6 +287,7 @@ _ALIAS_RESOLVERS = {
         ("base", None),
         ("tools", None),
         ("ai", None),
+        ("atlas", None),
         ("orchestrator", None),
         ("attack_tactics", None),
         ("web_app", None),
@@ -331,6 +332,7 @@ for cat in (
     "supply_chain",
     "ics",
     "wireless",
+    "atlas",
 ):
     _CATEGORY_RESOLVERS[cat] = lambda c=cat: _resolve_by_category(c)
 

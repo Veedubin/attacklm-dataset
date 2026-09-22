@@ -18,11 +18,12 @@ Augments and diversifies upstream coverage. Used in 12+ buckets across MITRE tac
 
 ## How it's ingested
 
-The records in this directory are produced by
-`scripts/stamp_and_reorg.py`, which reads from
-`data/datasets/buckets/<bucket>/` and writes here.
+The `data_synth.jsonl` records in this directory are produced by the
+deterministic in-repo generators (`scripts/acquire_*.py`, e.g.
+`acquire_phishing_dataset.py`, `acquire_cloud_attack_dataset.py`) and
+committed here.
 
-To re-run: `uv run python scripts/stamp_and_reorg.py`
+To re-run (example): `uv run python scripts/acquire_phishing_dataset.py`
 
 ## Rights-holder contact
 

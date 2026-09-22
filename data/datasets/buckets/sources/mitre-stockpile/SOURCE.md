@@ -19,10 +19,10 @@ Adversary emulation ability triples (YAML-defined TTP descriptors).
 ## How it's ingested
 
 The records in this directory are produced by
-`scripts/stamp_and_reorg.py`, which reads from
-`data/datasets/buckets/<bucket>/` and writes here.
+`scripts/extract_caldera_plugins_to_jsonl.py`, which reads the vendored
+`data/stockpile/` plugin checkout and writes here.
 
-To re-run: `uv run python scripts/stamp_and_reorg.py`
+To re-run: `uv run python scripts/extract_caldera_plugins_to_jsonl.py`
 
 ## Rights-holder contact
 

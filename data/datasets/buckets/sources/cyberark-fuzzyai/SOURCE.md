@@ -18,11 +18,9 @@ Adversarial prompt resources (no records currently in dataset; slot reserved for
 
 ## How it's ingested
 
-The records in this directory are produced by
-`scripts/stamp_and_reorg.py`, which reads from
-`data/datasets/buckets/<bucket>/` and writes here.
-
-To re-run: `uv run python scripts/stamp_and_reorg.py`
+This is a reserved slot: no records have been extracted yet and no
+committed extractor writes to this directory. The slot becomes active
+once an extractor for the upstream repository is implemented.
 
 ## Rights-holder contact
 

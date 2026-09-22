@@ -11,8 +11,8 @@ these sources; they are not a verbatim copy.
 
 ## Per-source provenance
 
-Every record in the public dataset carries these fields (added by
-`scripts/stamp_and_reorg.py`):
+Every record in the public dataset carries these fields (written by the
+per-source extractor that produced the record):
 
 ```json
 {

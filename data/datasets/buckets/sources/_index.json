@@ -263,6 +263,16 @@
       ]
     },
     {
+      "name": "mitre-atlas",
+      "display": "MITRE ATLAS",
+      "license": "Apache-2.0",
+      "license_uri": "https://www.apache.org/licenses/LICENSE-2.0",
+      "upstream_url": "https://github.com/mitre-atlas/atlas-data",
+      "risk": "low",
+      "n_records": 0,
+      "buckets": []
+    },
+    {
       "name": "mitre-atlas-arsenal",
       "display": "MITRE ATLAS Arsenal",
       "license": "Apache-2.0",

@@ -54,12 +54,14 @@ rationale and `data/REMOVAL.md` for the rights-holder contact process.
 
 1. **New source** — create `data/datasets/buckets/sources/<source>/`
    with a `LICENSE.md` and `SOURCE.md` following the existing
-   convention. Add a `PROVENANCE` entry to
-   `scripts/stamp_and_reorg.py` and re-run it. Update
-   `data/ATTRIBUTION.md` and this file.
+   convention. Write (or extend) an extractor under `scripts/` that
+   stamps the provenance fields (`source`, `source_uri`, `license`,
+   `license_uri`, `rights_contact`) onto every record it emits.
+   Update `data/ATTRIBUTION.md` and this file.
 2. **New records to an existing source** — drop them into the
    appropriate `sources/<source>/<bucket>/<tactic>/data.jsonl` file.
-   Re-run `scripts/stamp_and_reorg.py` to add provenance fields.
+   Re-run the source's extractor to regenerate records with their
+   provenance fields.
 3. **Re-distribution review** — every record carries
    `source` / `source_uri` / `license` / `license_uri` /
    `rights_contact`. Do not strip these fields when redistributing.

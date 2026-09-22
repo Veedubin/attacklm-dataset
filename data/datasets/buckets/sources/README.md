@@ -86,8 +86,8 @@ this directory by `scripts/rebuild_manifest.py`.
 
 ## Provenance stamp
 
-Every record in this directory carries these fields (added by
-`scripts/stamp_and_reorg.py`):
+Every record in this directory carries these fields (written by the
+per-source extractor that produced the record):
 
 ```json
 {
