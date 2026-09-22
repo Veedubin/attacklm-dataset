@@ -1,7 +1,12 @@
+## [0.10.1] — 2026-09-22
+
+- **Docs-only**: corrected two script names in the v0.10.0 CHANGELOG entry below — the MITRE ATLAS extractor is `scripts/extract_mitre_atlas.py` (not `scripts/extract_atlas_to_jsonl.py`), and the manifest builder ships as `scripts/rebuild_manifest.py` + `scripts/lib/manifest_builder.py` (not `scripts/build_manifest.py`). Caught by the final whole-branch review; no code or data changes.
+- No PyPI publish (attacklm-dataset is GitHub-only distribution).
+
 ## [0.10.0] — 2026-09-22
 
-- **New source: MITRE ATLAS** (Adversarial Threat Landscape for Artificial-Intelligence Systems), vendored 2026.09 distribution YAML (Apache-2.0). New extractor `scripts/extract_atlas_to_jsonl.py` produces training pairs from techniques, sub-techniques, mitigations (via `mitigates` inversion, with tactic routing and no-link fallback), and case studies. Result: **1,807 pairs across 16 `atlas/*` buckets** covering 16 ATLAS tactics, 208 techniques, 40 mitigations, and 73 case studies.
-- **Resurrected manifest builder** (`scripts/build_manifest.py`): restored as an importable lib module + CLI, now with an `atlas` category; manifest + index regenerated to include the new source.
+- **New source: MITRE ATLAS** (Adversarial Threat Landscape for Artificial-Intelligence Systems), vendored 2026.09 distribution YAML (Apache-2.0). New extractor `scripts/extract_mitre_atlas.py` produces training pairs from techniques, sub-techniques, mitigations (via `mitigates` inversion, with tactic routing and no-link fallback), and case studies. Result: **1,807 pairs across 16 `atlas/*` buckets** covering 16 ATLAS tactics, 208 techniques, 40 mitigations, and 73 case studies.
+- **Resurrected manifest builder** (`scripts/rebuild_manifest.py` + `scripts/lib/manifest_builder.py`): restored as an importable lib module + CLI, now with an `atlas` category; manifest + index regenerated to include the new source.
 - **Loader/pipeline wiring**: `atlas` category registered in the bucket loader; extractor added to the pipeline.
 - **Docs fixes**: removed phantom `stamp_and_reorg` references from `SOURCE.md` files (function does not exist).
 - No PyPI publish (attacklm-dataset is GitHub-only distribution).
