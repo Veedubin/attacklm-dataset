@@ -9,16 +9,24 @@ Records are organized by upstream **source** first, then by bucket.
 sources/
 ├── _index.json                  # machine-readable manifest
 ├── atomic-red-team/             # MIT — Red Canary
-├── mitre-stockpile/             # Apache-2.0 — MITRE Caldera
-├── mitre-atlas-arsenal/         # Apache-2.0 — MITRE ATLAS
-├── metasploit-framework/        # BSD-3-Clause — Rapid7 (medium risk: attribution required)
-├── nvidia-garak/                # Apache-2.0 — NVIDIA
+├── attacklm-synthetic/          # MIT — in-repo deterministic templates
 ├── azure-pyrit/                 # MIT — Azure (reserved for future — no records yet)
 ├── cyberark-fuzzyai/            # Apache-2.0 — CyberArk (reserved for future — no records yet)
+├── elastic-rules/               # Elastic License 2.0 — Elastic detection-rules
+├── llm-generated/               # GPL-3.0 — qwen2.5-coder-14b output
+├── metasploit-framework/        # BSD-3-Clause — Rapid7 (medium risk: attribution required)
+├── mitre-atlas/                 # Apache-2.0 — MITRE ATLAS (techniques, mitigations, case studies)
+├── mitre-atlas-arsenal/         # Apache-2.0 — MITRE ATLAS Arsenal
+├── mitre-stockpile/             # Apache-2.0 — MITRE Caldera
+├── mordor/                      # Apache-2.0 — OTRF Security-Datasets
+├── nist-ir/                     # Public Domain — NIST SP 800-61r3
+├── nvidia-garak/                # Apache-2.0 — NVIDIA
 ├── promptfoo/                   # MIT
 ├── promptmap/                   # MIT — utkusen
-├── llm-generated/               # GPL-3.0 — qwen2.5-coder-14b output
-└── attacklm-synthetic/          # MIT — in-repo deterministic templates
+├── replay-general/              # Mixed — planned general-domain replay source
+├── sigma-hq/                    # DRL-1.1 — SigmaHQ
+├── splunk-content/              # Apache-2.0 — Splunk security_content
+└── threathunter-playbook/       # Apache-2.0 — OTRF ThreatHunter-Playbook
 ```
 
 Each source directory contains:
@@ -104,4 +112,4 @@ by downstream re-distributors.
 
 ## Total record count
 
-25,601 records across 11 sources.
+26,459 records across 19 sources (17 active, 2 reserved).

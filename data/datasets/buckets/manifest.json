@@ -8,11 +8,11 @@
     "guardicore/infection_monkey (GPL-3.0)",
     "TheBigPromptLibrary (mixed/unclear)"
   ],
-  "created": "2026-06-29T22:55:05.430552+00:00",
-  "total_buckets": 21,
-  "total_pairs": 24652,
+  "created": "2026-09-22T11:37:24.888481+00:00",
+  "total_buckets": 37,
+  "total_pairs": 26459,
   "tier_totals": {
-    "human": 23335,
+    "human": 25142,
     "llm": 937,
     "synth": 380
   },
@@ -24,6 +24,7 @@
     "elastic-rules": 1908,
     "llm-generated": 937,
     "metasploit-framework": 13997,
+    "mitre-atlas": 1807,
     "mitre-atlas-arsenal": 20,
     "mitre-stockpile": 390,
     "mordor": 339,
@@ -209,6 +210,97 @@
           "bucket": "tools/metasploit",
           "file": "data.jsonl",
           "records": 8349
+        }
+      ]
+    },
+    "mitre-atlas": {
+      "name": "mitre-atlas",
+      "display": "MITRE ATLAS",
+      "license": "Apache-2.0",
+      "license_uri": "https://www.apache.org/licenses/LICENSE-2.0",
+      "upstream_url": "https://github.com/mitre-atlas/atlas-data",
+      "risk": "low",
+      "n_records": 1807,
+      "buckets": [
+        {
+          "bucket": "atlas/ai_attack_adaptation",
+          "file": "data.jsonl",
+          "records": 246
+        },
+        {
+          "bucket": "atlas/ai_model_access",
+          "file": "data.jsonl",
+          "records": 56
+        },
+        {
+          "bucket": "atlas/collection",
+          "file": "data.jsonl",
+          "records": 71
+        },
+        {
+          "bucket": "atlas/command_and_control",
+          "file": "data.jsonl",
+          "records": 28
+        },
+        {
+          "bucket": "atlas/credential_access",
+          "file": "data.jsonl",
+          "records": 51
+        },
+        {
+          "bucket": "atlas/defense_evasion",
+          "file": "data.jsonl",
+          "records": 120
+        },
+        {
+          "bucket": "atlas/discovery",
+          "file": "data.jsonl",
+          "records": 116
+        },
+        {
+          "bucket": "atlas/execution",
+          "file": "data.jsonl",
+          "records": 163
+        },
+        {
+          "bucket": "atlas/exfiltration",
+          "file": "data.jsonl",
+          "records": 93
+        },
+        {
+          "bucket": "atlas/impact",
+          "file": "data.jsonl",
+          "records": 159
+        },
+        {
+          "bucket": "atlas/initial_access",
+          "file": "data.jsonl",
+          "records": 179
+        },
+        {
+          "bucket": "atlas/lateral_movement",
+          "file": "data.jsonl",
+          "records": 29
+        },
+        {
+          "bucket": "atlas/persistence",
+          "file": "data.jsonl",
+          "records": 88
+        },
+        {
+          "bucket": "atlas/privilege_escalation",
+          "file": "data.jsonl",
+          "records": 24
+        },
+        {
+          "bucket": "atlas/reconnaissance",
+          "file": "data.jsonl",
+          "records": 155
+        },
+        {
+          "bucket": "atlas/resource_development",
+          "file": "data.jsonl",
+          "records": 229
         }
       ]
     },
@@ -643,6 +735,262 @@
       },
       "dominant_source": "promptfoo",
       "license": "MIT"
+    },
+    {
+      "name": "atlas_ai_attack_adaptation",
+      "path": "atlas/ai_attack_adaptation",
+      "category": "atlas",
+      "count": 246,
+      "sub_sources": {
+        "human": 246,
+        "llm": 0,
+        "synth": 0
+      },
+      "sources": {
+        "mitre-atlas": 246
+      },
+      "dominant_source": "mitre-atlas",
+      "license": "Apache-2.0"
+    },
+    {
+      "name": "atlas_ai_model_access",
+      "path": "atlas/ai_model_access",
+      "category": "atlas",
+      "count": 56,
+      "sub_sources": {
+        "human": 56,
+        "llm": 0,
+        "synth": 0
+      },
+      "sources": {
+        "mitre-atlas": 56
+      },
+      "dominant_source": "mitre-atlas",
+      "license": "Apache-2.0"
+    },
+    {
+      "name": "atlas_collection",
+      "path": "atlas/collection",
+      "category": "atlas",
+      "count": 71,
+      "sub_sources": {
+        "human": 71,
+        "llm": 0,
+        "synth": 0
+      },
+      "sources": {
+        "mitre-atlas": 71
+      },
+      "dominant_source": "mitre-atlas",
+      "license": "Apache-2.0"
+    },
+    {
+      "name": "atlas_command_and_control",
+      "path": "atlas/command_and_control",
+      "category": "atlas",
+      "count": 28,
+      "sub_sources": {
+        "human": 28,
+        "llm": 0,
+        "synth": 0
+      },
+      "sources": {
+        "mitre-atlas": 28
+      },
+      "dominant_source": "mitre-atlas",
+      "license": "Apache-2.0"
+    },
+    {
+      "name": "atlas_credential_access",
+      "path": "atlas/credential_access",
+      "category": "atlas",
+      "count": 51,
+      "sub_sources": {
+        "human": 51,
+        "llm": 0,
+        "synth": 0
+      },
+      "sources": {
+        "mitre-atlas": 51
+      },
+      "dominant_source": "mitre-atlas",
+      "license": "Apache-2.0"
+    },
+    {
+      "name": "atlas_defense_evasion",
+      "path": "atlas/defense_evasion",
+      "category": "atlas",
+      "count": 120,
+      "sub_sources": {
+        "human": 120,
+        "llm": 0,
+        "synth": 0
+      },
+      "sources": {
+        "mitre-atlas": 120
+      },
+      "dominant_source": "mitre-atlas",
+      "license": "Apache-2.0"
+    },
+    {
+      "name": "atlas_discovery",
+      "path": "atlas/discovery",
+      "category": "atlas",
+      "count": 116,
+      "sub_sources": {
+        "human": 116,
+        "llm": 0,
+        "synth": 0
+      },
+      "sources": {
+        "mitre-atlas": 116
+      },
+      "dominant_source": "mitre-atlas",
+      "license": "Apache-2.0"
+    },
+    {
+      "name": "atlas_execution",
+      "path": "atlas/execution",
+      "category": "atlas",
+      "count": 163,
+      "sub_sources": {
+        "human": 163,
+        "llm": 0,
+        "synth": 0
+      },
+      "sources": {
+        "mitre-atlas": 163
+      },
+      "dominant_source": "mitre-atlas",
+      "license": "Apache-2.0"
+    },
+    {
+      "name": "atlas_exfiltration",
+      "path": "atlas/exfiltration",
+      "category": "atlas",
+      "count": 93,
+      "sub_sources": {
+        "human": 93,
+        "llm": 0,
+        "synth": 0
+      },
+      "sources": {
+        "mitre-atlas": 93
+      },
+      "dominant_source": "mitre-atlas",
+      "license": "Apache-2.0"
+    },
+    {
+      "name": "atlas_impact",
+      "path": "atlas/impact",
+      "category": "atlas",
+      "count": 159,
+      "sub_sources": {
+        "human": 159,
+        "llm": 0,
+        "synth": 0
+      },
+      "sources": {
+        "mitre-atlas": 159
+      },
+      "dominant_source": "mitre-atlas",
+      "license": "Apache-2.0"
+    },
+    {
+      "name": "atlas_initial_access",
+      "path": "atlas/initial_access",
+      "category": "atlas",
+      "count": 179,
+      "sub_sources": {
+        "human": 179,
+        "llm": 0,
+        "synth": 0
+      },
+      "sources": {
+        "mitre-atlas": 179
+      },
+      "dominant_source": "mitre-atlas",
+      "license": "Apache-2.0"
+    },
+    {
+      "name": "atlas_lateral_movement",
+      "path": "atlas/lateral_movement",
+      "category": "atlas",
+      "count": 29,
+      "sub_sources": {
+        "human": 29,
+        "llm": 0,
+        "synth": 0
+      },
+      "sources": {
+        "mitre-atlas": 29
+      },
+      "dominant_source": "mitre-atlas",
+      "license": "Apache-2.0"
+    },
+    {
+      "name": "atlas_persistence",
+      "path": "atlas/persistence",
+      "category": "atlas",
+      "count": 88,
+      "sub_sources": {
+        "human": 88,
+        "llm": 0,
+        "synth": 0
+      },
+      "sources": {
+        "mitre-atlas": 88
+      },
+      "dominant_source": "mitre-atlas",
+      "license": "Apache-2.0"
+    },
+    {
+      "name": "atlas_privilege_escalation",
+      "path": "atlas/privilege_escalation",
+      "category": "atlas",
+      "count": 24,
+      "sub_sources": {
+        "human": 24,
+        "llm": 0,
+        "synth": 0
+      },
+      "sources": {
+        "mitre-atlas": 24
+      },
+      "dominant_source": "mitre-atlas",
+      "license": "Apache-2.0"
+    },
+    {
+      "name": "atlas_reconnaissance",
+      "path": "atlas/reconnaissance",
+      "category": "atlas",
+      "count": 155,
+      "sub_sources": {
+        "human": 155,
+        "llm": 0,
+        "synth": 0
+      },
+      "sources": {
+        "mitre-atlas": 155
+      },
+      "dominant_source": "mitre-atlas",
+      "license": "Apache-2.0"
+    },
+    {
+      "name": "atlas_resource_development",
+      "path": "atlas/resource_development",
+      "category": "atlas",
+      "count": 229,
+      "sub_sources": {
+        "human": 229,
+        "llm": 0,
+        "synth": 0
+      },
+      "sources": {
+        "mitre-atlas": 229
+      },
+      "dominant_source": "mitre-atlas",
+      "license": "Apache-2.0"
     },
     {
       "name": "cloud_attacks",

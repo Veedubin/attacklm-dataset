@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-06-12T02:11:43.489032+00:00",
-  "total_sources": 11,
-  "total_records": 25601,
+  "generated_at": "2026-09-22T11:42:21.476733+00:00",
+  "total_sources": 12,
+  "total_records": 27408,
   "sources": [
     {
       "name": "atomic-red-team",
@@ -269,8 +269,121 @@
       "license_uri": "https://www.apache.org/licenses/LICENSE-2.0",
       "upstream_url": "https://github.com/mitre-atlas/atlas-data",
       "risk": "low",
-      "n_records": 0,
-      "buckets": []
+      "n_records": 1807,
+      "buckets": [
+        {
+          "bucket": "atlas/ai_attack_adaptation",
+          "files": {
+            "data.jsonl": 246
+          },
+          "total": 246
+        },
+        {
+          "bucket": "atlas/ai_model_access",
+          "files": {
+            "data.jsonl": 56
+          },
+          "total": 56
+        },
+        {
+          "bucket": "atlas/collection",
+          "files": {
+            "data.jsonl": 71
+          },
+          "total": 71
+        },
+        {
+          "bucket": "atlas/command_and_control",
+          "files": {
+            "data.jsonl": 28
+          },
+          "total": 28
+        },
+        {
+          "bucket": "atlas/credential_access",
+          "files": {
+            "data.jsonl": 51
+          },
+          "total": 51
+        },
+        {
+          "bucket": "atlas/defense_evasion",
+          "files": {
+            "data.jsonl": 120
+          },
+          "total": 120
+        },
+        {
+          "bucket": "atlas/discovery",
+          "files": {
+            "data.jsonl": 116
+          },
+          "total": 116
+        },
+        {
+          "bucket": "atlas/execution",
+          "files": {
+            "data.jsonl": 163
+          },
+          "total": 163
+        },
+        {
+          "bucket": "atlas/exfiltration",
+          "files": {
+            "data.jsonl": 93
+          },
+          "total": 93
+        },
+        {
+          "bucket": "atlas/impact",
+          "files": {
+            "data.jsonl": 159
+          },
+          "total": 159
+        },
+        {
+          "bucket": "atlas/initial_access",
+          "files": {
+            "data.jsonl": 179
+          },
+          "total": 179
+        },
+        {
+          "bucket": "atlas/lateral_movement",
+          "files": {
+            "data.jsonl": 29
+          },
+          "total": 29
+        },
+        {
+          "bucket": "atlas/persistence",
+          "files": {
+            "data.jsonl": 88
+          },
+          "total": 88
+        },
+        {
+          "bucket": "atlas/privilege_escalation",
+          "files": {
+            "data.jsonl": 24
+          },
+          "total": 24
+        },
+        {
+          "bucket": "atlas/reconnaissance",
+          "files": {
+            "data.jsonl": 155
+          },
+          "total": 155
+        },
+        {
+          "bucket": "atlas/resource_development",
+          "files": {
+            "data.jsonl": 229
+          },
+          "total": 229
+        }
+      ]
     },
     {
       "name": "mitre-atlas-arsenal",
