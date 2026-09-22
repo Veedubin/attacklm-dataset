@@ -198,3 +198,19 @@ def test_mitigation_pairs(atlas, idx):
     assert len(rel_pair) == 1
     assert "Mitigates the test technique." in rel_pair[0]["messages"][2]["content"]
     assert "AML.M0000" in rel_pair[0]["mitre_ids"]
+    # Description pair routes to first linked technique's tactic (binding
+    # ruling), not a hardcoded value; carries only the mitigation's own ID.
+    assert pairs[0]["tactic"] == "reconnaissance"
+    assert pairs[0]["mitre_ids"] == ["AML.M0000"]
+
+
+def test_mitigation_pairs_no_linked_techniques(atlas, idx):
+    mit = {
+        "id": "AML.M9999",
+        "name": "Orphan Mitigation",
+        "description": "Mitigates nothing.",
+    }
+    pairs = ex.mitigation_pairs(mit, atlas, idx)
+    assert len(pairs) == 1
+    assert pairs[0]["tactic"] == "defense_evasion"
+    assert pairs[0]["mitre_ids"] == ["AML.M9999"]
