@@ -46,3 +46,24 @@ data/audit/
 # Restricted sources (denylisted; live only in archive/restricted-sources/
 # which is separately gitignored)
 archive/restricted-sources/
+
+# --- Purged 2026-09-21 (v0.9.3); never re-track ---
+# Stale pre-v0.3.0 flat-layout backup (contained restricted-source records)
+data/.bucket_layout_backup/
+# Generated run artifacts (regenerable; built by scripts, not source-of-truth)
+data/datasets/combined/
+data/manifests/
+data/.cache/
+data/validation_report.json
+data/audit_report.json
+data/tool_knowledge.json
+data/datasets/buckets/acquisition_report.json
+data/datasets/synthetic/*_raw.log
+# Internal research notes / personal one-off runners (local-only)
+data/datasets/buckets/GEMINI_RESEARCH_2026-06-11.md
+data/DATASET_EXPANSION_REPORT.md
+scripts/run_overnight_audits.sh
+# Tool caches
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/

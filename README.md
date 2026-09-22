@@ -190,7 +190,7 @@ file in which upstream repo), see
 
 ## Decontamination
 
-> Inspired by MAI-Thinking-1 §2.3.1 + §2.4.3 (Public Evaluation Decontamination + Deduplication) by The Microsoft AI Team, June 2026. Full doc: [docs/DECONTAM.md](docs/DECONTAM.md)
+> Inspired by MAI-Thinking-1 §2.3.1 + §2.4.3 (Public Evaluation Decontamination + Deduplication) by The Microsoft AI Team, June 2026.
 
 Identify and isolate training data that overlaps with public evaluation benchmarks using 20-gram fuzzy matching to prevent data leakage.
 
@@ -200,7 +200,7 @@ attacklm-dataset decontam --eval-set-dir data/eval_sets/ --quarantine-output dat
 
 ### Memorization-aware epoch capping
 
-> Inspired by MAI-Thinking-1 §2.5.4 (Mid-training Data Mixture — memorization-aware epoch capping) by The Microsoft AI Team, June 2026. Full doc: [docs/MEMORIZATION.md](docs/MEMORIZATION.md)
+> Inspired by MAI-Thinking-1 §2.5.4 (Mid-training Data Mixture — memorization-aware epoch capping) by The Microsoft AI Team, June 2026.
 
 Analyze training data for verbatim memorization and structural repetition using a per-token NLL proxy to recommend optimal epoch caps per source.
 
@@ -210,7 +210,7 @@ attacklm-dataset memorization-report --model /path/to/model
 
 ## Held-out NLL evaluation
 
-> Inspired by MAI-Thinking-1 §2.3 + §2.3.2 (Evaluation Methodology + Comparison of Accuracy and NLL Evaluations) by The Microsoft AI Team, June 2026. See [docs/HELD_OUT_NLL.md](docs/HELD_OUT_NLL.md).
+> Inspired by MAI-Thinking-1 §2.3 + §2.3.2 (Evaluation Methodology + Comparison of Accuracy and NLL Evaluations) by The Microsoft AI Team, June 2026.
 
 Compute a cheap, contamination-resistant signal for model improvement using held-out Negative Log-Likelihood (NLL) across 5 weighted buckets.
 
@@ -239,7 +239,7 @@ shipping.
 
 ### Closed-loop audit
 
-> Inspired by MAI-Thinking-1 §5.2 (TAP closed-loop) by The Microsoft AI Team, June 202L 2026. Full doc: [docs/AUDIT_ITER.md](docs/AUDIT_ITER.md)
+> Inspired by MAI-Thinking-1 §5.2 (TAP closed-loop) by The Microsoft AI Team, June 2026.
 
 Perform iterative adversarial auditing to detect brittle memorization by generating semantic variants of fooling records.
 
@@ -276,29 +276,25 @@ python scripts/score_shadow.py --model models/shadow_0 --records data/audit_set.
 
 ## Documentation
 
+The internal methodology and design docs (attack taxonomy, audit
+runner plans, MIA threshold calibration, LiRA design, decontamination,
+memorization capping, held-out NLL, closed-loop audit, probe token
+budget) are **not distributed** in the public repo — they are
+maintainer-local working documents. The public documentation is:
+
 | Doc | What it covers |
 |-----|---------------|
-| [Attack Taxonomy](docs/ATTACK_TAXONOMY.md) | MITRE ATT&CK technique mapping and attack class taxonomy |
-| [Audit Runner](docs/AUDIT_RUNNER.md) | How to run the inversion/MIA audit harness end-to-end |
-| [MIA Threshold Calibration](docs/MIA_THRESHOLD_CALIBRATION.md) | How MIA thresholds are calibrated (percentile, median, holdout, LiRA) |
-| [LiRA](docs/LIRA.md) | Likelihood Ratio Attack — shadow-model-based MIA methodology |
-| [Decontamination](docs/DECONTAM.md) | 20-gram MinHash LSH decontamination (MAI-Thinking-1 §2.3.1) |
-| [Memorization](docs/MEMORIZATION.md) | NLL<0.01 memorization proxy and epoch capping (MAI-Thinking-1 §2.5.4) |
-| [Held-out NLL](docs/HELD_OUT_NLL.md) | Held-out NLL evaluation with 5-bucket weighted aggregate (MAI-Thinking-1 §2.3) |
-| [Closed-loop Audit](docs/AUDIT_ITER.md) | TAP-style closed-loop adversarial audit (MAI-Thinking-1 §5.2) |
-| [Probe Token Budget](docs/PROBE_TOKEN_BUDGET.md) | Why probe token budget matters for BLEU-4 extraction metrics |
+| [data/ATTRIBUTION.md](data/ATTRIBUTION.md) | Per-source attribution and record counts |
+| [data/LEGAL.md](data/LEGAL.md) | License terms per source |
+| [data/REMOVAL.md](data/REMOVAL.md) | Takedown / removal process |
+| [PROVENANCE.md](PROVENANCE.md) | Per-file provenance template for the audit code |
+| [RIGHTS.md](RIGHTS.md) | Rights/usage statement, upstream authors, contact |
+| [SECURITY.md](SECURITY.md) | Security reporting |
 
-**Design docs** (the "why" behind each design decision):
-- [docs/ATTACK_TAXONOMY.md](docs/ATTACK_TAXONOMY.md) — the 3-attack
-  taxonomy, the LLM MI = TDE collapse argument, and the CLI flag
-  mapping
-- [docs/LIRA.md](docs/LIRA.md) — LiRA design, K parameter guide,
-  compute cost, threshold calibration
-- [docs/MIA_THRESHOLD_CALIBRATION.md](docs/MIA_THRESHOLD_CALIBRATION.md) —
-  threshold derivation
-- [docs/PROBE_TOKEN_BUDGET.md](docs/PROBE_TOKEN_BUDGET.md) — probe
-  length rationale
-- [docs/AUDIT_RUNNER.md](docs/AUDIT_RUNNER.md) — overnight-runner plan
+The attack classes and their canonical papers are listed in the
+"Privacy audit" section above; the implementations are clean-room
+reimplementations with per-file provenance blocks in
+`scripts/inversion/`.
 
 **Hermetic design.** The audit harness is hermetic — no network
 calls, no GPU required, runs on a CPU laptop in minutes. Mocked

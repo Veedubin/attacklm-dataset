@@ -1,3 +1,21 @@
+## [0.9.3] — 2026-09-21
+
+- **History rewrite (compliance purge)**: Full `git filter-repo` rewrite removing content that should never have been tracked, from all 38 commits and all 11 tags:
+  - `data/.bucket_layout_backup/` — stale pre-v0.3.0 flat-layout backup that **contained restricted RTA + infection_monkey records** (policy violation; these sources are excluded from the public dataset since v0.3.0). Removed from HEAD and all history.
+  - Four upstream repo clones (`data/splunk-security-content/`, `data/elastic-detection-rules/`, `data/mordor/`, `data/threathunter-playbook/`) — ~7,900 tracked files including large binary pcaps. Repo `.git` shrunk from ~630 MB to ~6 MB. Like the other 8 sources, these are now cloned locally by the extractor scripts, never tracked.
+  - `docs/` (9 internal methodology docs) — local-only per project policy; the earlier `docs/` gitignore rule never untracked them. Working copies remain local.
+  - Generated run artifacts: `data/datasets/combined/` (169 MB, incl. byte-identical duplicates), `data/manifests/`, `data/.cache/`, `data/validation_report.json`, `data/audit_report.json`, `data/tool_knowledge.json`, `data/datasets/buckets/acquisition_report.json`, `data/datasets/synthetic/*_raw.log`, `data/datasets/buckets/GEMINI_RESEARCH_2026-06-11.md` (internal research notes), `scripts/run_overnight_audits.sh` (personal runner with hardcoded local paths).
+- **README**: removed ~15 links to the now-undistributed `docs/*.md` files (they would 404); Documentation section now lists only the public docs (ATTRIBUTION, LEGAL, REMOVAL, PROVENANCE, RIGHTS, SECURITY). Fixed a date typo.
+- **CHANGELOG**: fixed a broken `docs/ATTACK_TAXONYMARKDOWN.md` reference in the v0.4.0 entry.
+- **.gitignore hardening**: rules for the purged artifact paths so they can't be re-tracked; added tool caches (`.mypy_cache/`, `.pytest_cache/`, `.ruff_cache/`).
+- `data/DATASET_EXPANSION_REPORT.md` (stale 2026-06-09 generated report) moved to local-only.
+
+The shipped release tarball was never affected: `scripts/package_dataset.py` only packages `data/datasets/buckets/sources/` + manifest and verifies no restricted sources are present. All 11 existing tags were recreated on the rewritten history (same names, same content per tag minus the purged paths).
+
+## [0.9.2] — 2026-07-18
+
+- **Docs-only**: README docs index, `MIA_THRESHOLD_CALIBRATION.md` refresh for the v0.9.1 `calibrate_threshold` fix, CHANGELOG update. No code changes.
+
 ## [0.9.1] — 2026-07-16
 
 - **`calibrate_threshold` FPR fix**: Fixed inverted quantile in `scoring.py`. Previously `target_fpr=0.01` produced ~99% FPR; now correctly produces ~1% FPR. Function is not used in the production audit pipeline (`inversion_audit.py` uses `_percentile` directly) but was a latent footgun for anyone calling it directly.
@@ -178,7 +196,7 @@ per_token_mia + 21 lira). All 106 tests pass.
 - **`score_per_token()`** in `scripts/inversion/scoring.py` — per-suffix-token NLL scoring (MUSE 2023 default). Normalizes NLL by suffix token count, removing the length bias in full-record scoring. Returns a `PerTokenMIAScore` dataclass with `nll_per_token`, `nll_total`, `num_suffix_tokens`, `suffix_text`, `membership_score`, `alpha`, and `zlib_ratio`.
 - **`zscore_normalize()`** helper in `scripts/inversion/scoring.py` — Z-score normalization for cross-source MIA threshold calibration. Returns all zeros for constant distributions.
 - **`_extract_assistant_turn()`** helper in `scripts/inversion/scoring.py` — extracts the final assistant message content from a record (the MUSE 2023 suffix).
-- **`--attack {extraction,mia,all}`** CLI flag (default `all`) — replaces the binary `--probe-carlini` / `--probe-mia` flags with an attack-class-first design. See `docs/ATTACK_TAXONYMARKDOWN.md` §5 for the full mapping.
+- **`--attack {extraction,mia,all}`** CLI flag (default `all`) — replaces the binary `--probe-carlini` / `--probe-mia` flags with an attack-class-first design.
 - **`--mia-method {reference,zlib,per_token,lira,all}`** CLI flag (default `reference`) — selects which MIA scoring method to use. `per_token` writes `membership_score_per_token` and related fields to the output JSONL. `all` writes both full-record and per-token columns. `lira` now works (was exiting with an error in the v0.4.0 draft; fixed in this branch).
 - **LiRA scoring module** at `scripts/inversion/lira.py` — `LiRAScore`, `GaussianParams`, `fit_gaussian`, `fit_gaussians_per_record`, `gaussian_log_pdf`, `compute_lira_logit`, `score_lira`, `calibrate_lira_threshold`, `save_shadow_params`, `load_shadow_params`. LiRA is "10× more powerful at low FPR" than the reference attack per Carlini 2022 §4.4.
 - **`shadow_train.py`** CLI scaffold at `scripts/inversion/shadow_train.py` — reads precomputed shadow loss files and produces `shadow_params.json` for use with `--mia-method lira`.
