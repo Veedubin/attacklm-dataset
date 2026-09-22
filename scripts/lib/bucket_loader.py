@@ -16,7 +16,7 @@ The legacy flat layout (`data/datasets/buckets/<bucket>/data.jsonl`) has
 been moved to `archive/old-flat-layout/` and is NOT used at runtime.
 
 Bucket names are paths relative to BUCKETS_DIR using forward slashes:
-    "base/collection", "ai/prompt-injection", "tools/metasploit"
+    "base/collection", "ai/prompt-injection", "tools/metasploit", "defensive/detection_engineering"
 
 This module provides:
     - list_buckets(category=None) — enumerate all buckets from manifest
@@ -31,8 +31,14 @@ This module provides:
     - get_tool_buckets() — tools/* buckets (metasploit, infection_monkey, rta)
     - get_default_train_buckets() — buckets trained by default (tactics + orchestrator)
     - resolve_dataset_spec(spec) / resolve_dataset_specs(specs) — convert
-      a user-facing spec ("base/", "tools/metasploit/", "all", etc.) to
+      a user-facing spec ("base/", "tools/metasploit/", "defensive/", "all", etc.) to
       the underlying list of bucket dicts
+
+Dataset spec aliases:
+    - "all" → all 37 buckets (including defensive/ category)
+    - "all-offensive" → pre-2026-09-22 meaning of "all" (12 categories, no defensive)
+    - "tactics" → just base/ (tactic buckets)
+    - "tools-all" → just tools/
 
 The combined dataset is cached at:
     data/datasets/combined/<cache_key>.jsonl
@@ -282,6 +288,23 @@ _CATEGORY_RESOLVERS = {
 # Per-domain attack categories (web_app, cloud, etc.) are added as their
 # own entries so `--dataset all` includes them.
 _ALIAS_RESOLVERS = {
+    # FROZEN: pre-2026-09-22 meaning of "all" — preserves backward compat for
+    # models trained before defensive/ was added to "all". Must never gain new
+    # categories beyond these 12.
+    "all-offensive": [
+        ("base", None),
+        ("tools", None),
+        ("ai", None),
+        ("atlas", None),
+        ("orchestrator", None),
+        ("attack_tactics", None),
+        ("web_app", None),
+        ("cloud", None),
+        ("social_engineering", None),
+        ("supply_chain", None),
+        ("ics", None),
+        ("wireless", None),
+    ],
     "all": [
         ("base", None),
         ("tools", None),
@@ -295,6 +318,7 @@ _ALIAS_RESOLVERS = {
         ("supply_chain", None),
         ("ics", None),
         ("wireless", None),
+        ("defensive", None),
     ],
     "tactics": [("base", None)],
     "tools-all": [("tools", None)],
@@ -332,6 +356,7 @@ for cat in (
     "ics",
     "wireless",
     "atlas",
+    "defensive",
 ):
     _CATEGORY_RESOLVERS[cat] = lambda c=cat: _resolve_by_category(c)
 
@@ -347,12 +372,15 @@ def resolve_dataset_spec(spec: str) -> list[dict]:
 
     Accepts:
         "base/"                    → 10 tactic buckets
-        "tools/"                   → 3 tool buckets
+        "tools/"                   → 1 tool bucket (metasploit)
         "tools/metasploit/"        → 1 bucket
         "ai/"                      → 2 AI buckets
         "ai/jailbreaking/"         → 1 bucket
+        "defensive/"               → 3 defensive buckets (detection_engineering, threat_hunting, incident_response)
+        "defensive/detection_engineering/" → 1 bucket
         "orchestrator"             → 1 orchestrator bucket
-        "all"                      → all 4 categories
+        "all"                      → all 37 buckets (includes defensive/)
+        "all-offensive"            → 34 buckets (pre-2026-09-22 meaning of "all", excludes defensive/)
         "tactics"                  → just base/
         "tools-all"                → just tools/
 
@@ -426,7 +454,7 @@ def resolve_dataset_spec(spec: str) -> list[dict]:
     # Nothing matched — raise with a helpful list
     available = sorted({b["path"] for b in list_buckets()})
     available.extend(
-        ["base/", "tools/", "ai/", "orchestrator", "all", "tactics", "tools-all"]
+        ["base/", "tools/", "ai/", "defensive/", "orchestrator", "all", "all-offensive", "tactics", "tools-all"]
     )
     raise ValueError(
         f"Unknown dataset spec: {spec!r}\n"
