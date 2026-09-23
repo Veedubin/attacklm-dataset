@@ -2,7 +2,7 @@
 
 **Effective:** 2026-07-09
 **Repository:** https://github.com/Veedubin/attacklm-dataset
-**Maintainer:** Veedubin (GitHub) — `veedubin.legal@example.com` (replace before any public release; current address is a placeholder)
+**Maintainer:** Veedubin ([GitHub](https://github.com/Veedubin)) — for rights, licensing, or takedown requests, open an issue at https://github.com/Veedubin/attacklm-dataset/issues (see also `data/REMOVAL.md`)
 
 This document establishes the legal and ethical framework for the `attacklm-dataset` repository and its associated software. The primary purpose of this project is to facilitate **defensive privacy auditing** and **membership-inference attack (MIA) research** on language models that the user owns or has explicit authorization to audit. By providing standardized implementations of known attack vectors, this project enables model developers to quantify the leakage of training data and implement robust defenses to protect user privacy.
 
@@ -86,7 +86,7 @@ The maintainer disclaims all liability for misuse of the code or data in this re
 
 The maintainers of this project respect the intellectual property rights of all contributors and data providers. If you are a rights-holder and believe that any material in this repository violates your copyright or license terms, please contact us immediately.
 
-**Contact:** `veedubin.legal@example.com` (placeholder — replace before public release)
+**Contact:** open an issue at https://github.com/Veedubin/attacklm-dataset/issues
 
 Upon receipt of a valid request, the maintainer commits to:
 

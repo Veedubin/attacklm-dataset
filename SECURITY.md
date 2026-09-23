@@ -2,9 +2,9 @@
 
 ## Reporting a vulnerability in the dataset tooling
 
-Please email **[email protected]** (or open a private security advisory via
-GitHub's Security tab). Do not file public issues for security-sensitive
-reports.
+Please open a **private security advisory** via GitHub's Security tab
+(<https://github.com/Veedubin/attacklm-dataset/security/advisories/new>).
+Do not file public issues for security-sensitive reports.
 
 ## License / attribution violations
 

@@ -342,8 +342,9 @@ academic-research use only**.
 - **[data/REMOVAL.md](data/REMOVAL.md)** — how to file a removal
   request if you're a rights-holder of one of the upstream sources.
 
-**Rights-claim contact:** `veedubin.legal@example.com` (placeholder
-— replace before public release).
+**Rights-claim contact:** open an issue at
+<https://github.com/Veedubin/attacklm-dataset/issues> (see also
+[`data/REMOVAL.md`](data/REMOVAL.md) for the takedown process).
 
 ---
 

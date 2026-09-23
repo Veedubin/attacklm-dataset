@@ -29,7 +29,7 @@ Data sources (only if this file ingests data, not for pure-attack code):
   Upstream license:  {UPSTREAM_DATA_LICENSE}
   Per-record:        see data/ATTRIBUTION.md
 
-Rights claim contact: veedubin.legal@example.com
+Rights claim contact: open an issue at https://github.com/Veedubin/attacklm-dataset/issues
 See:                  RIGHTS.md (root), data/LEGAL.md, data/REMOVAL.md
 ================================================================================
 """
@@ -94,7 +94,7 @@ Implementation:
 
 Data sources: N/A (this file attacks a model, it does not ingest data)
 
-Rights claim contact: veedubin.legal@example.com
+Rights claim contact: open an issue at https://github.com/Veedubin/attacklm-dataset/issues
 See:                  RIGHTS.md (root), data/LEGAL.md, data/REMOVAL.md
 ================================================================================
 """
