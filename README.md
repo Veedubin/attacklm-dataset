@@ -2,13 +2,13 @@
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Provenance: 100%](https://img.shields.io/badge/provenance-100%25-brightgreen.svg)](data/ATTRIBUTION.md)
-[![Sources: 11 active](https://img.shields.io/badge/sources-11_active-blue.svg)](#dataset-composition)
-[![Tests: 475+](https://img.shields.io/badge/tests-475%2B-brightgreen.svg)](#testing)
+[![Sources: 19](https://img.shields.io/badge/sources-19-blue.svg)](#dataset-composition)
+[![Tests: 722](https://img.shields.io/badge/tests-722-brightgreen.svg)](#testing)
 [![Distribution: GH-only](https://img.shields.io/badge/distribution-GH--only-yellow.svg)](#distribution)
 
-**A MITRE ATT&CK-grounded security fine-tuning dataset, an extraction
-pipeline from 11+ upstream security sources, and a privacy-audit
-harness (Carlini 2021 extraction + 4 MIA methods).**
+**A MITRE ATT&CK- and ATLAS-grounded security fine-tuning dataset, an
+extraction pipeline from 19 upstream security sources, and a
+privacy-audit harness (Carlini 2021 extraction + 4 MIA methods).**
 
 This repo is the **data + research-toolkit side** of the AttackLM
 project. The trainer/tuner lives in the companion package
@@ -23,13 +23,12 @@ infrastructure).
 
 Three things, in one repo:
 
-1. **A 24,652-record dataset** of MITRE ATT&CK-grounded training
-   pairs. Every record carries full provenance (source, source URI,
-   license, license URI, rights contact). 18 source directories,
-   11 active after the v0.3.0 security review (3 high-risk sources
-   excluded: RTA, infection_monkey, BPL).
+1. **A 26,459-record dataset** of MITRE ATT&CK- and ATLAS-grounded
+   training pairs. Every record carries full provenance (source, source
+   URI, license, license URI, rights contact). 19 source directories
+   (3 high-risk sources excluded: RTA, infection_monkey, BPL).
 
-2. **An extraction pipeline** — 21 `extract_*.py` scripts that read
+2. **An extraction pipeline** — 20 `extract_*.py` scripts that read
    upstream security tools (Metasploit, Atomic Red Team, Sigma,
    Elastic, Splunk, Mordor, etc.) and write per-bucket JSONL files
    in the `data/datasets/buckets/sources/<source>/<bucket>/<tactic>/`
@@ -118,7 +117,7 @@ pip install -e ".[extract]"
 attacklm-dataset init --from-source
 ```
 
-See [`scripts/`](scripts/) for the 23 per-source extractors. Each
+See [`scripts/`](scripts/) for the 20 per-source extractors. Each
 has a docstring with the source URI, license, and a usage example.
 
 ---
@@ -133,11 +132,13 @@ scripts in [`scripts/`](scripts/):
 | `attacklm-dataset init` | `scripts/init_pipeline.py` | Download pre-built tarball OR build from upstream sources |
 | `attacklm-dataset balance` | `scripts/balance_buckets.py` | Build a balanced training subset (anti-source-bias) |
 | `attacklm-dataset evolve` | `scripts/evolve_pairs.py` | Synthetically expand short pairs into complex reasoning examples |
-| `attacklm-dataset audit` | `scripts/inversion_audit.py` | Run the privacy-audit harness on a model |
+| `attacklm-dataset audit` | `scripts/audit_dataset.py` | Run the privacy-audit harness on a model |
 | `attacklm-dataset package` | `scripts/package_dataset.py` | Package the dataset for distribution (the GitHub Release tarball) |
 
 Each command has its own flag set; `attacklm-dataset <cmd> --help`
-shows them.
+shows them. The analysis tools — decontamination, memorization
+reporting, held-out NLL, shadow scoring — are run directly as scripts
+(`python scripts/<tool>.py ...`); see the sections below.
 
 ---
 
@@ -148,19 +149,36 @@ shows them.
 | **Offensive** | Metasploit, Atomic Red Team, MITRE Stockpile | 15,000+ | BSD-3 / MIT / Apache-2.0 |
 | **Defensive** | Sigma, Elastic, Splunk, Mordor, ThreatHunter | 7,000+ | DRL-1.1 / Apache-2.0 |
 | **AI Security** | Garak, Promptfoo, PromptMap | 100+ | MIT / Apache-2.0 |
+| **AI Security (ATLAS)** | MITRE ATLAS, ATLAS Arsenal | 1,800+ | Apache-2.0 |
 | **Meta/IR** | NIST IR, Orchestrator | 500+ | Public Domain / MIT |
 | **Synthetic** | LLM-generated, AttackLM synthetic, Replay | 2,000+ | GPL-3.0 / MIT |
 
-**Total**: 24,652 records across 11 active sources (18 directories,
-2 reserved for future; 3 high-risk sources in the
-`archive/restricted-sources/` dir are gitignored and never
-re-ingested).
+**Total**: 26,459 records across 19 source directories (azure-pyrit
+and cyberark-fuzzyai are reserved and currently empty; 3 high-risk
+sources in the `archive/restricted-sources/` dir are gitignored and
+never re-ingested).
+
+### MITRE ATLAS (since v0.10.0)
+
+[MITRE ATLAS](https://atlas.mitre.org/) (Adversarial Threat Landscape
+for Artificial-Intelligence Systems) is MITRE's threat matrix for AI
+systems — the AI-security sibling of ATT&CK. The `mitre-atlas` source
+contributes **1,807 case-study-grounded training pairs** across 16
+ATLAS tactics (from `ai_attack_adaptation` and `ai_model_access`
+through `impact` and `resource_development`), extracted from the
+upstream [mitre-atlas/atlas-data](https://github.com/mitre-atlas/atlas-data)
+repository (Apache-2.0, © The MITRE Corporation) by
+`scripts/extract_mitre_atlas.py`. The companion `mitre-atlas-arsenal`
+source covers ATLAS Arsenal — MITRE's catalogue of real-world
+AI-attack tools — with 20 pairs. In the bucket loader, `atlas` is its
+own category alongside the ATT&CK-tactic and defensive categories
+(see [CHANGELOG.md](CHANGELOG.md) v0.10.0–v0.11.0).
 
 ### Directory layout
 
 ```
 data/datasets/buckets/sources/
-  <source>/                    # 18 source directories
+  <source>/                    # 19 source directories
     LICENSE.md                 # License excerpt + URI
     SOURCE.md                  # Source description + URI
     <bucket>/                  # Training bucket
@@ -195,7 +213,7 @@ file in which upstream repo), see
 Identify and isolate training data that overlaps with public evaluation benchmarks using 20-gram fuzzy matching to prevent data leakage.
 
 ```bash
-attacklm-dataset decontam --eval-set-dir data/eval_sets/ --quarantine-output data/quarantine.jsonl
+python scripts/decontam.py --eval-set-dir data/eval_sets/ --quarantine-output data/quarantine.jsonl
 ```
 
 ### Memorization-aware epoch capping
@@ -205,7 +223,7 @@ attacklm-dataset decontam --eval-set-dir data/eval_sets/ --quarantine-output dat
 Analyze training data for verbatim memorization and structural repetition using a per-token NLL proxy to recommend optimal epoch caps per source.
 
 ```bash
-attacklm-dataset memorization-report --model /path/to/model
+python scripts/memorization_report.py --model /path/to/model
 ```
 
 ## Held-out NLL evaluation
@@ -311,7 +329,7 @@ academic research. All attack code is for **defensive, audit, and
 academic-research use only**.
 
 - **[RIGHTS.md](RIGHTS.md)** — full rights statement, the canonical
-  paper list (8 papers), 11-source data attribution table, and the
+  paper list (8 papers), per-source data attribution table, and the
   takedown-request process. This is the "trend" DMCA-style notice
   the user requested.
 - **[PROVENANCE.md](PROVENANCE.md)** — per-file attribution template
@@ -331,15 +349,25 @@ academic-research use only**.
 
 ## Testing
 
-As of v0.5.0 there are 475+ tests across 10 test files, all hermetic:
+As of v0.11.0 there are 722 tests across 19 test files, all hermetic:
 
 ```
-tests/test_inversion_audit.py      (47 tests — full audit harness, MIA + extraction)
-tests/test_lira.py                 (21 tests — LiRA scoring + shadow params)
-tests/test_per_token_mia.py        (13 tests — per-token MIA scoring)
-tests/test_probe_token_budget.py   (25 tests — probe length calibration)
-tests/test_audit_bugfixes.py       (14 tests — regression for commit 4386995)
-... (and 5 other utility/pipeline tests)
+tests/test_inversion_audit.py      (full audit harness, MIA + extraction)
+tests/test_audit_iter.py           (closed-loop adversarial audit)
+tests/test_offline_mia.py          (offline MIA baseline)
+tests/test_lira.py                 (LiRA scoring + shadow params)
+tests/test_per_token_mia.py        (per-token MIA scoring)
+tests/test_probe_token_budget.py   (probe length calibration)
+tests/test_audit_bugfixes.py       (regression for commit 4386995)
+tests/test_shadow_train.py + test_score_shadow.py   (LiRA shadow models)
+tests/test_extract_mitre_atlas.py  (ATLAS extractor)
+tests/test_bucket_loader.py        (bucket layout + atlas/defensive categories)
+tests/test_manifest_builder.py     (index + manifest generation)
+tests/test_decontam.py             (MinHash decontamination)
+tests/test_memorization_report.py  (epoch-cap proxy)
+tests/test_held_out_nll.py         (held-out NLL evaluation)
+tests/test_data_schema.py + test_lib_imports.py + test_scripts_smoke.py
++ test_cli.py                      (schema / imports / smoke / CLI)
 ```
 
 Run them all:
@@ -361,7 +389,7 @@ harness?".
 
 ## Related
 
-- **[Veed la-Veedubin/AttackLM](https://github.com/Veedubin/AttackLM)** —
+- **[Veedubin/AttackLM](https://github.com/Veedubin/AttackLM)** —
   the trainer/tuner/TUI that consumes this dataset
 - **[RIGHTS.md](RIGHTS.md)** — full rights statement + canonical paper list
 - **[PROVENANCE.md](PROVENANCE.md)** — per-file attribution template
