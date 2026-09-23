@@ -4,141 +4,128 @@
 [![Provenance: 100%](https://img.shields.io/badge/provenance-100%25-brightgreen.svg)](data/ATTRIBUTION.md)
 [![Sources: 19](https://img.shields.io/badge/sources-19-blue.svg)](#dataset-composition)
 [![Tests: 722](https://img.shields.io/badge/tests-722-brightgreen.svg)](#testing)
-[![Distribution: GH-only](https://img.shields.io/badge/distribution-GH--only-yellow.svg)](#distribution)
+[![Distribution: GitHub](https://img.shields.io/badge/distribution-GitHub-yellow.svg)](#distribution)
 
-**A MITRE ATT&CK- and ATLAS-grounded security fine-tuning dataset, an
-extraction pipeline from 19 upstream security sources, and a
-privacy-audit harness (Carlini 2021 extraction + 4 MIA methods).**
+**A MITRE ATT&CK- and ATLAS-grounded security fine-tuning dataset, the
+extraction pipeline that builds it from 19 upstream security sources, and a
+privacy-audit harness (Carlini 2021 training-data extraction + four
+membership-inference methods).**
 
-This repo is the **data + research-toolkit side** of the AttackLM
-project. The trainer/tuner lives in the companion package
-[Veedubin/AttackLM](https://github.com/Veedubin/AttackLM). The two
-split in v0.11.0 to keep the audit code (defensive research) and
-the data (license-aware) isolated from the trainer (general-purpose
-infrastructure).
+This repository is the **data and research-toolkit** half of the AttackLM
+project. The trainer, tuner, and evaluation suite live in the companion
+package [Veedubin/AttackLM](https://github.com/Veedubin/AttackLM). The two were
+split in v0.11.0 so the license-aware data and the defensive audit code stay
+isolated from the general-purpose training infrastructure.
+
+Every record carries complete provenance, every attack implementation cites the
+paper it derives from, and the whole audit harness is hermetic — no network, no
+GPU, runs on a CPU laptop in minutes.
 
 ---
 
-## What's in here
+## Contents
 
-Three things, in one repo:
+The repository ships three things:
 
-1. **A 26,459-record dataset** of MITRE ATT&CK- and ATLAS-grounded
-   training pairs. Every record carries full provenance (source, source
-   URI, license, license URI, rights contact). 19 source directories
-   (3 high-risk sources excluded: RTA, infection_monkey, BPL).
+1. **The dataset** — 26,459 instruction/response pairs grounded in MITRE ATT&CK
+   and ATLAS, drawn from 19 vetted source directories. Every record carries
+   `source`, `source_uri`, `license`, `license_uri`, and a rights-contact
+   pointer. Three high-risk upstreams (RTA, Infection Monkey, BPL) are
+   deliberately excluded and never re-ingested.
 
-2. **An extraction pipeline** — 20 `extract_*.py` scripts that read
-   upstream security tools (Metasploit, Atomic Red Team, Sigma,
-   Elastic, Splunk, Mordor, etc.) and write per-bucket JSONL files
-   in the `data/datasets/buckets/sources/<source>/<bucket>/<tactic>/`
-   layout. Re-runnable from source for upstream updates; the
-   pre-built tarball is shipped as a GitHub Release.
+2. **The extraction pipeline** — 20 `extract_*.py` scripts that read upstream
+   security projects (Metasploit, Atomic Red Team, Sigma, Elastic, Splunk,
+   Mordor, MITRE ATLAS, and others) and emit per-bucket JSONL under
+   `data/datasets/buckets/sources/<source>/<bucket>/<tactic>/`. The pipeline is
+   re-runnable to track upstream changes; the pre-built corpus ships as a
+   GitHub Release tarball.
 
-3. **A privacy-audit harness** (`scripts/inversion/`) for owner-
-   side model security testing. Implements:
-
-     - **MIA offline baseline** (sample z-score, no shadow models — `--mia-method offline`)
-     - **Shadow scoring** (`scripts/score_shadow.py` — LiRA Step 2 helper)
-     - **MIA LiRA** (likelihood ratio, Carlini 2022 §4)
-     - **MIA per-token loss** (MUSE 2024 default)
-     - **MIA reference attack** (loss on assistant turn + zlib entropy, Carlini 2022)
-
+3. **The privacy-audit harness** (`scripts/inversion/`) — owner-side model
+   security testing that answers "if I ship this model, what can an attacker
+   recover from it?" It implements training-data extraction plus four
+   membership-inference attacks (offline baseline, reference, per-token, and
+   LiRA).
 
 ---
 
 ## Distribution
 
-**This is a GitHub-only distribution. It is not on PyPI.**
+**GitHub-only. This package is intentionally not published to PyPI.**
 
-The reason: this is a **data bundle** (8,147 tracked JSONL files,
-~50MB compressed), not a Python library. A 50MB `pip install
-attacklm-dataset` goes against the typical "small Python library"
-expectation of PyPI, and the data distribution is already handled
-by `attacklm init` in the AttackLM package (which downloads
-`attacklm-dataset.tar.gz` from GitHub Releases).
-
-Users get the data in one of three ways:
+The payload is a ~50 MB data bundle (8,147 tracked JSONL files), not a small
+Python library — the profile PyPI expects. Data distribution is instead handled
+by `attacklm init`, which pulls the release tarball from GitHub Releases. You
+can obtain the dataset three ways:
 
 ```bash
-# (Recommended) Through the AttackLM trainer
+# 1. Through the AttackLM trainer (recommended) — downloads the release tarball
 pip install "attacklm[all]"
-attacklm init --yes   # downloads the GitHub Releases tarball
+attacklm init --yes
 
-# Or as a git clone (gives you the data + the extractors + the audit harness)
+# 2. Git clone — data + extractors + audit harness
 git clone https://github.com/Veedubin/attacklm-dataset.git
-cd attacklm-dataset
 
-# Or as a Python wrapper only (no data — use this for the CLI tools)
+# 3. Python wrapper only (CLI tools, no data)
 pip install -e .
 attacklm-dataset --help
 ```
 
-The `attacklm-dataset` Python wrapper is small (3 source files, ~8KB).
-The data is what makes the package large, and the data lives at
-`data/datasets/buckets/sources/<source>/<bucket>/<tactic>/data.jsonl`
-in this repo.
+The Python wrapper is tiny (three source files, ~8 KB). The data is what makes
+the package large; it lives at
+`data/datasets/buckets/sources/<source>/<bucket>/<tactic>/data.jsonl`.
 
 ---
 
 ## Quickstart
 
-### As a data consumer (most users)
-
-Just use the AttackLM trainer. It downloads the pre-built tarball
-and sets up the bucket layout for you:
+**As a data consumer (most users).** Let the trainer fetch and organize
+everything:
 
 ```bash
 pip install "attacklm[all]"
-attacklm init --yes                          # downloads + organizes
-attacklm balance --profile 7b-16gb          # builds a balanced subset
+attacklm init --yes                                # download + organize
+attacklm balance --profile 7b-16gb                 # build a balanced subset
 attacklm train -- --dataset data/datasets/balanced/balanced_7b-16gb.jsonl --epochs 10 --train
 ```
 
-### As a researcher (audit harness)
+**As a researcher (audit harness):**
 
 ```bash
-git clone https://github.com/Veedubin/attacklm-dataset.git
-cd attacklm-dataset
+git clone https://github.com/Veedubin/attacklm-dataset.git && cd attacklm-dataset
 pip install -e ".[inversion]"
-
-# Audit a model (e.g., your trained AttackLM)
-attacklm-dataset audit --model /path/to/model --attack all --mia-method per_token --mia-threshold-mode percentile --mia-percentile 5
+attacklm-dataset audit --model /path/to/model --attack all \
+    --mia-method per_token --mia-threshold-mode percentile --mia-percentile 5
 ```
 
-### As a data contributor (extractors)
+**As a data contributor (extractors):**
 
 ```bash
-git clone https://github.com/Veedubin/attacklm-dataset.git
-cd attacklm-dataset
+git clone https://github.com/Veedubin/attacklm-dataset.git && cd attacklm-dataset
 pip install -e ".[extract]"
-
-# Build from upstream sources (clones ~6GB of Metasploit, Sigma, etc.)
-attacklm-dataset init --from-source
+attacklm-dataset init --from-source                # clones ~6 GB of upstreams
 ```
 
-See [`scripts/`](scripts/) for the 20 per-source extractors. Each
-has a docstring with the source URI, license, and a usage example.
+Each of the 20 extractors in [`scripts/`](scripts/) documents its source URI,
+license, and a usage example in its module docstring.
 
 ---
 
 ## CLI reference
 
-`attacklm-dataset` is a thin CLI wrapper that dispatches to the
-scripts in [`scripts/`](scripts/):
+`attacklm-dataset` is a thin dispatcher over the scripts in [`scripts/`](scripts/):
 
-| Command | What it runs | Purpose |
+| Command | Runs | Purpose |
 | :--- | :--- | :--- |
-| `attacklm-dataset init` | `scripts/init_pipeline.py` | Download pre-built tarball OR build from upstream sources |
-| `attacklm-dataset balance` | `scripts/balance_buckets.py` | Build a balanced training subset (anti-source-bias) |
-| `attacklm-dataset evolve` | `scripts/evolve_pairs.py` | Synthetically expand short pairs into complex reasoning examples |
-| `attacklm-dataset audit` | `scripts/audit_dataset.py` | Run the privacy-audit harness on a model |
-| `attacklm-dataset package` | `scripts/package_dataset.py` | Package the dataset for distribution (the GitHub Release tarball) |
+| `attacklm-dataset init` | `scripts/init_pipeline.py` | Download the pre-built tarball, or build from upstream sources |
+| `attacklm-dataset balance` | `scripts/balance_buckets.py` | Build a source-balanced training subset |
+| `attacklm-dataset evolve` | `scripts/evolve_pairs.py` | Expand short pairs into richer reasoning examples |
+| `attacklm-dataset audit` | `scripts/audit_dataset.py` | Run the privacy-audit harness against a model |
+| `attacklm-dataset package` | `scripts/package_dataset.py` | Build the GitHub Release distribution tarball |
 
-Each command has its own flag set; `attacklm-dataset <cmd> --help`
-shows them. The analysis tools — decontamination, memorization
-reporting, held-out NLL, shadow scoring — are run directly as scripts
-(`python scripts/<tool>.py ...`); see the sections below.
+Run `attacklm-dataset <command> --help` for each command's flags. The analysis
+tools — decontamination, memorization reporting, held-out NLL, shadow scoring —
+run directly as scripts (`python scripts/<tool>.py ...`) and are documented in
+the sections below.
 
 ---
 
@@ -148,49 +135,47 @@ reporting, held-out NLL, shadow scoring — are run directly as scripts
 | :--- | :--- | :--- | :--- |
 | **Offensive** | Metasploit, Atomic Red Team, MITRE Stockpile | 15,000+ | BSD-3 / MIT / Apache-2.0 |
 | **Defensive** | Sigma, Elastic, Splunk, Mordor, ThreatHunter | 7,000+ | DRL-1.1 / Apache-2.0 |
-| **AI Security** | Garak, Promptfoo, PromptMap | 100+ | MIT / Apache-2.0 |
-| **AI Security (ATLAS)** | MITRE ATLAS, ATLAS Arsenal | 1,800+ | Apache-2.0 |
-| **Meta/IR** | NIST IR, Orchestrator | 500+ | Public Domain / MIT |
+| **AI security** | Garak, Promptfoo, PromptMap | 100+ | MIT / Apache-2.0 |
+| **AI security (ATLAS)** | MITRE ATLAS, ATLAS Arsenal | 1,800+ | Apache-2.0 |
+| **Meta / IR** | NIST IR, Orchestrator | 500+ | Public Domain / MIT |
 | **Synthetic** | LLM-generated, AttackLM synthetic, Replay | 2,000+ | GPL-3.0 / MIT |
 
-**Total**: 26,459 records across 19 source directories (azure-pyrit
-and cyberark-fuzzyai are reserved and currently empty; 3 high-risk
-sources in the `archive/restricted-sources/` dir are gitignored and
-never re-ingested).
+**Total: 26,459 records across 19 source directories.** (Two directories,
+`azure-pyrit` and `cyberark-fuzzyai`, are reserved and currently empty; three
+high-risk sources under `archive/restricted-sources/` are gitignored and never
+ingested.)
 
 ### MITRE ATLAS (since v0.10.0)
 
-[MITRE ATLAS](https://atlas.mitre.org/) (Adversarial Threat Landscape
-for Artificial-Intelligence Systems) is MITRE's threat matrix for AI
-systems — the AI-security sibling of ATT&CK. The `mitre-atlas` source
-contributes **1,807 case-study-grounded training pairs** across 16
-ATLAS tactics (from `ai_attack_adaptation` and `ai_model_access`
-through `impact` and `resource_development`), extracted from the
-upstream [mitre-atlas/atlas-data](https://github.com/mitre-atlas/atlas-data)
-repository (Apache-2.0, © The MITRE Corporation) by
-`scripts/extract_mitre_atlas.py`. The companion `mitre-atlas-arsenal`
-source covers ATLAS Arsenal — MITRE's catalogue of real-world
-AI-attack tools — with 20 pairs. In the bucket loader, `atlas` is its
-own category alongside the ATT&CK-tactic and defensive categories
-(see [CHANGELOG.md](CHANGELOG.md) v0.10.0–v0.11.0).
+[MITRE ATLAS](https://atlas.mitre.org/) — the Adversarial Threat Landscape for
+Artificial-Intelligence Systems — is MITRE's threat matrix for AI, the
+AI-security sibling of ATT&CK. The `mitre-atlas` source contributes **1,807
+case-study-grounded pairs** across 16 ATLAS tactics (from
+`ai_attack_adaptation` and `ai_model_access` through `impact` and
+`resource_development`), extracted from
+[mitre-atlas/atlas-data](https://github.com/mitre-atlas/atlas-data) (Apache-2.0,
+© The MITRE Corporation) by `scripts/extract_mitre_atlas.py`. The companion
+`mitre-atlas-arsenal` source adds 20 pairs from ATLAS Arsenal, MITRE's catalogue
+of real-world AI-attack tools. In the bucket loader, `atlas` is its own category
+alongside the ATT&CK-tactic and defensive categories.
 
 ### Directory layout
 
 ```
 data/datasets/buckets/sources/
   <source>/                    # 19 source directories
-    LICENSE.md                 # License excerpt + URI
-    SOURCE.md                  # Source description + URI
-    <bucket>/                  # Training bucket
-      <tactic>/                # MITRE TAxxxx
-        data.jsonl             # Human-sourced pairs
+    LICENSE.md                 # license excerpt + URI
+    SOURCE.md                  # source description + URI
+    <bucket>/                  # training bucket
+      <tactic>/                # MITRE tactic, e.g. TA0001
+        data.jsonl             # human-sourced pairs
         data_llm.jsonl         # LLM-generated pairs
-        data_synth.jsonl       # Deterministic templates
+        data_synth.jsonl       # deterministic templates
 ```
 
 ### Per-record provenance
 
-Every record in the dataset carries these fields:
+Every record carries its origin inline:
 
 ```json
 {
@@ -202,197 +187,144 @@ Every record in the dataset carries these fields:
 }
 ```
 
-For the full per-record attribution (which record came from which
-file in which upstream repo), see
+The full record-to-upstream-file mapping is in
 [data/ATTRIBUTION.md](data/ATTRIBUTION.md).
 
-## Decontamination
+---
 
-> Inspired by MAI-Thinking-1 §2.3.1 + §2.4.3 (Public Evaluation Decontamination + Deduplication) by The Microsoft AI Team, June 2026.
+## Data-quality tooling
 
-Identify and isolate training data that overlaps with public evaluation benchmarks using 20-gram fuzzy matching to prevent data leakage.
+Three analysis tools keep the corpus honest. Each is a standalone script.
+
+**Decontamination** — isolate training records that overlap public evaluation
+benchmarks (20-gram fuzzy matching) so they cannot leak into your eval scores:
 
 ```bash
 python scripts/decontam.py --eval-set-dir data/eval_sets/ --quarantine-output data/quarantine.jsonl
 ```
 
-### Memorization-aware epoch capping
-
-> Inspired by MAI-Thinking-1 §2.5.4 (Mid-training Data Mixture — memorization-aware epoch capping) by The Microsoft AI Team, June 2026.
-
-Analyze training data for verbatim memorization and structural repetition using a per-token NLL proxy to recommend optimal epoch caps per source.
+**Memorization-aware epoch capping** — flag verbatim memorization and structural
+repetition via a per-token NLL proxy, and recommend a per-source epoch cap:
 
 ```bash
 python scripts/memorization_report.py --model /path/to/model
 ```
 
-## Held-out NLL evaluation
-
-> Inspired by MAI-Thinking-1 §2.3 + §2.3.2 (Evaluation Methodology + Comparison of Accuracy and NLL Evaluations) by The Microsoft AI Team, June 2026.
-
-Compute a cheap, contamination-resistant signal for model improvement using held-out Negative Log-Likelihood (NLL) across 5 weighted buckets.
+**Held-out NLL evaluation** — a cheap, contamination-resistant training signal:
+held-out negative log-likelihood across five weighted buckets:
 
 ```bash
 python scripts/held_out_nll.py --model /path/to/model --aggregation-formula mimic_mai
 ```
 
+*(The decontamination, epoch-capping, and NLL methodologies are adapted from the
+public MAI-Thinking-1 report, The Microsoft AI Team, June 2026.)*
+
 ---
 
 ## Privacy audit (research toolkit)
 
-The `scripts/inversion/` package is the **owner-side model security
-test**. The question is "if I ship this model, what can an attacker
-extract from it?" — which the model owner wants to know *before*
-shipping.
-
-### Attack classes
+`scripts/inversion/` is an **owner-side** model security test: it quantifies how
+much of the training data a shipped model would leak, so the owner can measure
+and mitigate it before release. All attack code is a clean-room reimplementation
+of published research, carries a per-file provenance block, and is intended for
+**defensive, audit, and academic use only** against models the auditor owns or
+is authorized to test.
 
 | Attack class | Paper | What it measures |
 | :--- | :--- | :--- |
-| **Prefix-completion extraction** | Carlini et al. 2021 ([arXiv:2012.07805](https://arxiv.org/abs/2012.07805)) | Whether the model can regenerate verbatim training data given a prefix. |
-| **MIA reference attack (loss on assistant turn + zlib)** | Carlini et al. 2022 ([arXiv:2112.03570](https://arxiv.org/abs/2112.03570)) | Whether per-record loss is lower on members than on non-members. |
-| **MIA per-token loss** | Shi et al. (MUSE) 2024 ([arXiv:2407.06460](https://arxiv.org/abs/2407.06460)) | Same idea, normalized by suffix-token count (removes length bias). |
-| **MIA offline baseline (sample z-score)** | Carlini et al. 2022 §3.2 ([arXiv:2112.03570](https://arxiv.org/abs/2112.03570)) | No shadow models; uses sample mean/std of audit-set NLL. Requires N ≥ 30. |
-| **MIA LiRA (likelihood ratio)** | Carlini et al. 2022 §4 ([arXiv:2112.03570](https://arxiv.org/abs/2112.03570)) | The "10× more powerful at low FPR" MIA. Requires K shadow-model loss files. |
+| **Prefix-completion extraction** | Carlini et al. 2021 ([2012.07805](https://arxiv.org/abs/2012.07805)) | Whether the model regenerates verbatim training data from a prefix |
+| **MIA — reference (loss + zlib)** | Carlini et al. 2022 ([2112.03570](https://arxiv.org/abs/2112.03570)) | Whether per-record loss is lower on members than non-members |
+| **MIA — per-token loss** | Shi et al. (MUSE) 2024 ([2407.06460](https://arxiv.org/abs/2407.06460)) | The same signal, normalized by suffix length to remove length bias |
+| **MIA — offline baseline (z-score)** | Carlini et al. 2022 §3.2 | Sample mean/std of audit-set NLL; no shadow models (needs N ≥ 30) |
+| **MIA — LiRA (likelihood ratio)** | Carlini et al. 2022 §4 | The high-power, low-FPR attack; needs K shadow-model loss files |
 
-### Closed-loop audit
-
-> Inspired by MAI-Thinking-1 §5.2 (TAP closed-loop) by The Microsoft AI Team, June 2026.
-
-Perform iterative adversarial auditing to detect brittle memorization by generating semantic variants of fooling records.
+Run the harness end to end, or a single attack:
 
 ```bash
+# Full audit
+attacklm-dataset audit --model <path> --attack all \
+    --mia-method per_token --mia-threshold-mode percentile --mia-percentile 5
+
+# Prefix-completion extraction, 100 probes
+attacklm-dataset audit --model <path> --attack extraction --max-records 100
+
+# LiRA MIA (requires pre-computed shadow loss files)
+attacklm-dataset audit --model <path> --attack mia --mia-method lira --lira-params shadow_params.json
+
+# Offline MIA baseline (no shadow models, needs N ≥ 30)
+attacklm-dataset audit --model <path> --attack mia --mia-method offline --offline-z-threshold -1.5
+
+# Iterative closed-loop audit (semantic variants surface brittle memorization)
 attacklm-dataset audit --model <path> --audit-iter 3 --variant-strategies suffix,template
-```
 
-```bash
-# From the AttackLM trainer
-attacklm audit --attack all --mia-method per_token --mia-threshold-mode percentile --mia-percentile 5 --model <path>
-
-# Or directly from this repo
-attacklm-dataset audit --model <path> --attack all --mia-method per_token --mia-threshold-mode percentile --mia-percentile 5
-
-# Just prefix-completion extraction, 100 probes
-attacklm audit --attack extraction --max-records 100
-
-# Just LiRA MIA (requires pre-computed shadow loss files)
-attacklm audit --attack mia --mia-method lira --lira-params shadow_params.json
-
-# Quick offline MIA baseline (no shadow models, needs N >= 30 records)
-attacklm audit --attack mia --mia-method offline --offline-z-threshold -1.5
-
-# Score a shadow model on the audit set (LiRA Step 2)
+# Score a shadow model on the audit set (LiRA step 2)
 python scripts/score_shadow.py --model models/shadow_0 --records data/audit_set.jsonl --output-dir losses/ --shadow-index 0
 ```
 
-**Output structure** is `data/audit/<date>/` with:
-- `summary.json` — high-level aggregate metrics (safe to share)
-- `threshold.md` — documentation of the MIA threshold derivation
-- `inversion_results.jsonl` — raw record-level reconstructions, including `prompt_text` and `best_reconstruction` fields for a self-contained evidence chain (**chmod 0600**, stay workspace-internal; training data carries
-  BSD-3, DRL-1.1, and other terms that may not allow redistribution
-  of raw samples)
+Results land in `data/audit/<date>/`:
 
-## Documentation
+- `summary.json` — aggregate metrics, safe to share
+- `threshold.md` — how the MIA decision threshold was derived
+- `inversion_results.jsonl` — raw record-level reconstructions (`prompt_text`,
+  `best_reconstruction`). This stays **workspace-internal** (mode `0600`):
+  training data carries BSD-3, DRL-1.1, and other terms that may forbid
+  redistribution of raw samples.
 
-The internal methodology and design docs (attack taxonomy, audit
-runner plans, MIA threshold calibration, LiRA design, decontamination,
-memorization capping, held-out NLL, closed-loop audit, probe token
-budget) are **not distributed** in the public repo — they are
-maintainer-local working documents. The public documentation is:
-
-| Doc | What it covers |
-|-----|---------------|
-| [data/ATTRIBUTION.md](data/ATTRIBUTION.md) | Per-source attribution and record counts |
-| [data/LEGAL.md](data/LEGAL.md) | License terms per source |
-| [data/REMOVAL.md](data/REMOVAL.md) | Takedown / removal process |
-| [PROVENANCE.md](PROVENANCE.md) | Per-file provenance template for the audit code |
-| [RIGHTS.md](RIGHTS.md) | Rights/usage statement, upstream authors, contact |
-| [SECURITY.md](SECURITY.md) | Security reporting |
-
-The attack classes and their canonical papers are listed in the
-"Privacy audit" section above; the implementations are clean-room
-reimplementations with per-file provenance blocks in
-`scripts/inversion/`.
-
-**Hermetic design.** The audit harness is hermetic — no network
-calls, no GPU required, runs on a CPU laptop in minutes. Mocked
-model loaders mean you can test the audit pipeline in CI without
-owning a real model.
-
----
-
-## Legal & provenance
-
-This project implements privacy auditing techniques (training-data
-extraction and membership-inference attacks) derived from published
-academic research. All attack code is for **defensive, audit, and
-academic-research use only**.
-
-- **[RIGHTS.md](RIGHTS.md)** — full rights statement, the canonical
-  paper list (8 papers), per-source data attribution table, and the
-  takedown-request process. This is the "trend" DMCA-style notice
-  the user requested.
-- **[PROVENANCE.md](PROVENANCE.md)** — per-file attribution template
-  used by every Python file in this repo. Every attack code file
-  has a `PROVENANCE` block at the top naming the paper, full author
-  list, year/venue, arXiv URL, and rights-claim contact.
-- **[SECURITY.md](SECURITY.md)** — security policy and vulnerability reporting.
-- **[ATTRIBUTION.md](data/ATTRIBUTION.md)** — per-record
-  attribution for every record in the dataset.
-- **[data/REMOVAL.md](data/REMOVAL.md)** — how to file a removal
-  request if you're a rights-holder of one of the upstream sources.
-
-**Rights-claim contact:** open an issue at
-<https://github.com/Veedubin/attacklm-dataset/issues> (see also
-[`data/REMOVAL.md`](data/REMOVAL.md) for the takedown process).
+*(The closed-loop / TAP auditing approach is adapted from the public
+MAI-Thinking-1 report, The Microsoft AI Team, June 2026.)*
 
 ---
 
 ## Testing
 
-As of v0.11.0 there are 722 tests across 19 test files, all hermetic:
-
-```
-tests/test_inversion_audit.py      (full audit harness, MIA + extraction)
-tests/test_audit_iter.py           (closed-loop adversarial audit)
-tests/test_offline_mia.py          (offline MIA baseline)
-tests/test_lira.py                 (LiRA scoring + shadow params)
-tests/test_per_token_mia.py        (per-token MIA scoring)
-tests/test_probe_token_budget.py   (probe length calibration)
-tests/test_audit_bugfixes.py       (regression for commit 4386995)
-tests/test_shadow_train.py + test_score_shadow.py   (LiRA shadow models)
-tests/test_extract_mitre_atlas.py  (ATLAS extractor)
-tests/test_bucket_loader.py        (bucket layout + atlas/defensive categories)
-tests/test_manifest_builder.py     (index + manifest generation)
-tests/test_decontam.py             (MinHash decontamination)
-tests/test_memorization_report.py  (epoch-cap proxy)
-tests/test_held_out_nll.py         (held-out NLL evaluation)
-tests/test_data_schema.py + test_lib_imports.py + test_scripts_smoke.py
-+ test_cli.py                      (schema / imports / smoke / CLI)
-```
-
-Run them all:
+722 tests across 19 files, all hermetic — the model and tokenizer are mocked, so
+the full pipeline (Carlini probe, MIA scoring, LiRA, threshold derivation, JSONL
+output) runs in CI without a real model or GPU.
 
 ```bash
-git clone https://github.com/Veedubin/attacklm-dataset.git
-cd attacklm-dataset
+git clone https://github.com/Veedubin/attacklm-dataset.git && cd attacklm-dataset
 pip install -e ".[inversion]"
 pytest tests/ -v
 ```
 
-The tests use `MagicMock` for the model and tokenizer, so the full
-audit pipeline (Carlini probe, MIA scoring, LiRA scoring, threshold
-derivation, JSONL output) can be exercised without a real model
-or GPU. This is the regression net for "did someone break the audit
-harness?".
+Coverage spans the audit harness and MIA/extraction attacks, the closed-loop
+auditor, LiRA shadow models, the ATLAS extractor, the bucket loader and manifest
+builder, decontamination, memorization reporting, held-out NLL, and the schema /
+import / smoke / CLI checks.
+
+---
+
+## Documentation & legal
+
+Internal methodology and design notes (attack taxonomy, audit-runner design, MIA
+threshold calibration, LiRA design, decontamination, memorization capping,
+held-out NLL, closed-loop audit) are maintainer-local and not distributed. The
+public documents are:
+
+| Document | Covers |
+| :--- | :--- |
+| [data/ATTRIBUTION.md](data/ATTRIBUTION.md) | Per-record attribution and counts |
+| [data/LEGAL.md](data/LEGAL.md) | License terms per source |
+| [data/REMOVAL.md](data/REMOVAL.md) | Takedown / removal process |
+| [RIGHTS.md](RIGHTS.md) | Rights and usage statement, upstream authors, canonical paper list |
+| [PROVENANCE.md](PROVENANCE.md) | Per-file provenance template for the audit code |
+| [SECURITY.md](SECURITY.md) | Security policy and vulnerability reporting |
+
+This project implements privacy-auditing techniques (training-data extraction
+and membership inference) derived from published academic research, for
+defensive and research use only. Every attack file carries a `PROVENANCE` block
+naming the paper, authors, venue, and arXiv URL.
+
+**Rights, licensing, or takedown requests:** open an issue at
+<https://github.com/Veedubin/attacklm-dataset/issues> (see
+[data/REMOVAL.md](data/REMOVAL.md) for the takedown process). Security reports go
+through a private advisory — see [SECURITY.md](SECURITY.md).
 
 ---
 
 ## Related
 
-- **[Veedubin/AttackLM](https://github.com/Veedubin/AttackLM)** —
-  the trainer/tuner/TUI that consumes this dataset
-- **[RIGHTS.md](RIGHTS.md)** — full rights statement + canonical paper list
-- **[PROVENANCE.md](PROVENANCE.md)** — per-file attribution template
+- **[Veedubin/AttackLM](https://github.com/Veedubin/AttackLM)** — the trainer,
+  tuner, TUI, and evaluation suite that consume this dataset
 - **[CHANGELOG.md](CHANGELOG.md)** — full version history
-
